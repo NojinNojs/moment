@@ -1,0 +1,19 @@
+# Node.js
+node_modules/
+
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# Environment variables
+.env
+.env.dev
+.env.prod
+
+# Example environment variables
+!.env.dev.example
+!.env.prod.example
+
+# Misc
+.DS_Store 
