@@ -1,48 +1,69 @@
-# Backend for Moment Web App
+# Backend Starter Project
 
-Welcome to the backend of the Moment web application! This project is built using Node.js, Express, and MongoDB.
+A RESTful API starter project with Express.js, MongoDB, and JWT authentication.
 
-## Table of Contents
-- [Installation](#installation)
-- [Usage](#usage)
-- [Scripts](#scripts)
+## Features
 
-## Installation
+- Express.js server setup
+- MongoDB database connection
+- JWT Authentication
+- Environment configuration
+- Error handling middleware
+- API documentation endpoint
+- Vercel deployment ready
 
-To get started with this project, follow these steps:
+## Project Structure
 
-1. **Clone the repository**:
-   ```bash
-   git clone https://github.com/NojinNojs/moment-be.git
-   cd moment-be
-   ```
+```
+backend/
+├── src/
+│   ├── config/         # Configuration files
+│   ├── controllers/    # Route controllers
+│   ├── middlewares/    # Custom middleware
+│   ├── models/         # Database models
+│   ├── routes/         # API routes
+│   ├── services/       # Business logic
+│   ├── utils/          # Helper functions
+│   ├── app.js          # Express setup
+│   └── server.js       # Server entry point
+├── .env.dev           # Development environment variables
+├── .env.prod          # Production environment variables
+├── .env.dev.example   # Example development environment variables
+├── .env.prod.example  # Example production environment variables
+├── .gitignore         # Git ignore file
+├── package.json       # Project dependencies
+├── README.md          # Project documentation
+```
 
-2. **Install the dependencies**:
+## Getting Started
+
+1. Clone the repository
+2. Install dependencies:
    ```bash
    npm install
    ```
+3. Create environment files:
+   - Copy `.env.dev.example` to `.env.dev`
+   - Copy `.env.prod.example` to `.env.prod`
+   - Update the environment variables in both `.env.dev` and `.env.prod`
 
-3. **Create a `.env` file**:
-   - Copy the `.env.example` file to `.env` and fill in your MongoDB connection string.
-   ```bash
-   cp .env.example .env
-   ```
-
-4. **Start the server**:
-   - For production:
-   ```bash
-   npm start
-   ```
-   - For development:
+4. Start the development server:
    ```bash
    npm run dev
    ```
 
-## Usage
+5. Start the production server:
+   ```bash
+   npm start
+   ```
 
-The server will run on the specified port (default is **3000**). You can access it at [http://localhost:3000](http://localhost:3000).
+## Environment Variables
 
-## Scripts
+Required environment variables:
+- `PORT`: Server port (default: 3000)
+- `MONGO_URI`: MongoDB connection string
+- `JWT_SECRET`: Secret key for JWT
 
-- **`npm start`**: Runs the application in production mode.
-- **`npm run dev`**: Runs the application in development mode with live reloading.
+## License
+
+MIT 
