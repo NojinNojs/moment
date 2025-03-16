@@ -1,6 +1,4 @@
-// dotenv.js
 // This file loads environment variables from a .env file into process.env
-
 const dotenv = require('dotenv');
 const path = require('path');
 const fs = require('fs');

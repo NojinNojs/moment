@@ -1,6 +1,4 @@
-// app.js
 // This file sets up the Express application, including middleware and routes.
-
 const express = require('express');
 const app = express();
 const connectDB = require('./config/db');

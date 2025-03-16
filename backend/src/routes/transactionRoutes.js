@@ -1,6 +1,4 @@
-// transactionRoutes.js
 // This file defines the routes for CRUD operations on transactions.
-
 const express = require('express');
 const router = express.Router();
 const { createTransaction } = require('../controllers/transactionController');

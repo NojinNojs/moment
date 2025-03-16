@@ -1,6 +1,4 @@
-// db.js
 // This file is responsible for setting up the connection to the MongoDB database using Mongoose.
-
 const mongoose = require('mongoose');
 
 const connectDB = async () => {
