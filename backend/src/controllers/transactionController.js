@@ -1,6 +1,4 @@
-// transactionController.js
 // This file contains logic for CRUD operations on transactions and calling ML services.
-
 const Transaction = require('../models/Transaction');
 const mlService = require('../services/mlService');
 

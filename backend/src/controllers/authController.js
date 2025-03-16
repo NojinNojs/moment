@@ -1,6 +1,4 @@
-// authController.js
 // This file contains logic for user registration, login, and JWT token generation.
-
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 

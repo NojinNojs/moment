@@ -1,6 +1,4 @@
-// server.js
 // This file is the entry point of the application, starting the Express server.
-
 const app = require('./app');
 const http = require('http');
 

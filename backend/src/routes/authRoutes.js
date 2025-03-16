@@ -1,6 +1,4 @@
-// authRoutes.js
 // This file defines the routes for user registration and login.
-
 const express = require('express');
 const router = express.Router();
 const { register, login } = require('../controllers/authController');

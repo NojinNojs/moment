@@ -1,6 +1,4 @@
-// mlService.js
 // This file contains functions to call the ML service and return categories.
-
 const axios = require('axios');
 
 const getCategoryFromML = async (transactionData) => {
