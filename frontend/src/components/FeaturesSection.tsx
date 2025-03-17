@@ -2,47 +2,27 @@ import {
   CreditCard,
   PieChart,
   Zap,
-  Clock,
-  Scissors,
-  FileCheck,
 } from "lucide-react";
 import { motion } from "framer-motion";
 
 const features = [
   {
     icon: <CreditCard className="h-12 w-12 text-primary" />,
-    title: "Smart Transaction Tracking",
+    title: "Simple Transaction Tracking",
     description:
-      "Easily record your income and expenses with our intuitive interface.",
-  },
-  {
-    icon: <Zap className="h-12 w-12 text-primary" />,
-    title: "AI-Powered Categorization",
-    description:
-      "Our machine learning algorithm automatically categorizes your transactions.",
+      "Easily record your income and expenses with our intuitive interface to build consistent financial habits.",
   },
   {
     icon: <PieChart className="h-12 w-12 text-primary" />,
     title: "Insightful Dashboard",
     description:
-      "Get a clear overview of your financial health with easy-to-understand charts.",
+      "Get a clear overview of your financial health with easy-to-understand charts that help you make better decisions.",
   },
   {
-    icon: <Clock className="h-12 w-12 text-primary" />,
-    title: "Real-time Updates",
+    icon: <Zap className="h-12 w-12 text-primary" />,
+    title: "Smart Categorization",
     description:
-      "See your financial position update instantly as you add transactions.",
-  },
-  {
-    icon: <Scissors className="h-12 w-12 text-primary" />,
-    title: "Custom Categories",
-    description: "Create your own spending categories to match your lifestyle.",
-  },
-  {
-    icon: <FileCheck className="h-12 w-12 text-primary" />,
-    title: "Secure Cloud Storage",
-    description:
-      "Your financial data is encrypted and securely stored in the cloud.",
+      "Organize your transactions into categories to better understand your spending patterns and take control of your finances.",
   },
 ];
 
@@ -76,15 +56,14 @@ const FeaturesSection = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
         >
-          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold">Powerful Features</h2>
+          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold">Features That Promote Financial Wellness</h2>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto px-4">
-            Discover how Moment makes managing your finances easier than ever
-            before
+            Discover how Moment helps you build healthier financial habits and take control of your money
           </p>
         </motion.div>
 
         <motion.div 
-          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-10 max-w-6xl mx-auto"
+          className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-10 max-w-6xl mx-auto"
           variants={containerVariants}
           initial="hidden"
           whileInView="visible"

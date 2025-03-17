@@ -1,8 +1,22 @@
 import { Button } from "@/components/ui/button";
 import { ChevronRight } from "lucide-react";
 import { motion } from "framer-motion";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 const HeroSection = () => {
+  const navigate = useNavigate();
+  const [isError, setIsError] = useState(false);
+
+  const handleGetStarted = () => {
+    // Since we don't have a register page yet, we'll show an error
+    // In a real app, this would navigate to the register page
+    setIsError(true);
+    setTimeout(() => {
+      navigate("/400");
+    }, 100);
+  };
+
   return (
     <section className="py-20 md:py-28">
       <div className="container max-w-7xl mx-auto px-5 sm:px-8 md:px-10">
@@ -14,16 +28,20 @@ const HeroSection = () => {
             transition={{ duration: 0.5 }}
           >
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight">
-              Manage Your Money with <span className="text-primary">Moment</span>
+              Build Better Financial Habits with <span className="text-primary">Moment</span>
             </h1>
             <p className="text-lg text-muted-foreground mx-auto md:mx-0 max-w-lg">
-              Simplify your financial journey with our AI-powered money management
-              app. Track expenses, categorize transactions automatically, and gain
-              insights into your spending habits.
+              Take control of your finances with our easy-to-use money management
+              platform. Track expenses, understand your spending patterns, and develop
+              healthier financial habits for a secure future.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 pt-4 justify-center md:justify-start">
-                {/* Direct to register */}
-              <Button size="lg" className="gap-2 px-8 py-6 text-lg">
+              <Button 
+                size="lg" 
+                className="gap-2 px-8 py-6 text-lg"
+                onClick={handleGetStarted}
+                disabled={isError}
+              >
                 Get Started <ChevronRight className="h-5 w-5" />
               </Button>
             </div>
@@ -85,7 +103,13 @@ const HeroSection = () => {
                     <div className="mt-auto">
                       <div className="text-sm text-muted-foreground mb-3 flex items-center justify-between">
                         <span>Recent Transactions</span>
-                        <span className="text-xs text-primary cursor-pointer hover:underline">View All</span>
+                        <Button 
+                          variant="link" 
+                          size="sm"
+                          className="p-0 h-auto text-xs text-primary"
+                        >
+                          View All
+                        </Button>
                       </div>
                       <div className="space-y-3">
                         <motion.div 
