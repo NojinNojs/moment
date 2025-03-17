@@ -1,5 +1,4 @@
 import { motion } from "framer-motion";
-import { LucideIcon } from "lucide-react";
 
 interface ValueCardProps {
   icon: React.ReactNode;
