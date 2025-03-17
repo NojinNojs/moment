@@ -28,7 +28,7 @@ const HeroSection = () => {
             transition={{ duration: 0.5 }}
           >
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight">
-              Build Better Financial Habits with <span className="text-primary">Moment</span>
+              Manage your money with <span className="text-primary">Moment</span>
             </h1>
             <p className="text-lg text-muted-foreground mx-auto md:mx-0 max-w-lg">
               Take control of your finances with our easy-to-use money management
