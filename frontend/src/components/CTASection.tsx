@@ -1,7 +1,21 @@
 import { Button } from "@/components/ui/button"
 import { motion } from "framer-motion";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 const CTASection = () => {
+  const navigate = useNavigate();
+  const [isError, setIsError] = useState(false);
+
+  const handleGetStarted = () => {
+    // Since we don't have a register page yet, we'll show an error
+    // In a real app, this would navigate to the register page
+    setIsError(true);
+    setTimeout(() => {
+      navigate("/400");
+    }, 100);
+  };
+
   return (
     <section className="py-24 bg-accent">
       <div className="container max-w-7xl mx-auto px-5 sm:px-8 md:px-10">
@@ -39,8 +53,14 @@ const CTASection = () => {
             viewport={{ once: true }}
           >
             <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                {/* direct to register page */}
-              <Button size="lg" className="bg-primary w-full sm:w-auto px-8 py-6 text-lg">Get Started Now</Button>
+              <Button 
+                size="lg" 
+                className="bg-primary w-full sm:w-auto px-8 py-6 text-lg"
+                onClick={handleGetStarted}
+                disabled={isError}
+              >
+                Get Started Now
+              </Button>
             </motion.div> 
           </motion.div>
         </motion.div>

@@ -1,54 +1,76 @@
-# React + TypeScript + Vite
+# Moment Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A financial management platform focused on helping users build better financial habits.
 
-Currently, two official plugins are available:
+## Getting Started
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+### Prerequisites
 
-## Expanding the ESLint configuration
+- Node.js (version 16 or higher recommended)
+- npm or yarn
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### Installation
 
-```js
-export default tseslint.config({
-  extends: [
-    // Remove ...tseslint.configs.recommended and replace with this
-    ...tseslint.configs.recommendedTypeChecked,
-    // Alternatively, use this for stricter rules
-    ...tseslint.configs.strictTypeChecked,
-    // Optionally, add this for stylistic rules
-    ...tseslint.configs.stylisticTypeChecked,
-  ],
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
+1. Clone the repository
+   ```bash
+   git clone https://github.com/yourusername/moment.git
+   cd moment/frontend
+   ```
+
+2. Install dependencies
+   ```bash
+   npm install --legacy-peer-deps
+   ```
+   
+   > Note: We use `--legacy-peer-deps` flag to resolve some dependency conflicts.
+
+3. Start the development server
+   ```bash
+   npm run dev
+   ```
+
+4. Open your browser and navigate to http://localhost:5173
+
+## Core Dependencies
+
+### Framework
+- **React** (v18.x): A JavaScript library for building user interfaces
+- **TypeScript** (v5.x): Adds static typing to JavaScript for better developer experience
+- **Vite** (v5.x): Next-generation frontend tooling for faster development
+
+### UI Components and Styling
+- **Tailwind CSS**: Utility-first CSS framework
+- **Shadcn/ui**: Reusable components built with Radix UI and Tailwind
+- **Framer Motion**: Animation library for React
+
+### Routing and State Management
+- **React Router**: For application routing
+- **React Context**: For state management
+
+## Project Structure
+
+```
+frontend/
+├── src/
+│   ├── components/        # Reusable UI components
+│   │   ├── ui/            # Base UI components
+│   │   └── ...            # Feature-specific components
+│   ├── pages/             # Page components
+│   ├── lib/               # Utilities and helpers
+│   ├── styles/            # Global styles
+│   ├── App.tsx            # Main application component
+│   └── main.tsx           # Application entry point
+├── public/                # Static assets
+└── ... (config files)
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Scripts
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+- `npm run dev`: Start the development server
+- `npm run build`: Build for production
+- `npm run preview`: Preview the production build locally
+- `npm run lint`: Run ESLint for code quality checks
 
-export default tseslint.config({
-  plugins: {
-    // Add the react-x and react-dom plugins
-    'react-x': reactX,
-    'react-dom': reactDom,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended typescript rules
-    ...reactX.configs['recommended-typescript'].rules,
-    ...reactDom.configs.recommended.rules,
-  },
-})
-```
+## Contributing
+
+When contributing to this project, please ensure you follow our code style and naming conventions. Make sure to run linting checks before submitting pull requests.

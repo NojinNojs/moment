@@ -3,21 +3,21 @@ import { motion } from "framer-motion";
 const testimonials = [
   {
     quote:
-      "Moment has completely transformed how I manage my finances. The auto-categorization feature saves me so much time!",
+      "Moment has completely transformed how I manage my finances. The simple tracking tools have helped me develop a consistent saving habit.",
     name: "Zev Hadid",
     role: "Student",
     avatar: "Z",
   },
   {
     quote:
-      "I've tried many finance apps, but this is the first one that actually helps me understand my spending habits.",
+      "I've tried many finance apps, but this is the first one that actually helps me understand my spending patterns and improve my financial decisions.",
     name: "Christian J.",
     role: "Fresh Graduate",
     avatar: "C",
   },
   {
     quote:
-      "The intuitive dashboard gives me all the information I need at a glance. Highly recommend to anyone looking to get their finances in order.",
+      "The intuitive dashboard gives me all the information I need at a glance. Since using Moment, I've been able to save more each month.",
     name: "Michelle A.",
     role: "Software Developer",
     avatar: "M",
@@ -54,10 +54,9 @@ const TestimonialSection = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
         >
-          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold">What Our Users Say</h2>
+          <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold">Success Stories</h2>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto px-4">
-            Join thousands of users who are already managing their finances more
-            effectively
+            Join thousands of users who have improved their financial habits and taken control of their money
           </p>
         </motion.div>
 
