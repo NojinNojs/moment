@@ -13,7 +13,7 @@ A financial management platform focused on helping users build better financial 
 
 1. Clone the repository
    ```bash
-   git clone https://github.com/yourusername/moment.git
+   git clone https://github.com/NojinNojs/moment.git
    cd moment/frontend
    ```
 
