@@ -46,10 +46,14 @@ const Navbar = () => {
 
           <div className="hidden md:flex items-center gap-4">
             <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-              <Button variant="outline">Login</Button>
+              <Button variant="outline" asChild>
+                <Link to="/login">Login</Link>
+              </Button>
             </motion.div>
             <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-              <Button>Register</Button>
+              <Button asChild>
+                <Link to="/register">Register</Link>
+              </Button>
             </motion.div>
           </div>
 
@@ -75,8 +79,12 @@ const Navbar = () => {
             <MobileNavLink to="/about" label="About" isActive={isActive("/about")} onClick={() => setIsMenuOpen(false)} />
             
             <div className="flex flex-col gap-3 mt-4">
-              <Button variant="outline" className="w-full">Login</Button>
-              <Button className="w-full">Register</Button>
+              <Button variant="outline" className="w-full" asChild>
+                <Link to="/login">Login</Link>
+              </Button>
+              <Button className="w-full" asChild>
+                <Link to="/register">Register</Link>
+              </Button>
             </div>
           </motion.div>
         )}

@@ -1,22 +1,9 @@
 import { Button } from "@/components/ui/button";
 import { ChevronRight } from "lucide-react";
 import { motion } from "framer-motion";
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 
 const HeroSection = () => {
-  const navigate = useNavigate();
-  const [isError, setIsError] = useState(false);
-
-  const handleGetStarted = () => {
-    // Since we don't have a register page yet, we'll show an error
-    // In a real app, this would navigate to the register page
-    setIsError(true);
-    setTimeout(() => {
-      navigate("/400");
-    }, 100);
-  };
-
   return (
     <section className="py-20 md:py-28">
       <div className="container max-w-7xl mx-auto px-5 sm:px-8 md:px-10">
@@ -39,10 +26,11 @@ const HeroSection = () => {
               <Button 
                 size="lg" 
                 className="gap-2 px-8 py-6 text-lg"
-                onClick={handleGetStarted}
-                disabled={isError}
+                asChild
               >
-                Get Started <ChevronRight className="h-5 w-5" />
+                <Link to="/register">
+                  Get Started <ChevronRight className="h-5 w-5" />
+                </Link>
               </Button>
             </div>
           </motion.div>
@@ -107,8 +95,9 @@ const HeroSection = () => {
                           variant="link" 
                           size="sm"
                           className="p-0 h-auto text-xs text-primary"
+                          asChild
                         >
-                          View All
+                          <Link to="/login">View All</Link>
                         </Button>
                       </div>
                       <div className="space-y-3">
