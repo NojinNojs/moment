@@ -30,7 +30,10 @@ const ENV_PRESETS = {
     CORS_ORIGIN: '*',
     LOG_LEVEL: 'debug',
     API_PREFIX: '/api',
-    API_VERSION: 'v1'
+    API_VERSION: 'v1',
+    API_KEY: generateRandomString(32),
+    RATE_LIMIT_MAX: '100',
+    CSRF_PROTECTION: 'true'
   },
   production: {
     NODE_ENV: 'production',
@@ -41,7 +44,10 @@ const ENV_PRESETS = {
     CORS_ORIGIN: '',
     LOG_LEVEL: 'info',
     API_PREFIX: '/api',
-    API_VERSION: 'v1'
+    API_VERSION: 'v1',
+    API_KEY: generateRandomString(48),
+    RATE_LIMIT_MAX: '60',
+    CSRF_PROTECTION: 'true'
   },
   test: {
     NODE_ENV: 'test',
@@ -52,14 +58,17 @@ const ENV_PRESETS = {
     CORS_ORIGIN: '*',
     LOG_LEVEL: 'error',
     API_PREFIX: '/api',
-    API_VERSION: 'v1'
+    API_VERSION: 'v1',
+    API_KEY: 'test_api_key',
+    RATE_LIMIT_MAX: '1000',
+    CSRF_PROTECTION: 'false'
   }
 };
 
 // Root directory of the project
 const rootDir = path.resolve(__dirname, '..');
 
-// Utility function to generate a random string (for JWT secrets)
+// Utility function to generate a random string (for JWT secrets and API keys)
 function generateRandomString(length) {
   const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+';
   let result = '';
@@ -150,6 +159,14 @@ async function run() {
       console.log('For multiple origins, use comma-separated values (e.g., http://localhost:3000,https://yourapp.com)');
       config.CORS_ORIGIN = await ask('CORS Origins', 'https://yourapp.com');
     }
+
+    const useRandomApiKey = await ask('Generate random API key? (yes/no)', 'yes');
+    if (useRandomApiKey.toLowerCase() !== 'yes') {
+      config.API_KEY = await ask('API Key', 'your_api_key_here');
+    }
+
+    config.RATE_LIMIT_MAX = await ask('Maximum requests per IP (per 15 minutes)', config.RATE_LIMIT_MAX);
+    config.CSRF_PROTECTION = await ask('Enable CSRF Protection? (true/false)', config.CSRF_PROTECTION);
 
     // Create the .env file
     const envFilePath = path.join(rootDir, '.env');
