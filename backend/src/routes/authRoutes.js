@@ -11,6 +11,7 @@ const { validate } = require('../middlewares/validationMiddleware');
  * /auth/register:
  *   post:
  *     summary: Register a new user
+ *     description: Creates a new user account with name, email and password
  *     tags: [Auth]
  *     requestBody:
  *       required: true
@@ -26,44 +27,49 @@ const { validate } = require('../middlewares/validationMiddleware');
  *               name:
  *                 type: string
  *                 description: User's full name
+ *                 example: John Doe
  *               email:
  *                 type: string
  *                 format: email
  *                 description: User's email address
+ *                 example: john@example.com
  *               password:
  *                 type: string
  *                 format: password
  *                 minLength: 8
  *                 description: User's password (min 8 characters)
+ *                 example: Password123!
  *     responses:
  *       201:
  *         description: User registered successfully
  *         content:
  *           application/json:
  *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 message:
- *                   type: string
- *                   example: User registered successfully
- *                 data:
- *                   type: object
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *                 - type: object
  *                   properties:
- *                     id:
- *                       type: string
- *                     name:
- *                       type: string
- *                     email:
- *                       type: string
- *                     token:
- *                       type: string
+ *                     message:
+ *                       example: User registered successfully
+ *                     data:
+ *                       type: object
+ *                       properties:
+ *                         id:
+ *                           type: string
+ *                           example: 60d5f8b8b98d7e2b5c9c2c0b
+ *                         name:
+ *                           type: string
+ *                           example: John Doe
+ *                         email:
+ *                           type: string
+ *                           example: john@example.com
+ *                         token:
+ *                           type: string
+ *                           example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
  *       400:
- *         description: User already exists or invalid data
+ *         $ref: '#/components/responses/BadRequestError'
  *       500:
- *         description: Server error
+ *         $ref: '#/components/responses/ServerError'
  */
 router.post(
   '/register', 
@@ -95,6 +101,7 @@ router.post(
  * /auth/login:
  *   post:
  *     summary: Authenticate user & get token
+ *     description: Logs in a user with email and password credentials
  *     tags: [Auth]
  *     requestBody:
  *       required: true
@@ -110,39 +117,45 @@ router.post(
  *                 type: string
  *                 format: email
  *                 description: User's email address
+ *                 example: john@example.com
  *               password:
  *                 type: string
  *                 format: password
  *                 description: User's password
+ *                 example: Password123!
  *     responses:
  *       200:
  *         description: Login successful
  *         content:
  *           application/json:
  *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 message:
- *                   type: string
- *                   example: Login successful
- *                 data:
- *                   type: object
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *                 - type: object
  *                   properties:
- *                     id:
- *                       type: string
- *                     name:
- *                       type: string
- *                     email:
- *                       type: string
- *                     token:
- *                       type: string
+ *                     message:
+ *                       example: Login successful
+ *                     data:
+ *                       type: object
+ *                       properties:
+ *                         id:
+ *                           type: string
+ *                           example: 60d5f8b8b98d7e2b5c9c2c0b
+ *                         name:
+ *                           type: string
+ *                           example: John Doe
+ *                         email:
+ *                           type: string
+ *                           example: john@example.com
+ *                         token:
+ *                           type: string
+ *                           example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+ *       400:
+ *         $ref: '#/components/responses/BadRequestError'
  *       401:
- *         description: Invalid email or password
+ *         $ref: '#/components/responses/UnauthorizedError'
  *       500:
- *         description: Server error
+ *         $ref: '#/components/responses/ServerError'
  */
 router.post(
   '/login',
@@ -167,6 +180,7 @@ router.post(
  * /auth/me:
  *   get:
  *     summary: Get current user profile
+ *     description: Retrieves the authenticated user's profile information
  *     tags: [Auth]
  *     security:
  *       - bearerAuth: []
@@ -176,29 +190,38 @@ router.post(
  *         content:
  *           application/json:
  *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 message:
- *                   type: string
- *                   example: User profile retrieved successfully
- *                 data:
- *                   type: object
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *                 - type: object
  *                   properties:
- *                     id:
- *                       type: string
- *                     name:
- *                       type: string
- *                     email:
- *                       type: string
+ *                     message:
+ *                       example: User profile retrieved successfully
+ *                     data:
+ *                       type: object
+ *                       properties:
+ *                         id:
+ *                           type: string
+ *                           example: 60d5f8b8b98d7e2b5c9c2c0b
+ *                         name:
+ *                           type: string
+ *                           example: John Doe
+ *                         email:
+ *                           type: string
+ *                           example: john@example.com
+ *                         createdAt:
+ *                           type: string
+ *                           format: date-time
+ *                           example: "2023-03-15T12:00:00Z"
+ *                         updatedAt:
+ *                           type: string
+ *                           format: date-time
+ *                           example: "2023-03-15T12:00:00Z"
  *       401:
- *         description: Not authorized, no token
+ *         $ref: '#/components/responses/UnauthorizedError'
  *       404:
- *         description: User not found
+ *         $ref: '#/components/responses/NotFoundError'
  *       500:
- *         description: Server error
+ *         $ref: '#/components/responses/ServerError'
  */
 router.get('/me', protect, getCurrentUser);
 
