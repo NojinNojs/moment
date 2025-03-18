@@ -31,6 +31,16 @@ const corsOptions = {
     // Allow requests with no origin (like mobile apps, curl, etc)
     if (!origin || corsOptionsOrigin === '*') return callback(null, true);
     
+    // Allow all localhost origins for development and preview
+    if (origin.match(/^https?:\/\/localhost(:\d+)?$/)) {
+      return callback(null, true);
+    }
+    
+    // Allow all 127.0.0.1 origins for development and preview
+    if (origin.match(/^https?:\/\/127\.0\.0\.1(:\d+)?$/)) {
+      return callback(null, true);
+    }
+    
     // Clean up origins for comparison (remove trailing slashes)
     const allowedOrigin = corsOptionsOrigin.replace(/\/$/, '');
     const requestOrigin = origin.replace(/\/$/, '');
@@ -38,6 +48,7 @@ const corsOptions = {
     if (allowedOrigin === requestOrigin) {
       callback(null, true);
     } else {
+      console.log(`CORS blocked: ${origin} not allowed by ${allowedOrigin}`);
       callback(new Error('Not allowed by CORS'));
     }
   },

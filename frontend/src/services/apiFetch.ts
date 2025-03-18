@@ -5,8 +5,28 @@
  * including authentication, request/response handling, and error handling.
  */
 
+// Debug environment variables for troubleshooting preview vs dev mode
+console.log('Fetch Service - Environment Variables:');
+console.log('VITE_API_URL exists:', !!import.meta.env.VITE_API_URL);
+console.log('VITE_API_KEY exists:', !!import.meta.env.VITE_API_KEY);
+console.log('MODE:', import.meta.env.MODE);
+console.log('DEV:', import.meta.env.DEV);
+console.log('PROD:', import.meta.env.PROD);
+
 // API configuration
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1';
+let API_URL = import.meta.env.VITE_API_URL;
+// Fallback URL handling for production
+if (!API_URL) {
+  // Check if we're in production mode
+  if (import.meta.env.PROD) {
+    console.warn('No VITE_API_URL found in production, using fallback URL');
+    API_URL = 'http://localhost:3000/api/v1'; // Use your actual backend URL here
+  } else {
+    API_URL = 'http://localhost:3000/api/v1'; // Development fallback
+  }
+}
+console.log('Fetch Service - Final API_URL:', API_URL);
+
 const API_KEY = import.meta.env.VITE_API_KEY || '';
 const API_TIMEOUT = 30000; // 30 seconds timeout
 
