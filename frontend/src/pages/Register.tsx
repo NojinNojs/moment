@@ -17,6 +17,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import apiService from "../services/api";
 
 const registerSchema = z
   .object({
@@ -40,6 +41,13 @@ const registerSchema = z
   });
 
 type RegisterFormValues = z.infer<typeof registerSchema>;
+
+// API error interface
+interface ApiError {
+  success: boolean;
+  message: string;
+  errors?: Record<string, string[]>;
+}
 
 export default function Register() {
   const navigate = useNavigate();
@@ -76,17 +84,54 @@ export default function Register() {
     setIsLoading(true);
 
     try {
-      // Simulate API call with timeout
-      await new Promise((resolve) => setTimeout(resolve, 1500));
+      // Use real API service for registration
+      const response = await apiService.register({
+        name: data.name,
+        email: data.email,
+        password: data.password,
+      });
 
-      // For demo purposes only, replace with actual API call
-      console.log("Registration data:", data);
-
-      toast.success("Registration successful!");
-      navigate("/login"); // Redirect to login page after successful registration
+      if (response.success && response.data) {
+        toast.success("Registration successful!", {
+          description: `Welcome, ${response.data.user.name}! Your account has been created.`,
+        });
+        
+        // Could redirect directly to dashboard since we're already logged in
+        // navigate("/dashboard");
+        
+        // Or redirect to login page as originally designed
+        navigate("/login");
+      } else {
+        // Handle unexpected success:false response
+        toast.error("Registration failed", {
+          description: response.message || "Please check your information and try again.",
+        });
+      }
     } catch (error) {
       console.error("Registration error:", error);
-      toast.error("Registration failed. Please try again.");
+      
+      // Type cast error to ApiError
+      const apiError = error as ApiError;
+      
+      // Handle validation errors from API
+      if (apiError.errors) {
+        // Set form errors from API
+        Object.entries(apiError.errors).forEach(([field, messages]) => {
+          // Handle backend field names that might be different from frontend
+          const fieldName = field === 'name' ? 'name' :
+                          field === 'email' ? 'email' :
+                          field === 'password' ? 'password' : field as keyof RegisterFormValues;
+                          
+          form.setError(fieldName, {
+            type: "server",
+            message: messages[0],
+          });
+        });
+      }
+      
+      toast.error("Registration failed", {
+        description: apiError.message || "Please check your information and try again.",
+      });
     } finally {
       setIsLoading(false);
     }

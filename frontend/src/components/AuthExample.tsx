@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Label } from './ui/label';
 import { toast } from "sonner";
 import { Toaster } from "./ui/sonner";
+import { Loader2 } from "lucide-react";
 
 interface User {
   id: string;
@@ -20,20 +21,75 @@ interface ApiError {
   errors?: Record<string, string[]>;
 }
 
+// Form validation errors
+interface ValidationErrors {
+  name?: string;
+  email?: string;
+  password?: string;
+}
+
 /**
  * Example component demonstrating API usage with authentication
  */
 export default function AuthExample() {
+  // Form state
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [isLogin, setIsLogin] = useState(true);
+  
+  // User state
   const [user, setUser] = useState<User | null>(null);
+  
+  // UI state
   const [loading, setLoading] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<ValidationErrors>({});
+  
+  // Validate form inputs
+  const validateForm = (): boolean => {
+    const errors: ValidationErrors = {};
+    let isValid = true;
+    
+    // Clear previous errors
+    setValidationErrors({});
+    
+    // Email validation
+    if (!email) {
+      errors.email = 'Email is required';
+      isValid = false;
+    } else if (!/\S+@\S+\.\S+/.test(email)) {
+      errors.email = 'Email is invalid';
+      isValid = false;
+    }
+    
+    // Password validation
+    if (!password) {
+      errors.password = 'Password is required';
+      isValid = false;
+    } else if (password.length < 6) {
+      errors.password = 'Password must be at least 6 characters';
+      isValid = false;
+    }
+    
+    // Name validation (only for registration)
+    if (!isLogin && !name) {
+      errors.name = 'Name is required';
+      isValid = false;
+    }
+    
+    setValidationErrors(errors);
+    return isValid;
+  };
 
   // Handle form submission (login or register)
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Validate form before submission
+    if (!validateForm()) {
+      return;
+    }
+    
     setLoading(true);
 
     try {
@@ -60,6 +116,16 @@ export default function AuthExample() {
       }
     } catch (error: unknown) {
       const apiError = error as ApiError;
+      
+      // Handle validation errors from API
+      if (apiError.errors) {
+        const fieldErrors: ValidationErrors = {};
+        Object.entries(apiError.errors).forEach(([field, messages]) => {
+          fieldErrors[field as keyof ValidationErrors] = messages[0];
+        });
+        setValidationErrors(fieldErrors);
+      }
+      
       toast.error("Authentication failed", {
         description: apiError.message || "An error occurred",
       });
@@ -93,11 +159,16 @@ export default function AuthExample() {
 
   // Logout
   const handleLogout = () => {
-    apiService.logout();
-    setUser(null);
-    toast.success("Logged out", {
-      description: "You have been logged out successfully",
-    });
+    setLoading(true);
+    try {
+      apiService.logout();
+      setUser(null);
+      toast.success("Logged out", {
+        description: "You have been logged out successfully",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Toggle between login and register forms
@@ -106,6 +177,7 @@ export default function AuthExample() {
     setEmail('');
     setPassword('');
     setName('');
+    setValidationErrors({});
   };
 
   return (
@@ -145,7 +217,11 @@ export default function AuthExample() {
                     placeholder="Enter your name"
                     required
                     disabled={loading}
+                    className={validationErrors.name ? "border-red-500" : ""}
                   />
+                  {validationErrors.name && (
+                    <p className="text-sm text-red-500">{validationErrors.name}</p>
+                  )}
                 </div>
               )}
               
@@ -159,7 +235,11 @@ export default function AuthExample() {
                   placeholder="Enter your email"
                   required
                   disabled={loading}
+                  className={validationErrors.email ? "border-red-500" : ""}
                 />
+                {validationErrors.email && (
+                  <p className="text-sm text-red-500">{validationErrors.email}</p>
+                )}
               </div>
               
               <div className="space-y-2">
@@ -172,11 +252,22 @@ export default function AuthExample() {
                   placeholder="Enter your password"
                   required
                   disabled={loading}
+                  className={validationErrors.password ? "border-red-500" : ""}
                 />
+                {validationErrors.password && (
+                  <p className="text-sm text-red-500">{validationErrors.password}</p>
+                )}
               </div>
               
               <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? 'Processing...' : (isLogin ? 'Login' : 'Register')}
+                {loading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    {isLogin ? 'Logging in...' : 'Registering...'}
+                  </>
+                ) : (
+                  isLogin ? 'Login' : 'Register'
+                )}
               </Button>
             </form>
           )}
@@ -185,11 +276,31 @@ export default function AuthExample() {
         <CardFooter className="flex flex-col space-y-2">
           {user ? (
             <div className="flex space-x-2 w-full">
-              <Button onClick={handleGetProfile} variant="outline" className="flex-1" disabled={loading}>
-                Refresh Profile
+              <Button 
+                onClick={handleGetProfile} 
+                variant="outline" 
+                className="flex-1" 
+                disabled={loading}
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Loading...
+                  </>
+                ) : 'Refresh Profile'}
               </Button>
-              <Button onClick={handleLogout} variant="destructive" className="flex-1" disabled={loading}>
-                Logout
+              <Button 
+                onClick={handleLogout} 
+                variant="destructive" 
+                className="flex-1" 
+                disabled={loading}
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Logging out...
+                  </>
+                ) : 'Logout'}
               </Button>
             </div>
           ) : (

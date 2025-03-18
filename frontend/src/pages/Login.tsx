@@ -17,6 +17,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import apiService from "../services/api";
 
 const loginSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -24,6 +25,13 @@ const loginSchema = z.object({
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
+
+// API error interface
+interface ApiError {
+  success: boolean;
+  message: string;
+  errors?: Record<string, string[]>;
+}
 
 export default function Login() {
   const navigate = useNavigate();
@@ -42,17 +50,40 @@ export default function Login() {
     setIsLoading(true);
     
     try {
-      // Simulate API call with timeout
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // Use real API service for login
+      const response = await apiService.login(data.email, data.password);
       
-      // For demo purposes only, replace with actual API call
-      console.log("Login data:", data);
-      
-      toast.success("Login successful!");
-      navigate("/"); // Redirect to home page after successful login
+      if (response.success && response.data) {
+        toast.success("Login successful!", {
+          description: `Welcome back, ${response.data.user.name}!`,
+        });
+        navigate("/dashboard"); // Redirect to dashboard after successful login
+      } else {
+        // Handle unexpected success:false response
+        toast.error("Login failed", {
+          description: response.message || "Please check your credentials and try again.",
+        });
+      }
     } catch (error) {
       console.error("Login error:", error);
-      toast.error("Login failed. Please try again.");
+      
+      // Type cast error to ApiError
+      const apiError = error as ApiError;
+      
+      // Handle validation errors from API
+      if (apiError.errors) {
+        // Set form errors from API
+        Object.entries(apiError.errors).forEach(([field, messages]) => {
+          form.setError(field as keyof LoginFormValues, {
+            type: "server",
+            message: messages[0],
+          });
+        });
+      }
+      
+      toast.error("Login failed", {
+        description: apiError.message || "Please check your credentials and try again.",
+      });
     } finally {
       setIsLoading(false);
     }

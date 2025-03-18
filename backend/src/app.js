@@ -19,11 +19,28 @@ const apiKeyMiddleware = require('./middlewares/apiKeyMiddleware');
 loadEnv();
 
 // Connect to the database
-connectDB();
+// This has been removed to prevent duplicate connection, as it's already in server.js
+// connectDB();
 
 // CORS Configuration
+const corsOptionsOrigin = process.env.CORS_ORIGIN || '*';
+
+// CORS middleware to handle both trailing slash and non-trailing slash origins
 const corsOptions = {
-  origin: process.env.CORS_ORIGIN || '*',
+  origin: function(origin, callback) {
+    // Allow requests with no origin (like mobile apps, curl, etc)
+    if (!origin || corsOptionsOrigin === '*') return callback(null, true);
+    
+    // Clean up origins for comparison (remove trailing slashes)
+    const allowedOrigin = corsOptionsOrigin.replace(/\/$/, '');
+    const requestOrigin = origin.replace(/\/$/, '');
+    
+    if (allowedOrigin === requestOrigin) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'X-Requested-With', 'X-API-Key', 'X-CSRF-Token'],
   exposedHeaders: ['Content-Range', 'X-Total-Count', 'X-CSRF-Token'],

@@ -8,7 +8,7 @@ const loadEnv = require('./config/dotenv');
 // Load environment variables
 loadEnv();
 
-// Connect to the database
+// Connect to the database - single connection for the entire app
 connectDB();
 
 // Start the server
