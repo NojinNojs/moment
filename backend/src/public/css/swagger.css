@@ -1,0 +1,73 @@
+/* Custom styles for Swagger UI */
+.swagger-ui .topbar {
+  background-color: #24292e;
+  padding: 10px 0;
+}
+
+.swagger-ui .info {
+  margin: 30px 0;
+}
+
+.swagger-ui .info .title {
+  font-size: 36px;
+  font-weight: 700;
+  color: #3b4151;
+}
+
+.swagger-ui .scheme-container {
+  background-color: #f7f7f7;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  margin: 0 0 20px;
+  padding: 30px 0;
+}
+
+.swagger-ui .btn.authorize {
+  background-color: #4CAF50;
+  border-color: #4CAF50;
+  color: #fff;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.swagger-ui .btn.authorize:hover {
+  background-color: #45a049;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.swagger-ui .opblock .opblock-summary-operation-id,
+.swagger-ui .opblock .opblock-summary-path,
+.swagger-ui .opblock .opblock-summary-path__deprecated {
+  font-size: 16px;
+}
+
+.swagger-ui .opblock {
+  margin: 0 0 15px;
+  border-radius: 6px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+.swagger-ui .opblock-tag {
+  font-size: 24px;
+  font-weight: 600;
+  margin: 30px 0 10px;
+}
+
+.swagger-ui .opblock .opblock-section-header {
+  padding: 12px 20px;
+}
+
+.swagger-ui table {
+  border-collapse: separate;
+  border-spacing: 0;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.swagger-ui table tbody tr td {
+  padding: 12px 10px;
+}
+
+.swagger-ui .response-col_status {
+  font-size: 14px;
+  font-weight: 600;
+} 

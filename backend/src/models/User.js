@@ -3,6 +3,45 @@ const mongoose = require("mongoose");
 const bcrypt = require('bcrypt');
 
 /**
+ * @swagger
+ * components:
+ *   schemas:
+ *     User:
+ *       type: object
+ *       required:
+ *         - name
+ *         - email
+ *         - password
+ *       properties:
+ *         id:
+ *           type: string
+ *           description: The auto-generated id of the user
+ *         name:
+ *           type: string
+ *           description: The user's full name
+ *         email:
+ *           type: string
+ *           format: email
+ *           description: The user's email address
+ *         password:
+ *           type: string
+ *           format: password
+ *           description: The user's password (will be hashed)
+ *         createdAt:
+ *           type: string
+ *           format: date
+ *           description: The date the user was created
+ *         updatedAt:
+ *           type: string
+ *           format: date
+ *           description: The date the user was last updated
+ *       example:
+ *         name: John Doe
+ *         email: john@example.com
+ *         password: password123
+ */
+
+/**
  * User Schema - defines the structure of users in MongoDB
  * 
  * @field name - User's full name
