@@ -1,8 +1,10 @@
 // This file defines the routes for user registration and login.
 const express = require('express');
 const router = express.Router();
+const { body } = require('express-validator');
 const { register, login, getCurrentUser } = require('../controllers/authController');
 const { protect } = require('../middlewares/authMiddleware');
+const { validate } = require('../middlewares/validationMiddleware');
 
 /**
  * @swagger
@@ -44,6 +46,9 @@ const { protect } = require('../middlewares/authMiddleware');
  *                 success:
  *                   type: boolean
  *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: User registered successfully
  *                 data:
  *                   type: object
  *                   properties:
@@ -60,7 +65,30 @@ const { protect } = require('../middlewares/authMiddleware');
  *       500:
  *         description: Server error
  */
-router.post('/register', register);
+router.post(
+  '/register', 
+  [
+    // Validation rules
+    body('name')
+      .trim()
+      .notEmpty().withMessage('Name is required')
+      .isLength({ min: 2, max: 50 }).withMessage('Name must be between 2 and 50 characters'),
+    
+    body('email')
+      .trim()
+      .notEmpty().withMessage('Email is required')
+      .isEmail().withMessage('Please provide a valid email address')
+      .normalizeEmail(),
+    
+    body('password')
+      .trim()
+      .notEmpty().withMessage('Password is required')
+      .isLength({ min: 8 }).withMessage('Password must be at least 8 characters long')
+      .matches(/^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#$%^&*])/).withMessage('Password must contain at least one number, one uppercase letter, one lowercase letter, and one special character')
+  ],
+  validate,
+  register
+);
 
 /**
  * @swagger
@@ -97,6 +125,9 @@ router.post('/register', register);
  *                 success:
  *                   type: boolean
  *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Login successful
  *                 data:
  *                   type: object
  *                   properties:
@@ -113,7 +144,23 @@ router.post('/register', register);
  *       500:
  *         description: Server error
  */
-router.post('/login', login);
+router.post(
+  '/login',
+  [
+    // Validation rules
+    body('email')
+      .trim()
+      .notEmpty().withMessage('Email is required')
+      .isEmail().withMessage('Please provide a valid email address')
+      .normalizeEmail(),
+    
+    body('password')
+      .trim()
+      .notEmpty().withMessage('Password is required')
+  ],
+  validate,
+  login
+);
 
 /**
  * @swagger
@@ -134,6 +181,9 @@ router.post('/login', login);
  *                 success:
  *                   type: boolean
  *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: User profile retrieved successfully
  *                 data:
  *                   type: object
  *                   properties:

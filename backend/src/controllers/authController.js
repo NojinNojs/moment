@@ -1,6 +1,7 @@
 // This file contains logic for user registration, login, and JWT token generation.
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const apiResponse = require('../utils/apiResponse');
 
 /**
  * Helper function to generate JWT token
@@ -18,7 +19,7 @@ const generateToken = (user) => {
 
 /**
  * @desc    Register a new user
- * @route   POST /api/auth/register
+ * @route   POST /api/v1/auth/register
  * @access  Public
  */
 exports.register = async (req, res) => {
@@ -28,7 +29,7 @@ exports.register = async (req, res) => {
     // Check if user already exists
     const userExists = await User.findOne({ email });
     if (userExists) {
-      return res.status(400).json({ success: false, message: 'User already exists' });
+      return apiResponse.badRequest(res, 'User already exists');
     }
 
     // Create new user
@@ -42,31 +43,29 @@ exports.register = async (req, res) => {
       // Generate JWT token
       const token = generateToken(user);
 
-      res.status(201).json({
-        success: true,
-        data: {
-          id: user._id,
-          name: user.name,
-          email: user.email,
-          token
-        }
+      return apiResponse.success(res, 201, 'User registered successfully', {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        token
       });
     } else {
-      res.status(400).json({ success: false, message: 'Invalid user data' });
+      return apiResponse.badRequest(res, 'Invalid user data');
     }
   } catch (error) {
     console.error('Register error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Server error', 
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined 
-    });
+    return apiResponse.error(
+      res, 
+      500, 
+      'Server error', 
+      process.env.NODE_ENV === 'development' ? { message: error.message } : null
+    );
   }
 };
 
 /**
  * @desc    Authenticate user & get token (Login)
- * @route   POST /api/auth/login
+ * @route   POST /api/v1/auth/login
  * @access  Public
  */
 exports.login = async (req, res) => {
@@ -81,31 +80,29 @@ exports.login = async (req, res) => {
       // Generate JWT token
       const token = generateToken(user);
 
-      res.json({
-        success: true,
-        data: {
-          id: user._id,
-          name: user.name,
-          email: user.email,
-          token
-        }
+      return apiResponse.success(res, 200, 'Login successful', {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        token
       });
     } else {
-      res.status(401).json({ success: false, message: 'Invalid email or password' });
+      return apiResponse.unauthorized(res, 'Invalid email or password');
     }
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Server error', 
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined 
-    });
+    return apiResponse.error(
+      res, 
+      500, 
+      'Server error', 
+      process.env.NODE_ENV === 'development' ? { message: error.message } : null
+    );
   }
 };
 
 /**
  * @desc    Get current user profile
- * @route   GET /api/auth/me
+ * @route   GET /api/v1/auth/me
  * @access  Private
  */
 exports.getCurrentUser = async (req, res) => {
@@ -113,19 +110,17 @@ exports.getCurrentUser = async (req, res) => {
     const user = await User.findById(req.user.id).select('-password');
     
     if (!user) {
-      return res.status(404).json({ success: false, message: 'User not found' });
+      return apiResponse.notFound(res, 'User not found');
     }
 
-    res.json({
-      success: true,
-      data: user
-    });
+    return apiResponse.success(res, 200, 'User profile retrieved successfully', user);
   } catch (error) {
     console.error('Get current user error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Server error', 
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined 
-    });
+    return apiResponse.error(
+      res, 
+      500, 
+      'Server error', 
+      process.env.NODE_ENV === 'development' ? { message: error.message } : null
+    );
   }
 }; 

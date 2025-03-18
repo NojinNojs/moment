@@ -1,6 +1,7 @@
 // This middleware verifies the JWT token for protected routes.
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const apiResponse = require('../utils/apiResponse');
 
 /**
  * @desc    Protect routes - Authentication middleware
@@ -18,10 +19,7 @@ exports.protect = async (req, res, next) => {
     }
 
     if (!token) {
-      return res.status(401).json({ 
-        success: false, 
-        message: 'Not authorized to access this route' 
-      });
+      return apiResponse.unauthorized(res, 'Not authorized to access this route');
     }
 
     try {
@@ -30,20 +28,23 @@ exports.protect = async (req, res, next) => {
 
       // Get user from token
       req.user = await User.findById(decoded.id).select('-password');
+      
+      if (!req.user) {
+        return apiResponse.unauthorized(res, 'User not found');
+      }
+      
       next();
     } catch (error) {
-      return res.status(401).json({ 
-        success: false, 
-        message: 'Not authorized to access this route' 
-      });
+      return apiResponse.unauthorized(res, 'Not authorized to access this route');
     }
   } catch (error) {
     console.error('Auth middleware error:', error);
-    res.status(500).json({ 
-      success: false, 
-      message: 'Server error', 
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined 
-    });
+    return apiResponse.error(
+      res, 
+      500, 
+      'Server error', 
+      process.env.NODE_ENV === 'development' ? { message: error.message } : null
+    );
   }
 };
 
@@ -53,11 +54,11 @@ exports.protect = async (req, res, next) => {
  */
 exports.authorize = (...roles) => {
   return (req, res, next) => {
-    if (!roles.includes(req.user.role)) {
-      return res.status(403).json({ 
-        success: false, 
-        message: `User role ${req.user.role} is not authorized to access this route` 
-      });
+    if (!req.user.role || !roles.includes(req.user.role)) {
+      return apiResponse.forbidden(
+        res, 
+        `User role ${req.user.role || 'undefined'} is not authorized to access this route`
+      );
     }
     next();
   };
