@@ -8,8 +8,8 @@ npm-debug.log*
 
 # Environment variables
 .env
-.env.dev
-.env.prod
+.env.development
+.env.production
 
 # Example environment variables
 !.env.dev.example
