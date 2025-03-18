@@ -95,26 +95,75 @@ export default function AuthExample() {
     try {
       if (isLogin) {
         // Login
+        console.log('Login attempt:', { email });
         const response = await apiService.login(email, password);
+        console.log('Login response in component:', response);
         
         if (response.success && response.data) {
+          // Add defensive checks
+          if (!response.data.user) {
+            console.error('Login response is missing user object:', response);
+            toast.error("Login error", {
+              description: "User data is missing from response",
+            });
+            return;
+          }
+          
+          if (!response.data.user.name) {
+            console.error('Login response user is missing name:', response.data.user);
+            toast.error("Login error", {
+              description: "User name is missing from response",
+            });
+            return;
+          }
+          
           setUser(response.data.user);
           toast.success("Login successful", {
             description: `Welcome back, ${response.data.user.name}!`,
           });
+        } else {
+          // Handle unsuccessful login but with success:true
+          toast.error("Login failed", {
+            description: response.message || "An unknown error occurred",
+          });
         }
       } else {
         // Register
+        console.log('Register attempt:', { name, email });
         const response = await apiService.register({ name, email, password });
+        console.log('Register response in component:', response);
         
         if (response.success && response.data) {
+          // Add defensive checks
+          if (!response.data.user) {
+            console.error('Register response is missing user object:', response);
+            toast.error("Registration error", {
+              description: "User data is missing from response",
+            });
+            return;
+          }
+          
+          if (!response.data.user.name) {
+            console.error('Register response user is missing name:', response.data.user);
+            toast.error("Registration error", {
+              description: "User name is missing from response",
+            });
+            return;
+          }
+          
           setUser(response.data.user);
           toast.success("Registration successful", {
             description: `Welcome, ${response.data.user.name}!`,
           });
+        } else {
+          // Handle unsuccessful registration but with success:true
+          toast.error("Registration failed", {
+            description: response.message || "An unknown error occurred",
+          });
         }
       }
     } catch (error: unknown) {
+      console.error('Auth error:', error);
       const apiError = error as ApiError;
       
       // Handle validation errors from API

@@ -12,6 +12,12 @@ const connectDB = async () => {
       // useUnifiedTopology: true,
       // useCreateIndex: true,
       // useFindAndModify: false,
+      
+      // Add connection options to prevent timeouts
+      serverSelectionTimeoutMS: 10000, // Timeout for server selection
+      socketTimeoutMS: 45000, // How long the socket can be idle before closing
+      connectTimeoutMS: 10000, // Timeout for initial connection
+      maxPoolSize: 50, // Maximum number of connections in the pool
     });
     
     console.log(chalk.green.bold('✅ MongoDB Connected: ') + 

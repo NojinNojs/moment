@@ -9,7 +9,7 @@ import axios, { AxiosInstance, InternalAxiosRequestConfig, AxiosResponse, AxiosE
 // API configuration
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1';
 const API_KEY = import.meta.env.VITE_API_KEY || '';
-const API_TIMEOUT = 10000; // 10 seconds
+const API_TIMEOUT = 30000; // 30 seconds - increased from 10 seconds
 
 // Type for the API response
 interface ApiResponse<T = unknown> {
@@ -29,10 +29,20 @@ interface User {
   updatedAt: string;
 }
 
-// Auth response type
+// Auth response type from frontend perspective
 interface AuthResponse {
   token: string;
   user: User;
+}
+
+// Raw auth response type directly from the backend
+interface RawAuthResponse {
+  id: string;
+  name: string;
+  email: string;
+  token: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 // API error type
@@ -206,25 +216,197 @@ class ApiService {
    * Authentication methods
    */
   public async login(email: string, password: string): Promise<ApiResponse<AuthResponse>> {
-    const response = await this.post<AuthResponse>('/auth/login', { email, password });
-    
-    if (response.success && response.data?.token) {
-      localStorage.setItem('auth_token', response.data.token);
-      localStorage.setItem('user', JSON.stringify(response.data.user));
+    try {
+      console.log('Login request initiated with:', { email });
+      const response = await this.post<RawAuthResponse>('/auth/login', { email, password });
+      
+      console.log('Login raw response:', response);
+      
+      // Ensure we have a valid response to work with
+      if (!response || typeof response !== 'object') {
+        console.error('Invalid response format:', response);
+        return {
+          success: false,
+          message: 'Invalid response format from server',
+          data: {
+            token: '',
+            user: { id: '', name: '', email: '', createdAt: '', updatedAt: '' }
+          }
+        };
+      }
+      
+      if (response.success && response.data) {
+        if (!response.data.token) {
+          console.error('Login response is missing token:', response.data);
+          return {
+            success: false,
+            message: 'Invalid server response: missing token',
+            data: {
+              token: '',
+              user: { id: '', name: '', email: '', createdAt: '', updatedAt: '' }
+            }
+          };
+        }
+        
+        if (!response.data.name || !response.data.email || !response.data.id) {
+          console.error('Login response is missing user fields:', response.data);
+          return {
+            success: false,
+            message: 'Invalid server response: missing user data',
+            data: {
+              token: '',
+              user: { id: '', name: '', email: '', createdAt: '', updatedAt: '' }
+            }
+          };
+        }
+        
+        // Store token
+        localStorage.setItem('auth_token', response.data.token);
+        
+        // Extract user data from response
+        const userData: User = {
+          id: response.data.id,
+          name: response.data.name,
+          email: response.data.email,
+          createdAt: response.data.createdAt || '',
+          updatedAt: response.data.updatedAt || ''
+        };
+        
+        localStorage.setItem('user', JSON.stringify(userData));
+        
+        // Format response to match AuthResponse interface
+        const formattedResponse: ApiResponse<AuthResponse> = {
+          success: true,
+          message: response.message,
+          data: {
+            token: response.data.token,
+            user: userData
+          }
+        };
+        
+        console.log('Formatted login response:', formattedResponse);
+        return formattedResponse;
+      }
+      
+      // Handle failed login - still provide a properly structured response to prevent null access
+      console.error('Login failed:', response);
+      return {
+        success: false,
+        message: response.message || 'Login failed',
+        errors: response.errors,
+        data: {
+          token: '',
+          user: { id: '', name: '', email: '', createdAt: '', updatedAt: '' }
+        }
+      };
+    } catch (error) {
+      console.error('Login exception:', error);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : 'An unexpected error occurred during login',
+        data: {
+          token: '',
+          user: { id: '', name: '', email: '', createdAt: '', updatedAt: '' }
+        }
+      };
     }
-    
-    return response;
   }
 
   public async register(userData: { name: string; email: string; password: string }): Promise<ApiResponse<AuthResponse>> {
-    const response = await this.post<AuthResponse>('/auth/register', userData);
-    
-    if (response.success && response.data?.token) {
-      localStorage.setItem('auth_token', response.data.token);
-      localStorage.setItem('user', JSON.stringify(response.data.user));
+    try {
+      console.log('Register request initiated with:', { name: userData.name, email: userData.email });
+      const response = await this.post<RawAuthResponse>('/auth/register', userData);
+      
+      console.log('Register raw response:', response);
+      
+      // Ensure we have a valid response to work with
+      if (!response || typeof response !== 'object') {
+        console.error('Invalid response format:', response);
+        return {
+          success: false,
+          message: 'Invalid response format from server',
+          data: {
+            token: '',
+            user: { id: '', name: '', email: '', createdAt: '', updatedAt: '' }
+          }
+        };
+      }
+      
+      if (response.success && response.data) {
+        if (!response.data.token) {
+          console.error('Register response is missing token:', response.data);
+          return {
+            success: false,
+            message: 'Invalid server response: missing token',
+            data: {
+              token: '',
+              user: { id: '', name: '', email: '', createdAt: '', updatedAt: '' }
+            }
+          };
+        }
+        
+        if (!response.data.name || !response.data.email || !response.data.id) {
+          console.error('Register response is missing user fields:', response.data);
+          return {
+            success: false,
+            message: 'Invalid server response: missing user data',
+            data: {
+              token: '',
+              user: { id: '', name: '', email: '', createdAt: '', updatedAt: '' }
+            }
+          };
+        }
+        
+        // Store token
+        localStorage.setItem('auth_token', response.data.token);
+        
+        // Extract user data from response
+        const userData: User = {
+          id: response.data.id,
+          name: response.data.name,
+          email: response.data.email,
+          createdAt: response.data.createdAt || '',
+          updatedAt: response.data.updatedAt || ''
+        };
+        
+        localStorage.setItem('user', JSON.stringify(userData));
+        
+        // Format response to match AuthResponse interface
+        const formattedResponse: ApiResponse<AuthResponse> = {
+          success: true,
+          message: response.message,
+          data: {
+            token: response.data.token,
+            user: userData
+          }
+        };
+        
+        console.log('Formatted register response:', formattedResponse);
+        return formattedResponse;
+      }
+      
+      // Handle failed registration - still provide a properly structured response to prevent null access
+      console.error('Registration failed:', response);
+      return {
+        success: false,
+        message: response.message || 'Registration failed',
+        errors: response.errors,
+        data: {
+          token: '',
+          user: { id: '', name: '', email: '', createdAt: '', updatedAt: '' }
+        }
+      };
+    } catch (error) {
+      console.error('Registration exception:', error);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : 'An unexpected error occurred during registration',
+        data: {
+          token: '',
+          user: { id: '', name: '', email: '', createdAt: '', updatedAt: '' }
+        }
+      };
     }
-    
-    return response;
   }
 
   public async getProfile(): Promise<ApiResponse<User>> {
