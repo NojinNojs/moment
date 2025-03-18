@@ -1,8 +1,25 @@
-# Moment API - RESTful Backend
+# 🚀 Moment API - RESTful Backend
 
 A modern RESTful API built with Express.js, MongoDB, and JWT authentication, designed to follow RESTful API best practices with comprehensive documentation.
 
-## Features
+## 📑 Table of Contents
+
+- [Features](#features)
+- [Project Structure](#project-structure)
+- [Getting Started](#getting-started)
+  - [Prerequisites](#prerequisites)
+  - [Installation](#installation)
+  - [Environment Setup](#environment-setup)
+- [API Documentation](#api-documentation)
+  - [Base URL](#base-url)
+  - [Authentication](#authentication)
+  - [API Endpoints](#api-endpoints)
+  - [Response Format](#response-format)
+- [Error Handling](#error-handling)
+- [Consuming the API](#consuming-the-api)
+- [License](#license)
+
+## ✨ Features
 
 - **RESTful API Design**: Follows global standards for API design
 - **Express.js Server**: Fast, unopinionated backend framework
@@ -13,9 +30,9 @@ A modern RESTful API built with Express.js, MongoDB, and JWT authentication, des
 - **Documentation**: Interactive OpenAPI/Swagger documentation
 - **Error Handling**: Standardized error responses
 - **CORS Support**: Cross-Origin Resource Sharing enabled
-- **Environment Configuration**: Separate dev/prod environments
+- **Environment Configuration**: Separate development/production environments
 
-## Project Structure
+## 📂 Project Structure
 
 ```
 backend/
@@ -30,13 +47,73 @@ backend/
 │   ├── public/         # Public assets for documentation
 │   ├── app.js          # Express app setup
 │   └── server.js       # Server entry point
-├── .env.dev           # Development environment variables
-├── .env.prod          # Production environment variables
-├── package.json       # Project dependencies
-├── README.md          # Project documentation
+├── scripts/
+│   └── setup-env.js    # Environment setup automation
+├── .env.development    # Development environment variables
+├── .env.production     # Production environment variables
+├── .env.example        # Template for environment variables
+├── package.json        # Project dependencies
+└── README.md           # Project documentation
 ```
 
-## API Documentation
+## 🚀 Getting Started
+
+### Prerequisites
+
+- Node.js (v16 or higher)
+- npm or yarn
+- MongoDB (local instance or MongoDB Atlas account)
+
+### Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/NojinNojs/moment.git
+   cd moment/backend
+   ```
+
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Start the development server**
+   ```bash
+   npm run dev
+   ```
+
+4. **Access the API documentation**
+   ```
+   http://localhost:3000/api/docs
+   ```
+
+### Environment Setup
+
+We provide automated environment setup scripts to simplify configuration:
+
+```bash
+# Set up environment variables interactively
+npm run setup-env
+
+# Or set up a specific environment directly
+npm run setup-dev   # Development environment
+npm run setup-prod  # Production environment
+```
+
+#### Available Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `PORT` | Server port number | `3000` |
+| `MONGO_URI` | MongoDB connection string | `mongodb://localhost:27017/momentdb` |
+| `JWT_SECRET` | Secret key for JWT tokens | Auto-generated |
+| `JWT_EXPIRE` | JWT token expiration time | `30d` (30 days) |
+| `CORS_ORIGIN` | Allowed origins for CORS | `http://localhost:5173` |
+| `LOG_LEVEL` | Logging level | `debug` |
+| `API_PREFIX` | API route prefix | `/api` |
+| `API_VERSION` | API version | `v1` |
+
+## 📚 API Documentation
 
 Interactive API documentation is available at `/api/docs` when the server is running.
 
@@ -77,11 +154,11 @@ Authorization: Bearer YOUR_TOKEN_HERE
 | PUT    | /transactions/:id      | Update transaction            | Protected   |
 | DELETE | /transactions/:id      | Delete transaction            | Protected   |
 
-## Response Format
+### Response Format
 
 All API responses follow a standard format:
 
-### Success Response
+#### Success Response
 
 ```json
 {
@@ -92,7 +169,7 @@ All API responses follow a standard format:
 }
 ```
 
-### Error Response
+#### Error Response
 
 ```json
 {
@@ -102,38 +179,20 @@ All API responses follow a standard format:
 }
 ```
 
-## Getting Started
+## ⚠️ Error Handling
 
-1. Clone the repository
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Create environment files:
-   - Copy `.env.dev.example` to `.env.dev`
-   - Copy `.env.prod.example` to `.env.prod`
-   - Update the environment variables in both files
+The API uses standard HTTP status codes:
 
-4. Start the development server:
-   ```bash
-   npm run dev
-   ```
+- `200 OK`: Request succeeded
+- `201 Created`: Resource created successfully
+- `400 Bad Request`: Invalid request format or parameters
+- `401 Unauthorized`: Authentication failed or token missing
+- `403 Forbidden`: Authenticated but not authorized for the action
+- `404 Not Found`: Resource not found
+- `422 Unprocessable Entity`: Validation error
+- `500 Server Error`: Something went wrong on the server
 
-5. Access the API documentation:
-   ```
-   http://localhost:3000/api/docs
-   ```
-
-## Environment Variables
-
-Required environment variables:
-- `PORT`: Server port (default: 3000)
-- `MONGO_URI`: MongoDB connection string
-- `JWT_SECRET`: Secret key for JWT
-- `NODE_ENV`: Environment ('development' or 'production')
-- `CORS_ORIGIN`: Allowed origins for CORS (default: *)
-
-## Consuming the API
+## 🔄 Consuming the API
 
 ### Using Fetch API (JavaScript)
 
@@ -294,19 +353,6 @@ const transactionService = {
 export { authService, transactionService };
 ```
 
-## Error Handling
-
-The API uses standard HTTP status codes:
-
-- `200 OK`: Request succeeded
-- `201 Created`: Resource created successfully
-- `400 Bad Request`: Invalid request format or parameters
-- `401 Unauthorized`: Authentication failed or token missing
-- `403 Forbidden`: Authenticated but not authorized for the action
-- `404 Not Found`: Resource not found
-- `422 Unprocessable Entity`: Validation error
-- `500 Server Error`: Something went wrong on the server
-
-## License
+## 📄 License
 
 MIT 
