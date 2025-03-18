@@ -5,6 +5,8 @@ import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
 import Home from "./pages/Home";
 import About from "./pages/About";
+import Login from "./pages/Login";
+import Register from "./pages/Register";
 import NotFound from "./pages/NotFound";
 import ErrorPage from "./pages/ErrorPage";
 import BadRequestPage from "./pages/BadRequestPage";
@@ -109,6 +111,8 @@ function AnimatedRoutes() {
       <Routes location={location} key={location.pathname}>
         <Route path="/" element={<Home />} />
         <Route path="/about" element={<About />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
         
         {/* Error pages */}
         <Route path="/400" element={<BadRequestPage />} />
