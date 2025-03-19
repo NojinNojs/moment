@@ -12,6 +12,7 @@ import NotFound from "./pages/NotFound";
 import ErrorPage from "./pages/ErrorPage";
 import BadRequestPage from "./pages/BadRequestPage";
 import { AuthProvider } from "./contexts/AuthContext";
+import { ProtectedRoute, AuthRoute } from "./components/ProtectedRoute";
 
 // Error boundary component
 function ErrorBoundary({ children }: { children: React.ReactNode }) {
@@ -113,9 +114,25 @@ function AnimatedRoutes() {
       <Routes location={location} key={location.pathname}>
         <Route path="/" element={<Home />} />
         <Route path="/about" element={<About />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-        <Route path="/dashboard" element={<Dashboard />} />
+        
+        {/* Auth routes - only accessible when NOT logged in */}
+        <Route path="/login" element={
+          <AuthRoute>
+            <Login />
+          </AuthRoute>
+        } />
+        <Route path="/register" element={
+          <AuthRoute>
+            <Register />
+          </AuthRoute>
+        } />
+        
+        {/* Protected routes - only accessible when logged in */}
+        <Route path="/dashboard" element={
+          <ProtectedRoute>
+            <Dashboard />
+          </ProtectedRoute>
+        } />
         
         {/* Error pages */}
         <Route path="/400" element={<BadRequestPage />} />

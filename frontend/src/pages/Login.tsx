@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
@@ -37,10 +37,14 @@ interface ApiError {
 
 export default function Login() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const { login } = useAuth();
+
+  // Get redirect path from location state or default to dashboard
+  const from = location.state?.from || "/dashboard";
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -63,7 +67,7 @@ export default function Login() {
         login(response.data.user, response.data.token);
         
         toast.success("Login successful!");
-        navigate("/dashboard"); // Redirect to dashboard after successful login
+        navigate(from); // Redirect to the intended page or dashboard
       } else {
         // Handle unsuccessful login with a clear message
         setFormError("Email or password is incorrect. Please check your credentials.");
