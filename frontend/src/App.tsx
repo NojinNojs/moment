@@ -125,7 +125,7 @@ function AnimatedRoutes() {
         } />
         
         {/* Protected routes - only accessible when logged in */}
-        <Route path="/dashboard" element={
+        <Route path="/dashboard/*" element={
           <ProtectedRoute>
             <Dashboard />
           </ProtectedRoute>
@@ -151,6 +151,25 @@ function ScrollToTop() {
   return null;
 }
 
+// Layout component that handles conditional rendering of Navbar and Footer
+function AppLayout() {
+  const location = useLocation();
+  const isDashboard = location.pathname.startsWith('/dashboard');
+
+  return (
+    <div className="min-h-screen flex flex-col">
+      {!isDashboard && <Navbar />}
+      <main className="flex-1">
+        <ScrollToTop />
+        <ErrorBoundary>
+          <AnimatedRoutes />
+        </ErrorBoundary>
+      </main>
+      {!isDashboard && <Footer />}
+    </div>
+  );
+}
+
 function App() {
   // Force dark mode
   useEffect(() => {
@@ -160,16 +179,7 @@ function App() {
   return (
     <Router>
       <AuthProvider>
-        <div className="min-h-screen flex flex-col">
-          <Navbar />
-          <main className="flex-1">
-            <ScrollToTop />
-            <ErrorBoundary>
-              <AnimatedRoutes />
-            </ErrorBoundary>
-          </main>
-          <Footer />
-        </div>
+        <AppLayout />
       </AuthProvider>
     </Router>
   );
