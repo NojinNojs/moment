@@ -7,9 +7,11 @@ import Home from "./pages/Home";
 import About from "./pages/About";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import Dashboard from "./pages/Dashboard";
 import NotFound from "./pages/NotFound";
 import ErrorPage from "./pages/ErrorPage";
 import BadRequestPage from "./pages/BadRequestPage";
+import { AuthProvider } from "./contexts/AuthContext";
 
 // Error boundary component
 function ErrorBoundary({ children }: { children: React.ReactNode }) {
@@ -38,7 +40,7 @@ function ErrorBoundary({ children }: { children: React.ReactNode }) {
       setHasError(false);
       setError(null);
     }
-  }, [navigate]);
+  }, [navigate, hasError]);
 
   if (hasError) {
     return <ErrorPage error={error} />;
@@ -113,6 +115,7 @@ function AnimatedRoutes() {
         <Route path="/about" element={<About />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/dashboard" element={<Dashboard />} />
         
         {/* Error pages */}
         <Route path="/400" element={<BadRequestPage />} />
@@ -142,16 +145,18 @@ function App() {
 
   return (
     <Router>
-      <div className="min-h-screen flex flex-col">
-        <Navbar />
-        <main className="flex-1">
-          <ScrollToTop />
-          <ErrorBoundary>
-            <AnimatedRoutes />
-          </ErrorBoundary>
-        </main>
-        <Footer />
-      </div>
+      <AuthProvider>
+        <div className="min-h-screen flex flex-col">
+          <Navbar />
+          <main className="flex-1">
+            <ScrollToTop />
+            <ErrorBoundary>
+              <AnimatedRoutes />
+            </ErrorBoundary>
+          </main>
+          <Footer />
+        </div>
+      </AuthProvider>
     </Router>
   );
 }

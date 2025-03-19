@@ -1,16 +1,52 @@
 import { useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Button } from "@/components/ui/button"
-import { Menu, X } from "lucide-react"
-import { motion } from "framer-motion"
+import { Menu, X, User, Settings, LogOut, ChevronDown } from "lucide-react"
+import { motion, AnimatePresence } from "framer-motion"
+import { useAuth } from '@/contexts/auth-utils'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [showLogoutDialog, setShowLogoutDialog] = useState(false)
   const location = useLocation()
+  const navigate = useNavigate()
+  const { user, isAuthenticated, logout } = useAuth()
   
   // Check if a path is active
   const isActive = (path: string) => {
     return location.pathname === path
+  }
+
+  const handleLogout = () => {
+    setShowLogoutDialog(false)
+    logout()
+  }
+
+  // Get initials for avatar fallback
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map(part => part[0])
+      .join('')
+      .toUpperCase()
+      .substring(0, 2)
   }
 
   return (
@@ -42,19 +78,57 @@ const Navbar = () => {
           <div className="hidden md:flex items-center justify-center gap-10">
             <NavLink to="/" label="Home" isActive={isActive("/")} />
             <NavLink to="/about" label="About" isActive={isActive("/about")} />
+            {isAuthenticated && (
+              <NavLink to="/dashboard" label="Dashboard" isActive={isActive("/dashboard")} />
+            )}
           </div>
 
+          {/* Auth buttons or user menu */}
           <div className="hidden md:flex items-center gap-4">
-            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-              <Button variant="outline" asChild>
-                <Link to="/login">Login</Link>
-              </Button>
-            </motion.div>
-            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-              <Button asChild>
-                <Link to="/register">Register</Link>
-              </Button>
-            </motion.div>
+            {isAuthenticated ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="flex items-center gap-2 rounded-full">
+                    <Avatar className="h-8 w-8 border border-primary/20">
+                      <AvatarImage src={`https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || '')}&background=random`} />
+                      <AvatarFallback>{user?.name ? getInitials(user.name) : 'U'}</AvatarFallback>
+                    </Avatar>
+                    <span className="hidden sm:inline">{user?.name}</span>
+                    <ChevronDown className="h-4 w-4 opacity-50" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => navigate('/dashboard')}>
+                    <User className="mr-2 h-4 w-4" />
+                    <span>Dashboard</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate('/settings')}>
+                    <Settings className="mr-2 h-4 w-4" />
+                    <span>Settings</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => setShowLogoutDialog(true)} className="text-destructive focus:text-destructive">
+                    <LogOut className="mr-2 h-4 w-4" />
+                    <span>Logout</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : (
+              <>
+                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                  <Button variant="outline" asChild>
+                    <Link to="/login">Login</Link>
+                  </Button>
+                </motion.div>
+                <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                  <Button asChild>
+                    <Link to="/register">Register</Link>
+                  </Button>
+                </motion.div>
+              </>
+            )}
           </div>
 
           {/* Mobile Menu Button */}
@@ -68,27 +142,86 @@ const Navbar = () => {
         </div>
 
         {/* Mobile Navigation */}
-        {isMenuOpen && (
-          <motion.div 
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            className="md:hidden pt-5 pb-6 flex flex-col gap-4"
-          >
-            <MobileNavLink to="/" label="Home" isActive={isActive("/")} onClick={() => setIsMenuOpen(false)} />
-            <MobileNavLink to="/about" label="About" isActive={isActive("/about")} onClick={() => setIsMenuOpen(false)} />
-            
-            <div className="flex flex-col gap-3 mt-4">
-              <Button variant="outline" className="w-full" asChild>
-                <Link to="/login">Login</Link>
-              </Button>
-              <Button className="w-full" asChild>
-                <Link to="/register">Register</Link>
-              </Button>
-            </div>
-          </motion.div>
-        )}
+        <AnimatePresence>
+          {isMenuOpen && (
+            <motion.div 
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              className="md:hidden pt-5 pb-6 flex flex-col gap-4"
+            >
+              <MobileNavLink to="/" label="Home" isActive={isActive("/")} onClick={() => setIsMenuOpen(false)} />
+              <MobileNavLink to="/about" label="About" isActive={isActive("/about")} onClick={() => setIsMenuOpen(false)} />
+              
+              {isAuthenticated ? (
+                <>
+                  <MobileNavLink 
+                    to="/dashboard" 
+                    label="Dashboard" 
+                    isActive={isActive("/dashboard")} 
+                    onClick={() => setIsMenuOpen(false)} 
+                  />
+                  <MobileNavLink 
+                    to="/settings" 
+                    label="Settings" 
+                    isActive={isActive("/settings")} 
+                    onClick={() => setIsMenuOpen(false)} 
+                  />
+                  <div className="mt-2 pt-2 border-t border-border">
+                    <div className="flex items-center gap-3 px-4 py-3">
+                      <Avatar className="h-10 w-10 border border-primary/20">
+                        <AvatarImage src={`https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || '')}&background=random`} />
+                        <AvatarFallback>{user?.name ? getInitials(user.name) : 'U'}</AvatarFallback>
+                      </Avatar>
+                      <div className="flex flex-col">
+                        <span className="font-medium">{user?.name}</span>
+                        <span className="text-xs text-muted-foreground">{user?.email}</span>
+                      </div>
+                    </div>
+                    <Button 
+                      variant="destructive" 
+                      className="w-full mt-2" 
+                      onClick={() => setShowLogoutDialog(true)}
+                    >
+                      <LogOut className="h-4 w-4 mr-2" />
+                      Logout
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <div className="flex flex-col gap-3 mt-4">
+                  <Button variant="outline" className="w-full" asChild>
+                    <Link to="/login" onClick={() => setIsMenuOpen(false)}>Login</Link>
+                  </Button>
+                  <Button className="w-full" asChild>
+                    <Link to="/register" onClick={() => setIsMenuOpen(false)}>Register</Link>
+                  </Button>
+                </div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
+
+      {/* Logout confirmation dialog */}
+      <Dialog open={showLogoutDialog} onOpenChange={setShowLogoutDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Logout</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to log out? You will need to login again to access your account.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex space-x-2 sm:space-x-0">
+            <Button variant="outline" onClick={() => setShowLogoutDialog(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleLogout}>
+              Logout
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </motion.nav>
   )
 }

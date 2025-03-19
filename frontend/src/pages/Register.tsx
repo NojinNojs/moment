@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2, UserPlus, Eye, EyeOff, CheckCircle2 } from "lucide-react";
+import { Loader2, UserPlus, Eye, EyeOff, CheckCircle2, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,9 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import apiService from "../services/api";
+import { useAuth } from "@/contexts/auth-utils";
 
 const registerSchema = z
   .object({
@@ -55,6 +57,8 @@ export default function Register() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [step, setStep] = useState(1);
+  const [formError, setFormError] = useState<string | null>(null);
+  const { login } = useAuth();
 
   const form = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
@@ -82,6 +86,7 @@ export default function Register() {
 
   async function onSubmit(data: RegisterFormValues) {
     setIsLoading(true);
+    setFormError(null); // Reset any previous errors
 
     try {
       // Use real API service for registration
@@ -92,20 +97,16 @@ export default function Register() {
       });
 
       if (response.success && response.data) {
-        toast.success("Registration successful!", {
-          description: `Welcome, ${response.data.user.name}! Your account has been created.`,
-        });
+        // Use auth context login function to immediately log in the user
+        login(response.data.user, response.data.token);
         
-        // Could redirect directly to dashboard since we're already logged in
-        // navigate("/dashboard");
+        toast.success("Registration successful!");
         
-        // Or redirect to login page as originally designed
-        navigate("/login");
+        // Redirect to dashboard since we're already logged in
+        navigate("/dashboard");
       } else {
         // Handle unexpected success:false response
-        toast.error("Registration failed", {
-          description: response.message || "Please check your information and try again.",
-        });
+        setFormError(response.message || "Registration failed. Please check your information.");
       }
     } catch (error) {
       console.error("Registration error:", error);
@@ -127,11 +128,15 @@ export default function Register() {
             message: messages[0],
           });
         });
+        // If we have specific field errors, don't set a general form error
+      } else if (apiError.message?.toLowerCase().includes("email") && 
+                apiError.message?.toLowerCase().includes("exist")) {
+        // Show specific email already exists error
+        setFormError("An account with this email already exists. Please use a different email or sign in.");
+      } else {
+        // For other errors, set a general form error
+        setFormError(apiError.message || "Registration failed. Please try again.");
       }
-      
-      toast.error("Registration failed", {
-        description: apiError.message || "Please check your information and try again.",
-      });
     } finally {
       setIsLoading(false);
     }
@@ -142,6 +147,7 @@ export default function Register() {
     setShowConfirmPassword(!showConfirmPassword);
 
   const nextStep = async () => {
+    setFormError(null); // Clear errors when moving between steps
     const isValid = await form.trigger(["name", "email"]);
     if (isValid) {
       // Clear any potential values from step 2 to avoid issues
@@ -152,7 +158,10 @@ export default function Register() {
     }
   };
 
-  const prevStep = () => setStep(1);
+  const prevStep = () => {
+    setFormError(null); // Clear errors when moving between steps
+    setStep(1);
+  };
 
   return (
     <motion.div
@@ -200,6 +209,13 @@ export default function Register() {
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            {formError && (
+              <Alert variant="destructive" className="text-sm py-3">
+                <AlertCircle className="h-4 w-4 mr-2" />
+                <AlertDescription>{formError}</AlertDescription>
+              </Alert>
+            )}
+            
             {step === 1 ? (
               <motion.div
                 initial={{ opacity: 0, x: -20 }}

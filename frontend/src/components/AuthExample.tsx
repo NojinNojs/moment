@@ -129,9 +129,15 @@ export default function AuthExample() {
         }
       } else {
         // Register
-        console.log('Register attempt:', { name, email });
+        if (import.meta.env.DEV) {
+          console.log('Register attempt:', { name, email });
+        }
+        
         const response = await apiService.register({ name, email, password });
-        console.log('Register response in component:', response);
+        
+        if (import.meta.env.DEV) {
+          console.log('Register response in component:', response);
+        }
         
         if (response.success && response.data) {
           // Add defensive checks

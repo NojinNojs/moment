@@ -9,9 +9,12 @@ export default defineConfig(({ mode }) => {
   // Set the third parameter to '' to load all env regardless of the `VITE_` prefix.
   const env = loadEnv(mode, process.cwd(), '');
   
-  console.log(`Building in mode: ${mode}`);
-  console.log('API URL:', env.VITE_API_URL);
-  console.log('API KEY exists:', !!env.VITE_API_KEY);
+  // Only log in non-production environments
+  if (mode !== 'production') {
+    console.log(`Building in mode: ${mode}`);
+    console.log('API URL:', env.VITE_API_URL);
+    console.log('API KEY exists:', !!env.VITE_API_KEY);
+  }
   
   return {
     plugins: [react(), tailwindcss()],
@@ -28,6 +31,13 @@ export default defineConfig(({ mode }) => {
     },
     build: {
       chunkSizeWarningLimit: 600,
+      // Remove console.log calls in production build
+      minify: 'terser',
+      terserOptions: {
+        compress: {
+          drop_console: mode === 'production',
+        },
+      },
       rollupOptions: {
         output: {
           manualChunks: {

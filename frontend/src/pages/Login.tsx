@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2, LogIn, Eye, EyeOff } from "lucide-react";
+import { Loader2, LogIn, Eye, EyeOff, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,9 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import apiService from "../services/api";
+import { useAuth } from "@/contexts/auth-utils";
 
 const loginSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -37,6 +39,8 @@ export default function Login() {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const { login } = useAuth();
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -48,21 +52,21 @@ export default function Login() {
 
   async function onSubmit(data: LoginFormValues) {
     setIsLoading(true);
+    setFormError(null); // Reset any previous errors
     
     try {
       // Use real API service for login
       const response = await apiService.login(data.email, data.password);
       
       if (response.success && response.data) {
-        toast.success("Login successful!", {
-          description: `Welcome back, ${response.data.user.name}!`,
-        });
+        // Use auth context login function
+        login(response.data.user, response.data.token);
+        
+        toast.success("Login successful!");
         navigate("/dashboard"); // Redirect to dashboard after successful login
       } else {
         // Handle unexpected success:false response
-        toast.error("Login failed", {
-          description: response.message || "Please check your credentials and try again.",
-        });
+        setFormError(response.message || "Authentication failed. Please check your credentials.");
       }
     } catch (error) {
       console.error("Login error:", error);
@@ -79,11 +83,19 @@ export default function Login() {
             message: messages[0],
           });
         });
+        // If we have specific field errors, don't set a general form error
+      } else if (apiError.message?.toLowerCase().includes("email") || 
+                apiError.message?.toLowerCase().includes("password")) {
+        // Show a generic credential error instead of exposing which one is wrong
+        setFormError("Invalid email or password. Please try again.");
+      } else if (apiError.message?.toLowerCase().includes("user") || 
+                apiError.message?.toLowerCase().includes("exist")) {
+        // Email doesn't exist error
+        setFormError("No account found with this email. Please check your email or register.");
+      } else {
+        // For other errors, set a general form error
+        setFormError(apiError.message || "Authentication failed. Please try again.");
       }
-      
-      toast.error("Login failed", {
-        description: apiError.message || "Please check your credentials and try again.",
-      });
     } finally {
       setIsLoading(false);
     }
@@ -111,6 +123,13 @@ export default function Login() {
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            {formError && (
+              <Alert variant="destructive" className="text-sm py-3">
+                <AlertCircle className="h-4 w-4 mr-2" />
+                <AlertDescription>{formError}</AlertDescription>
+              </Alert>
+            )}
+            
             <FormField
               control={form.control}
               name="email"

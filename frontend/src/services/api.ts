@@ -6,13 +6,15 @@
  */
 import axios, { AxiosInstance, InternalAxiosRequestConfig, AxiosResponse, AxiosError, AxiosHeaders } from 'axios';
 
-// Debug environment variables for troubleshooting preview vs dev mode
-console.log('Environment Variables:');
-console.log('VITE_API_URL exists:', !!import.meta.env.VITE_API_URL);
-console.log('VITE_API_KEY exists:', !!import.meta.env.VITE_API_KEY);
-console.log('MODE:', import.meta.env.MODE);
-console.log('DEV:', import.meta.env.DEV);
-console.log('PROD:', import.meta.env.PROD);
+// Debug logging only in development mode
+if (import.meta.env.DEV) {
+  console.log('Environment Variables:');
+  console.log('VITE_API_URL exists:', !!import.meta.env.VITE_API_URL);
+  console.log('VITE_API_KEY exists:', !!import.meta.env.VITE_API_KEY);
+  console.log('MODE:', import.meta.env.MODE);
+  console.log('DEV:', import.meta.env.DEV);
+  console.log('PROD:', import.meta.env.PROD);
+}
 
 // API configuration
 let API_URL = import.meta.env.VITE_API_URL;
@@ -26,7 +28,11 @@ if (!API_URL) {
     API_URL = 'http://localhost:3000/api/v1'; // Development fallback
   }
 }
-console.log('Final API_URL:', API_URL);
+
+// Only log API URL in development
+if (import.meta.env.DEV) {
+  console.log('Final API_URL:', API_URL);
+}
 
 const API_KEY = import.meta.env.VITE_API_KEY || '';
 const API_TIMEOUT = 30000; // 30 seconds - increased from 10 seconds
@@ -237,10 +243,17 @@ class ApiService {
    */
   public async login(email: string, password: string): Promise<ApiResponse<AuthResponse>> {
     try {
-      console.log('Login request initiated with:', { email });
+      // Only log in development mode
+      if (import.meta.env.DEV) {
+        console.log('Login request initiated with:', { email });
+      }
+      
       const response = await this.post<RawAuthResponse>('/auth/login', { email, password });
       
-      console.log('Login raw response:', response);
+      // Only log in development mode
+      if (import.meta.env.DEV) {
+        console.log('Login raw response:', response);
+      }
       
       // Ensure we have a valid response to work with
       if (!response || typeof response !== 'object') {
@@ -334,10 +347,17 @@ class ApiService {
 
   public async register(userData: { name: string; email: string; password: string }): Promise<ApiResponse<AuthResponse>> {
     try {
-      console.log('Register request initiated with:', { name: userData.name, email: userData.email });
+      // Only log in development mode
+      if (import.meta.env.DEV) {
+        console.log('Register request initiated with:', { name: userData.name, email: userData.email });
+      }
+      
       const response = await this.post<RawAuthResponse>('/auth/register', userData);
       
-      console.log('Register raw response:', response);
+      // Only log in development mode
+      if (import.meta.env.DEV) {
+        console.log('Register raw response:', response);
+      }
       
       // Ensure we have a valid response to work with
       if (!response || typeof response !== 'object') {
@@ -345,86 +365,75 @@ class ApiService {
         return {
           success: false,
           message: 'Invalid response format from server',
-          data: {
-            token: '',
-            user: { id: '', name: '', email: '', createdAt: '', updatedAt: '' }
-          }
         };
       }
       
+      // If the registration was successful and there is data
       if (response.success && response.data) {
+        // Store the auth token
         if (!response.data.token) {
           console.error('Register response is missing token:', response.data);
           return {
             success: false,
-            message: 'Invalid server response: missing token',
-            data: {
-              token: '',
-              user: { id: '', name: '', email: '', createdAt: '', updatedAt: '' }
-            }
+            message: 'Authentication token missing from server response',
           };
         }
         
-        if (!response.data.name || !response.data.email || !response.data.id) {
+        localStorage.setItem('auth_token', response.data.token);
+        
+        // Format user data
+        const { token, ...userData } = response.data;
+        
+        // Additional validation of required fields
+        if (!userData.id || !userData.name || !userData.email) {
           console.error('Register response is missing user fields:', response.data);
           return {
             success: false,
-            message: 'Invalid server response: missing user data',
-            data: {
-              token: '',
-              user: { id: '', name: '', email: '', createdAt: '', updatedAt: '' }
-            }
+            message: 'Incomplete user data in server response',
           };
         }
         
-        // Store token
-        localStorage.setItem('auth_token', response.data.token);
-        
-        // Extract user data from response
-        const userData: User = {
-          id: response.data.id,
-          name: response.data.name,
-          email: response.data.email,
-          createdAt: response.data.createdAt || '',
-          updatedAt: response.data.updatedAt || ''
+        // Store user data
+        const user: User = {
+          id: userData.id,
+          name: userData.name,
+          email: userData.email,
+          createdAt: userData.createdAt || new Date().toISOString(),
+          updatedAt: userData.updatedAt || new Date().toISOString(),
         };
         
-        localStorage.setItem('user', JSON.stringify(userData));
+        localStorage.setItem('user', JSON.stringify(user));
         
-        // Format response to match AuthResponse interface
+        // Create formatted response
         const formattedResponse: ApiResponse<AuthResponse> = {
           success: true,
-          message: response.message,
+          message: response.message || 'Registration successful',
           data: {
-            token: response.data.token,
-            user: userData
-          }
+            token,
+            user,
+          },
         };
         
-        console.log('Formatted register response:', formattedResponse);
+        // Only log in development mode
+        if (import.meta.env.DEV) {
+          console.log('Formatted register response:', formattedResponse);
+        }
+        
         return formattedResponse;
       }
       
-      // Handle failed registration - still provide a properly structured response to prevent null access
+      // If we got here, the response indicates failure
       console.error('Registration failed:', response);
       return {
         success: false,
         message: response.message || 'Registration failed',
-        errors: response.errors,
-        data: {
-          token: '',
-          user: { id: '', name: '', email: '', createdAt: '', updatedAt: '' }
-        }
-      };
+        errors: response.errors
+      } as ApiResponse<AuthResponse>;
     } catch (error) {
       console.error('Registration exception:', error);
       return {
         success: false,
-        message: error instanceof Error ? error.message : 'An unexpected error occurred during registration',
-        data: {
-          token: '',
-          user: { id: '', name: '', email: '', createdAt: '', updatedAt: '' }
-        }
+        message: error instanceof Error ? error.message : 'An unknown error occurred during registration',
       };
     }
   }

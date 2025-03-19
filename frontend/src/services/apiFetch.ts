@@ -5,13 +5,15 @@
  * including authentication, request/response handling, and error handling.
  */
 
-// Debug environment variables for troubleshooting preview vs dev mode
-console.log('Fetch Service - Environment Variables:');
-console.log('VITE_API_URL exists:', !!import.meta.env.VITE_API_URL);
-console.log('VITE_API_KEY exists:', !!import.meta.env.VITE_API_KEY);
-console.log('MODE:', import.meta.env.MODE);
-console.log('DEV:', import.meta.env.DEV);
-console.log('PROD:', import.meta.env.PROD);
+// Debug logging only in development mode
+if (import.meta.env.DEV) {
+  console.log('Fetch Service - Environment Variables:');
+  console.log('VITE_API_URL exists:', !!import.meta.env.VITE_API_URL);
+  console.log('VITE_API_KEY exists:', !!import.meta.env.VITE_API_KEY);
+  console.log('MODE:', import.meta.env.MODE);
+  console.log('DEV:', import.meta.env.DEV);
+  console.log('PROD:', import.meta.env.PROD);
+}
 
 // API configuration
 let API_URL = import.meta.env.VITE_API_URL;
@@ -25,7 +27,11 @@ if (!API_URL) {
     API_URL = 'http://localhost:3000/api/v1'; // Development fallback
   }
 }
-console.log('Fetch Service - Final API_URL:', API_URL);
+
+// Only log API URL in development
+if (import.meta.env.DEV) {
+  console.log('Fetch Service - Final API_URL:', API_URL);
+}
 
 const API_KEY = import.meta.env.VITE_API_KEY || '';
 const API_TIMEOUT = 30000; // 30 seconds timeout
@@ -248,7 +254,11 @@ class ApiFetchService {
    */
   public async login(email: string, password: string): Promise<ApiResponse<AuthResponse>> {
     try {
-      console.log('Login request initiated with:', { email });
+      // Only log in development mode
+      if (import.meta.env.DEV) {
+        console.log('Login request initiated with:', { email });
+      }
+      
       const response = await this.post<RawAuthResponse>('/auth/login', { email, password });
       
       console.log('Login raw response:', response);
@@ -345,7 +355,11 @@ class ApiFetchService {
 
   public async register(userData: { name: string; email: string; password: string }): Promise<ApiResponse<AuthResponse>> {
     try {
-      console.log('Register request initiated with:', { name: userData.name, email: userData.email });
+      // Only log in development mode
+      if (import.meta.env.DEV) {
+        console.log('Register request initiated with:', { name: userData.name, email: userData.email });
+      }
+      
       const response = await this.post<RawAuthResponse>('/auth/register', userData);
       
       console.log('Register raw response:', response);
@@ -412,7 +426,10 @@ class ApiFetchService {
           }
         };
         
-        console.log('Formatted register response:', formattedResponse);
+        // Only log in development mode
+        if (import.meta.env.DEV) {
+          console.log('Formatted register response:', formattedResponse);
+        }
         return formattedResponse;
       }
       
