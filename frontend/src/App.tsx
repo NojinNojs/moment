@@ -5,12 +5,9 @@ import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
 import Home from "./pages/Home";
 import About from "./pages/About";
-import Login from "./pages/Login";
-import Register from "./pages/Register";
-import Dashboard from "./pages/Dashboard";
-import NotFound from "./pages/NotFound";
-import ErrorPage from "./pages/ErrorPage";
-import BadRequestPage from "./pages/BadRequestPage";
+import { Login, Register } from "./pages/auth";
+import { Dashboard } from "./pages/dashboard";
+import { NotFound, ErrorPage, BadRequestPage } from "./pages/misc";
 import { AuthProvider } from "./contexts/AuthContext";
 import { ProtectedRoute, AuthRoute } from "./components/ProtectedRoute";
 

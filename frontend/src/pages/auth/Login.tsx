@@ -18,7 +18,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import apiService from "../services/api";
+import apiService from "@/services/api";
 import { useAuth } from "@/contexts/auth-utils";
 
 const loginSchema = z.object({
@@ -193,7 +193,7 @@ export default function Login() {
               )}
             />
 
-            <div className="flex items-center justify-between">
+            {/* <div className="flex items-center justify-between">
               <div className="text-sm">
                 <Link 
                   to="#" 
@@ -202,7 +202,7 @@ export default function Login() {
                   Forgot your password?
                 </Link>
               </div>
-            </div>
+            </div> */}
 
             <Button
               type="submit"

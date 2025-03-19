@@ -18,7 +18,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import apiService from "../services/api";
+import apiService from "@/services/api";
 import { useAuth } from "@/contexts/auth-utils";
 
 const registerSchema = z
