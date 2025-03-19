@@ -65,8 +65,8 @@ export default function Login() {
         toast.success("Login successful!");
         navigate("/dashboard"); // Redirect to dashboard after successful login
       } else {
-        // Handle unexpected success:false response
-        setFormError(response.message || "Authentication failed. Please check your credentials.");
+        // Handle unsuccessful login with a clear message
+        setFormError("Email or password is incorrect. Please check your credentials.");
       }
     } catch (error) {
       console.error("Login error:", error);
@@ -74,27 +74,32 @@ export default function Login() {
       // Type cast error to ApiError
       const apiError = error as ApiError;
       
-      // Handle validation errors from API
-      if (apiError.errors) {
-        // Set form errors from API
-        Object.entries(apiError.errors).forEach(([field, messages]) => {
-          form.setError(field as keyof LoginFormValues, {
-            type: "server",
-            message: messages[0],
-          });
-        });
-        // If we have specific field errors, don't set a general form error
-      } else if (apiError.message?.toLowerCase().includes("email") || 
+      // Set specific error messages based on the error type
+      if (apiError.message?.toLowerCase().includes("not found") || 
+          apiError.message?.toLowerCase().includes("exist") ||
+          apiError.message?.toLowerCase().includes("no user")) {
+        setFormError("Email not registered. Please check your email or create an account.");
+      } else if (apiError.message?.toLowerCase().includes("invalid") || 
+                apiError.message?.toLowerCase().includes("incorrect") ||
+                apiError.message?.toLowerCase().includes("wrong") ||
                 apiError.message?.toLowerCase().includes("password")) {
-        // Show a generic credential error instead of exposing which one is wrong
-        setFormError("Invalid email or password. Please try again.");
-      } else if (apiError.message?.toLowerCase().includes("user") || 
-                apiError.message?.toLowerCase().includes("exist")) {
-        // Email doesn't exist error
-        setFormError("No account found with this email. Please check your email or register.");
+        setFormError("Email or password is incorrect. Please try again.");
+      } else if (apiError.message?.toLowerCase().includes("locked") || 
+                apiError.message?.toLowerCase().includes("disabled")) {
+        setFormError("Your account has been locked. Please contact support.");
+      } else if (apiError.errors) {
+        // Handle validation errors from API
+        const errorMessages: string[] = [];
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        Object.entries(apiError.errors).forEach(([_, messages]) => {
+          if (Array.isArray(messages) && messages.length > 0) {
+            errorMessages.push(messages[0]);
+          }
+        });
+        setFormError(errorMessages.join(" "));
       } else {
-        // For other errors, set a general form error
-        setFormError(apiError.message || "Authentication failed. Please try again.");
+        // For other errors, set a more helpful form error
+        setFormError("Unable to log in. Please check your connection and try again.");
       }
     } finally {
       setIsLoading(false);

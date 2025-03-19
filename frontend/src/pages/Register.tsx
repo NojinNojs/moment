@@ -105,8 +105,8 @@ export default function Register() {
         // Redirect to dashboard since we're already logged in
         navigate("/dashboard");
       } else {
-        // Handle unexpected success:false response
-        setFormError(response.message || "Registration failed. Please check your information.");
+        // Handle unsuccessful registration with a clear message
+        setFormError("Unable to complete registration. Please try again.");
       }
     } catch (error) {
       console.error("Registration error:", error);
@@ -114,28 +114,39 @@ export default function Register() {
       // Type cast error to ApiError
       const apiError = error as ApiError;
       
-      // Handle validation errors from API
-      if (apiError.errors) {
-        // Set form errors from API
-        Object.entries(apiError.errors).forEach(([field, messages]) => {
-          // Handle backend field names that might be different from frontend
-          const fieldName = field === 'name' ? 'name' :
-                          field === 'email' ? 'email' :
-                          field === 'password' ? 'password' : field as keyof RegisterFormValues;
-                          
-          form.setError(fieldName, {
-            type: "server",
-            message: messages[0],
-          });
-        });
-        // If we have specific field errors, don't set a general form error
-      } else if (apiError.message?.toLowerCase().includes("email") && 
-                apiError.message?.toLowerCase().includes("exist")) {
-        // Show specific email already exists error
-        setFormError("An account with this email already exists. Please use a different email or sign in.");
+      // Set specific error messages based on error type
+      if (apiError.message?.toLowerCase().includes("email") && 
+          apiError.message?.toLowerCase().includes("exist")) {
+        // Email already exists error
+        setFormError("This email is already registered. Please use a different email or log in.");
+      } else if (apiError.message?.toLowerCase().includes("password") && 
+                apiError.message?.toLowerCase().includes("weak")) {
+        // Weak password error
+        setFormError("Please use a stronger password that meets all requirements.");
+      } else if (apiError.message?.toLowerCase().includes("name") && 
+                (apiError.message?.toLowerCase().includes("invalid") || 
+                 apiError.message?.toLowerCase().includes("required"))) {
+        // Invalid name error
+        setFormError("Please provide a valid name.");
+      } else if (apiError.errors) {
+        // Handle validation errors from API
+        const errorField = Object.keys(apiError.errors)[0];
+        const errorMessage = apiError.errors[errorField][0];
+        
+        if (errorField === 'email' && errorMessage.toLowerCase().includes("exist")) {
+          setFormError("This email is already registered. Please use a different email or log in.");
+        } else if (errorField === 'email') {
+          setFormError("Please provide a valid email address.");
+        } else if (errorField === 'password') {
+          setFormError("Please provide a password that meets all requirements.");
+        } else if (errorField === 'name') {
+          setFormError("Please provide a valid name.");
+        } else {
+          setFormError(errorMessage);
+        }
       } else {
-        // For other errors, set a general form error
-        setFormError(apiError.message || "Registration failed. Please try again.");
+        // For other errors, set a clear message
+        setFormError("Registration failed. Please check your information and try again.");
       }
     } finally {
       setIsLoading(false);
