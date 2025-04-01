@@ -12,15 +12,8 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { LogoutDialog } from "@/components/dashboard/settings/LogoutDialog"
 
 const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -249,25 +242,12 @@ const Navbar = () => {
         </AnimatePresence>
       </div>
 
-      {/* Logout confirmation dialog */}
-      <Dialog open={showLogoutDialog} onOpenChange={setShowLogoutDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Confirm Logout</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to log out? You will need to login again to access your account.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="flex space-x-2 sm:space-x-0">
-            <Button variant="outline" onClick={() => setShowLogoutDialog(false)}>
-              Cancel
-            </Button>
-            <Button variant="destructive" onClick={handleLogout}>
-              Logout
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Updated Logout Dialog */}
+      <LogoutDialog 
+        open={showLogoutDialog}
+        onOpenChange={setShowLogoutDialog}
+        onLogout={handleLogout}
+      />
     </motion.nav>
   )
 }

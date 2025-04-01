@@ -33,7 +33,12 @@ const ENV_PRESETS = {
     API_VERSION: 'v1',
     API_KEY: generateRandomString(32),
     RATE_LIMIT_MAX: '100',
-    CSRF_PROTECTION: 'true'
+    CSRF_PROTECTION: 'true',
+    ADMIN_EMAIL: 'admin@example.com',
+    ADMIN_PASSWORD: 'Password123!',
+    ADMIN_NAME: 'Admin User',
+    AUTO_SEED_CATEGORIES: 'true',
+    USE_ADVANCED_CATEGORIES: 'true'
   },
   production: {
     NODE_ENV: 'production',
@@ -47,7 +52,12 @@ const ENV_PRESETS = {
     API_VERSION: 'v1',
     API_KEY: generateRandomString(48),
     RATE_LIMIT_MAX: '60',
-    CSRF_PROTECTION: 'true'
+    CSRF_PROTECTION: 'true',
+    ADMIN_EMAIL: 'admin@yourdomain.com',
+    ADMIN_PASSWORD: generateRandomString(12),
+    ADMIN_NAME: 'Admin User',
+    AUTO_SEED_CATEGORIES: 'true',
+    USE_ADVANCED_CATEGORIES: 'true'
   },
   test: {
     NODE_ENV: 'test',
@@ -61,7 +71,12 @@ const ENV_PRESETS = {
     API_VERSION: 'v1',
     API_KEY: 'test_api_key',
     RATE_LIMIT_MAX: '1000',
-    CSRF_PROTECTION: 'false'
+    CSRF_PROTECTION: 'false',
+    ADMIN_EMAIL: 'admin@test.com',
+    ADMIN_PASSWORD: 'test_password',
+    ADMIN_NAME: 'Test Admin',
+    AUTO_SEED_CATEGORIES: 'true',
+    USE_ADVANCED_CATEGORIES: 'false'
   }
 };
 
@@ -167,6 +182,26 @@ async function run() {
 
     config.RATE_LIMIT_MAX = await ask('Maximum requests per IP (per 15 minutes)', config.RATE_LIMIT_MAX);
     config.CSRF_PROTECTION = await ask('Enable CSRF Protection? (true/false)', config.CSRF_PROTECTION);
+    
+    // Admin user settings
+    console.log('\n👤 Admin User Configuration');
+    config.ADMIN_EMAIL = await ask('Admin Email', config.ADMIN_EMAIL);
+    
+    const useRandomAdminPassword = await ask('Generate random admin password? (yes/no)', environment === 'production' ? 'yes' : 'no');
+    if (useRandomAdminPassword.toLowerCase() === 'yes') {
+      config.ADMIN_PASSWORD = generateRandomString(12);
+      console.log(`Generated admin password: ${config.ADMIN_PASSWORD}`);
+      console.log('⚠️ Please save this password securely as it won\'t be shown again');
+    } else {
+      config.ADMIN_PASSWORD = await ask('Admin Password', config.ADMIN_PASSWORD);
+    }
+    
+    config.ADMIN_NAME = await ask('Admin Name', config.ADMIN_NAME);
+    
+    // Category configuration
+    console.log('\n📊 Category Configuration');
+    config.AUTO_SEED_CATEGORIES = await ask('Auto-seed categories on startup? (true/false)', config.AUTO_SEED_CATEGORIES);
+    config.USE_ADVANCED_CATEGORIES = await ask('Use advanced category set? (true/false)', config.USE_ADVANCED_CATEGORIES);
 
     // Create the .env file
     const envFilePath = path.join(rootDir, '.env');

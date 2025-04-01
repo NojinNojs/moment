@@ -2,7 +2,15 @@
 const express = require('express');
 const router = express.Router();
 const { body } = require('express-validator');
-const { createTransaction } = require('../controllers/transactionController');
+const { 
+  createTransaction,
+  getTransactions,
+  getTransactionById,
+  updateTransaction,
+  deleteTransaction,
+  permanentDeleteTransaction,
+  restoreTransaction
+} = require('../controllers/transactionController');
 const { protect } = require('../middlewares/authMiddleware');
 const { validate } = require('../middlewares/validationMiddleware');
 
@@ -258,7 +266,241 @@ router.post(
  *       500:
  *         $ref: '#/components/responses/ServerError'
  */
+router.get('/', protect, getTransactions);
 
-// Other CRUD routes
+/**
+ * @swagger
+ * /transactions/{id}:
+ *   get:
+ *     summary: Get a transaction by ID
+ *     description: Retrieves a single transaction by its ID
+ *     tags: [Transactions]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Transaction ID
+ *     responses:
+ *       200:
+ *         description: Transaction retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *                 - type: object
+ *                   properties:
+ *                     message:
+ *                       example: Transaction retrieved successfully
+ *                     data:
+ *                       $ref: '#/components/schemas/Transaction'
+ *       404:
+ *         $ref: '#/components/responses/NotFoundError'
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ *       500:
+ *         $ref: '#/components/responses/ServerError'
+ */
+router.get('/:id', protect, getTransactionById);
+
+/**
+ * @swagger
+ * /transactions/{id}:
+ *   put:
+ *     summary: Update a transaction
+ *     description: Updates an existing transaction
+ *     tags: [Transactions]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Transaction ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               amount:
+ *                 type: number
+ *                 description: Transaction amount
+ *               type:
+ *                 type: string
+ *                 enum: [income, expense]
+ *                 description: Transaction type
+ *               category:
+ *                 type: string
+ *                 description: Transaction category
+ *               description:
+ *                 type: string
+ *                 description: Transaction description
+ *               date:
+ *                 type: string
+ *                 format: date
+ *                 description: Transaction date
+ *     responses:
+ *       200:
+ *         description: Transaction updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *                 - type: object
+ *                   properties:
+ *                     message:
+ *                       example: Transaction updated successfully
+ *                     data:
+ *                       $ref: '#/components/schemas/Transaction'
+ *       400:
+ *         $ref: '#/components/responses/BadRequestError'
+ *       404:
+ *         $ref: '#/components/responses/NotFoundError'
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ *       500:
+ *         $ref: '#/components/responses/ServerError'
+ */
+router.put('/:id', protect, updateTransaction);
+
+/**
+ * @swagger
+ * /transactions/{id}:
+ *   delete:
+ *     summary: Delete a transaction
+ *     description: Soft deletes a transaction (marks as deleted)
+ *     tags: [Transactions]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Transaction ID
+ *     responses:
+ *       200:
+ *         description: Transaction deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *                 - type: object
+ *                   properties:
+ *                     message:
+ *                       example: Transaction deleted successfully
+ *       404:
+ *         $ref: '#/components/responses/NotFoundError'
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ *       500:
+ *         $ref: '#/components/responses/ServerError'
+ */
+router.delete('/:id', protect, deleteTransaction);
+
+/**
+ * @swagger
+ * /transactions/{id}/permanent:
+ *   delete:
+ *     summary: Permanently delete a transaction
+ *     description: Permanently removes a transaction (no recovery possible)
+ *     tags: [Transactions]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Transaction ID
+ *     responses:
+ *       200:
+ *         description: Transaction permanently deleted
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Transaction permanently deleted
+ *       404:
+ *         description: Transaction not found
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
+ */
+router.delete('/:id/permanent', protect, permanentDeleteTransaction);
+
+/**
+ * @swagger
+ * /transactions/{id}/restore:
+ *   put:
+ *     summary: Restore a soft-deleted transaction
+ *     description: Restores a previously soft-deleted transaction
+ *     tags: [Transactions]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Transaction ID
+ *     responses:
+ *       200:
+ *         description: Transaction restored successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Transaction restored successfully
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                     title:
+ *                       type: string
+ *                     amount:
+ *                       type: number
+ *                     type:
+ *                       type: string
+ *                     category:
+ *                       type: string
+ *                     date:
+ *                       type: string
+ *                       format: date-time
+ *       404:
+ *         description: Transaction not found
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Server error
+ */
+router.put('/:id/restore', protect, restoreTransaction);
 
 module.exports = router; 

@@ -8,8 +8,10 @@ const connectDB = require('./config/db');
 const loadEnv = require('./config/dotenv');
 const authRoutes = require('./routes/authRoutes');
 const transactionRoutes = require('./routes/transactionRoutes');
+const categoryRoutes = require('./routes/categoryRoutes');
 const errorMiddleware = require('./middlewares/errorMiddleware');
 const { swaggerUi, swaggerDocs, customCss } = require('./utils/swagger');
+const assetRoutes = require('./routes/assetRoutes');
 
 // Security middleware
 const securityMiddleware = require('./middlewares/securityMiddleware');
@@ -22,14 +24,42 @@ loadEnv();
 // This has been removed to prevent duplicate connection, as it's already in server.js
 // connectDB();
 
+// Auto seed categories if enabled in environment settings
+if (process.env.AUTO_SEED_CATEGORIES === 'true') {
+  try {
+    // We'll only log this once to avoid duplicate logs
+    console.log(chalk.yellow('📊 Auto-seeding categories is enabled. Running category seeder...'));
+    
+    // Import the seeder but don't run it immediately
+    const seedCategories = require('./seeders/categorySeeders');
+    
+    // We'll run the seeder after the database connection is established
+    // This will be handled in server.js to avoid duplicate connections
+    // and prevent parallel seeding attempts
+    global.runCategorySeedersAfterConnection = true;
+    
+  } catch (error) {
+    console.error(chalk.red(`❌ Error initializing category seeder: ${error.message}`));
+    // Don't crash the app if seeding fails
+  }
+}
+
 // CORS Configuration
 const corsOptionsOrigin = process.env.CORS_ORIGIN || '*';
+
+// Parse comma-separated origins into an array
+const allowedOrigins = corsOptionsOrigin === '*' 
+  ? '*' 
+  : corsOptionsOrigin.split(',').map(origin => origin.trim());
 
 // CORS middleware to handle both trailing slash and non-trailing slash origins
 const corsOptions = {
   origin: function(origin, callback) {
     // Allow requests with no origin (like mobile apps, curl, etc)
-    if (!origin || corsOptionsOrigin === '*') return callback(null, true);
+    if (!origin) return callback(null, true);
+    
+    // Allow all origins if wildcard is set
+    if (allowedOrigins === '*') return callback(null, true);
     
     // Allow all localhost origins for development and preview
     if (origin.match(/^https?:\/\/localhost(:\d+)?$/)) {
@@ -41,14 +71,20 @@ const corsOptions = {
       return callback(null, true);
     }
     
-    // Clean up origins for comparison (remove trailing slashes)
-    const allowedOrigin = corsOptionsOrigin.replace(/\/$/, '');
+    // Clean up request origin for comparison (remove trailing slashes)
     const requestOrigin = origin.replace(/\/$/, '');
     
-    if (allowedOrigin === requestOrigin) {
+    // Check if the origin matches any in our allowed list
+    const originIsAllowed = allowedOrigins.some(allowedOrigin => {
+      // Clean up each allowed origin for comparison
+      const cleanAllowedOrigin = allowedOrigin.replace(/\/$/, '');
+      return cleanAllowedOrigin === requestOrigin;
+    });
+    
+    if (originIsAllowed) {
       callback(null, true);
     } else {
-      console.log(`CORS blocked: ${origin} not allowed by ${allowedOrigin}`);
+      console.log(`CORS blocked: ${origin} not allowed by ${corsOptionsOrigin}`);
       callback(new Error('Not allowed by CORS'));
     }
   },
@@ -134,10 +170,13 @@ app.use(`${API_PATH}/transactions`, apiKeyMiddleware);
 // API Routes with versioning
 app.use(`${API_PATH}/auth`, authRoutes);
 app.use(`${API_PATH}/transactions`, transactionRoutes);
+app.use(`${API_PATH}/categories`, categoryRoutes);
+app.use(`${API_PATH}/assets`, assetRoutes);
 
 // Redirect legacy API routes (without version) to versioned routes
 app.use(`${API_PREFIX}/auth`, (req, res) => res.redirect(307, `${API_PATH}/auth${req.path}`));
 app.use(`${API_PREFIX}/transactions`, (req, res) => res.redirect(307, `${API_PATH}/transactions${req.path}`));
+app.use(`${API_PREFIX}/categories`, (req, res) => res.redirect(307, `${API_PATH}/categories${req.path}`));
 
 // Redirect unknown routes to API docs
 app.use(API_PREFIX, (req, res, next) => {

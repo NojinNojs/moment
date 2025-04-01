@@ -5,15 +5,17 @@
  * including authentication, request/response interceptors, and error handling.
  */
 import axios, { AxiosInstance, InternalAxiosRequestConfig, AxiosResponse, AxiosError, AxiosHeaders } from 'axios';
+import { Asset, AssetTransfer } from '@/types/assets';
+import { Transaction, CreateTransactionDto } from '@/types/transactions';
+import { Category, CategoryType } from '@/types/categories';
 
-// Debug logging only in development mode
-if (import.meta.env.DEV) {
-  console.log('Environment Variables:');
-  console.log('VITE_API_URL exists:', !!import.meta.env.VITE_API_URL);
-  console.log('VITE_API_KEY exists:', !!import.meta.env.VITE_API_KEY);
-  console.log('MODE:', import.meta.env.MODE);
-  console.log('DEV:', import.meta.env.DEV);
-  console.log('PROD:', import.meta.env.PROD);
+// Define User type inline to avoid dependency on missing module
+interface User {
+  id: string;
+  name: string;
+  email: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 // API configuration
@@ -46,15 +48,6 @@ interface ApiResponse<T = unknown> {
   errors?: Record<string, string[]>;
 }
 
-// User type definition
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
 // Auth response type from frontend perspective
 interface AuthResponse {
   token: string;
@@ -81,6 +74,10 @@ interface ApiError {
 class ApiService {
   private axios: AxiosInstance;
   private csrfToken: string | null = null;
+
+  // Add caching for accounts and categories
+  private accountsCache: Record<string, Asset> = {};
+  private categoriesCache: Record<string, Category> = {};
 
   constructor() {
     // Create axios instance with default config
@@ -446,6 +443,595 @@ class ApiService {
     localStorage.removeItem('auth_token');
     localStorage.removeItem('user');
     window.location.href = '/login';
+  }
+
+  /**
+   * Asset Management Methods
+   */
+  
+  // Fetch all assets
+  public async getAssets(type?: string): Promise<ApiResponse<Asset[]>> {
+    try {
+      const response = await this.get<Asset[]>('/assets', type ? { type } : undefined);
+      
+      // Cache the assets if successful
+      if (response.success && response.data) {
+        response.data.forEach(asset => {
+          if (asset._id) {
+            this.accountsCache[asset._id] = asset;
+          }
+          if (asset.id) {
+            this.accountsCache[asset.id] = asset;
+          }
+        });
+      }
+      
+      return response;
+    } catch (error) {
+      return this.handleServiceError<Asset[]>('Failed to fetch assets', error);
+    }
+  }
+
+  // Get a single asset by ID
+  public async getAssetById(id: string): Promise<ApiResponse<Asset>> {
+    return this.get<Asset>(`/assets/${id}`);
+  }
+
+  // Create a new asset
+  public async createAsset(assetData: Omit<Asset, 'id' | 'createdAt' | 'updatedAt'>): Promise<ApiResponse<Asset>> {
+    return this.post<Asset>('/assets', assetData);
+  }
+
+  // Update an existing asset
+  public async updateAsset(id: string, assetData: Partial<Asset>): Promise<ApiResponse<Asset>> {
+    return this.put<Asset>(`/assets/${id}`, assetData);
+  }
+
+  // Delete an asset (soft delete)
+  public async deleteAsset(id: string): Promise<ApiResponse<void>> {
+    console.log(`Attempting to delete asset with ID: ${id}`);
+    try {
+      if (!id) {
+        console.error('deleteAsset called with empty ID');
+        return {
+          success: false,
+          message: 'Invalid asset ID',
+        };
+      }
+      
+      const response = await this.delete<void>(`/assets/${id}`);
+      console.log('Delete asset response:', response);
+      return response;
+    } catch (error) {
+      console.error('Error in deleteAsset:', error);
+      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+      return {
+        success: false,
+        message: errorMessage,
+      };
+    }
+  }
+  
+  // Permanently delete an asset (no recovery possible)
+  public async permanentDeleteAsset(id: string): Promise<ApiResponse<void>> {
+    console.log(`Attempting to permanently delete asset with ID: ${id}`);
+    try {
+      if (!id) {
+        console.error('permanentDeleteAsset called with empty ID');
+        return {
+          success: false,
+          message: 'Invalid asset ID',
+        };
+      }
+      
+      const response = await this.delete<void>(`/assets/${id}/permanent`);
+      console.log('Permanent delete asset response:', response);
+      return response;
+    } catch (error) {
+      console.error('Error in permanentDeleteAsset:', error);
+      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+      return {
+        success: false,
+        message: errorMessage,
+      };
+    }
+  }
+
+  // Restore a soft-deleted asset
+  public async restoreAsset(id: string): Promise<ApiResponse<Asset>> {
+    console.log(`Attempting to restore asset with ID: ${id}`);
+    try {
+      if (!id) {
+        console.error('restoreAsset called with empty ID');
+        return {
+          success: false,
+          message: 'Invalid asset ID',
+        };
+      }
+      
+      const response = await this.put<Asset>(`/assets/${id}/restore`, {});
+      console.log('Restore asset response:', response);
+      return response;
+    } catch (error) {
+      console.error('Error in restoreAsset:', error);
+      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+      return {
+        success: false,
+        message: errorMessage,
+      };
+    }
+  }
+
+  /**
+   * Asset Transfer Methods
+   */
+  
+  // Get all asset transfers
+  public async getAssetTransfers(): Promise<ApiResponse<AssetTransfer[]>> {
+    return this.get<AssetTransfer[]>('/assets/transfers');
+  }
+
+  // Get a specific asset transfer by ID
+  public async getAssetTransferById(id: string): Promise<ApiResponse<AssetTransfer>> {
+    return this.get<AssetTransfer>(`/assets/transfers/${id}`);
+  }
+
+  // Create a new asset transfer
+  public async createAssetTransfer(transferData: {
+    fromAsset: string;
+    toAsset: string;
+    amount: number;
+    description?: string;
+    date?: string;
+  }): Promise<ApiResponse<AssetTransfer>> {
+    return this.post<AssetTransfer>('/assets/transfers', transferData);
+  }
+
+  /**
+   * Transaction Methods
+   */
+  
+  // Get all transactions
+  public async getTransactions(params: {
+    page?: number;
+    limit?: number;
+    type?: string;
+    category?: string;
+    startDate?: string;
+    endDate?: string;
+    sortBy?: string;
+    sortOrder?: 'asc' | 'desc';
+    showDeleted?: boolean;
+    resolveReferences?: boolean;
+  } = {}): Promise<ApiResponse<Transaction[]>> {
+    try {
+      const queryParams = { ...params };
+      
+      // Remove resolveReferences from params as the API doesn't expect it
+      const shouldResolveReferences = queryParams.resolveReferences;
+      delete queryParams.resolveReferences;
+      
+      console.log("🔍 Fetching transactions with params:", queryParams);
+      
+      const response = await this.get<Transaction[]>('/transactions', queryParams);
+      
+      // If we need to resolve references and the response is successful
+      if (shouldResolveReferences && response.success && response.data) {
+        // Ensure we've preloaded our cache
+        if (Object.keys(this.accountsCache).length === 0 || Object.keys(this.categoriesCache).length === 0) {
+          await this.preloadEntityData();
+        }
+        
+        // Create a copy of the data to avoid mutating the original
+        const resolvedTransactions = [...response.data];
+        
+        // Process each transaction to resolve references
+        for (let i = 0; i < resolvedTransactions.length; i++) {
+          const transaction = resolvedTransactions[i];
+          
+          // Resolve account reference if it's a MongoDB ID
+          if (
+            transaction.account && 
+            typeof transaction.account === 'string' && 
+            /^[0-9a-f]{24}$/i.test(transaction.account) && 
+            this.accountsCache[transaction.account]
+          ) {
+            // Cast as Transaction to avoid TypeScript errors when reassigning
+            (transaction as Transaction).account = this.accountsCache[transaction.account] as unknown as string;
+          }
+          
+          // Resolve category reference if it's a MongoDB ID
+          if (
+            transaction.category && 
+            typeof transaction.category === 'string' && 
+            /^[0-9a-f]{24}$/i.test(transaction.category) &&
+            this.categoriesCache[transaction.category]
+          ) {
+            // Cast as Transaction to avoid TypeScript errors when reassigning
+            (transaction as Transaction).category = this.categoriesCache[transaction.category] as unknown as string;
+          }
+        }
+        
+        // Update the response with the resolved transactions
+        response.data = resolvedTransactions;
+        
+        // Tambahkan logging detail
+        if (response.success && response.data) {
+          console.log("📊 Transactions response details:");
+          console.log("  - Total transactions:", response.data.length);
+          
+          // Log ID issues
+          const transactionsWithoutId = response.data.filter(t => t.id === undefined || t.id === null);
+          console.log("  - Transactions without ID:", transactionsWithoutId.length);
+          
+          if (transactionsWithoutId.length > 0) {
+            console.log("  - First transaction without ID:", transactionsWithoutId[0]);
+          }
+          
+          // Ensure all transactions have an ID
+          const enhancedTransactions = response.data.map((transaction, index) => {
+            if (transaction.id === undefined || transaction.id === null) {
+              // Generate a unique ID based on MongoDB _id if available, or create a random one
+              const generatedId = transaction._id 
+                ? parseInt(String(transaction._id).substring(0, 8), 16) 
+                : Date.now() + index;
+                
+              return {
+                ...transaction,
+                id: generatedId
+              };
+            }
+            return transaction;
+          });
+          
+          // Return enhanced transactions
+          response.data = enhancedTransactions;
+        }
+      }
+      
+      return response;
+    } catch (error) {
+      console.error("Error in getTransactions:", error);
+      return this.handleServiceError<Transaction[]>('Failed to fetch transactions', error);
+    }
+  }
+  
+  // Get a transaction by ID
+  public async getTransactionById(id: string): Promise<ApiResponse<Transaction>> {
+    return this.get<Transaction>(`/transactions/${id}`);
+  }
+  
+  // Create a new transaction
+  public async createTransaction(transactionData: CreateTransactionDto): Promise<ApiResponse<Transaction>> {
+    return this.post<Transaction>('/transactions', transactionData as unknown as Record<string, unknown>);
+  }
+  
+  /**
+   * Update a transaction with improved reference resolution
+   */
+  public async updateTransaction(
+    id: string, 
+    data: Partial<Transaction>
+  ): Promise<ApiResponse<Transaction>> {
+    try {
+      console.log('Updating transaction with data:', { id, data });
+      
+      // Copy data to avoid mutation and prepare request data
+      const requestData: Record<string, unknown> = {};
+      
+      // Only include fields that are defined and not null
+      Object.entries(data).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          // Handle account dan category yang bisa berupa object atau string
+          if (key === 'account') {
+            if (typeof value === 'object' && value !== null) {
+              // @ts-expect-error This is fine to use null filters here
+              requestData[key] = value._id || value.id;
+            } else {
+              requestData[key] = value; // String ID langsung
+            }
+          } else if (key === 'category') {
+            if (typeof value === 'object' && value !== null) {
+              // @ts-expect-error This is fine to use null filters here
+              requestData[key] = value._id || value.id;
+            } else {
+              requestData[key] = value; // String ID langsung
+            }
+          } else {
+            requestData[key] = value;
+          }
+        }
+      });
+      
+      console.log('Prepared request data:', requestData);
+      
+      const response = await this.put<Transaction>(`/transactions/${id}`, requestData);
+      console.log('Update transaction response:', response);
+      
+      // If update was successful and we need to return the transaction with resolved references
+      if (response.success && response.data) {
+        // Ensure our caches are up-to-date
+        await this.preloadEntityData();
+        
+        const transaction = response.data;
+        
+        // Create a copy of the transaction to avoid mutating the response directly
+        const enhancedTransaction = { ...transaction } as Transaction; // Use proper typing
+        
+        // Resolve account reference if it's a MongoDB ID
+        if (
+          enhancedTransaction.account && 
+          typeof enhancedTransaction.account === 'string' && 
+          /^[0-9a-f]{24}$/i.test(enhancedTransaction.account) && 
+          this.accountsCache[enhancedTransaction.account]
+        ) {
+          // Use type assertion to fix type error
+          enhancedTransaction.account = this.accountsCache[enhancedTransaction.account] as unknown as string;
+        }
+        
+        // Resolve category reference if it's a MongoDB ID
+        if (
+          enhancedTransaction.category && 
+          typeof enhancedTransaction.category === 'string' && 
+          /^[0-9a-f]{24}$/i.test(enhancedTransaction.category) &&
+          this.categoriesCache[enhancedTransaction.category]
+        ) {
+          // Use type assertion to fix type error
+          enhancedTransaction.category = this.categoriesCache[enhancedTransaction.category] as unknown as string;
+        }
+        
+        // Ensure id is set (for frontend compatibility)
+        if (enhancedTransaction._id && !enhancedTransaction.id) {
+          enhancedTransaction.id = enhancedTransaction._id;
+        }
+        
+        console.log('Enhanced transaction after update:', enhancedTransaction);
+        
+        // Return the enhanced transaction
+        return {
+          ...response,
+          data: enhancedTransaction as Transaction
+        };
+      }
+      
+      return response;
+    } catch (error) {
+      console.error('Error updating transaction:', error);
+      return this.handleServiceError<Transaction>('Failed to update transaction', error);
+    }
+  }
+  
+  // Delete a transaction (soft delete)
+  public async deleteTransaction(id: string): Promise<ApiResponse<void>> {
+    console.log(`Attempting to soft delete transaction with ID: ${id}`);
+    try {
+      if (!id) {
+        console.error('deleteTransaction called with empty ID');
+        return {
+          success: false,
+          message: 'Invalid transaction ID',
+        };
+      }
+      
+      const response = await this.delete<void>(`/transactions/${id}`);
+      console.log('Delete transaction response:', response);
+      return response;
+    } catch (error) {
+      console.error('Error in deleteTransaction:', error);
+      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+      return {
+        success: false,
+        message: errorMessage,
+      };
+    }
+  }
+  
+  // Permanently delete a transaction (no recovery possible)
+  public async permanentDeleteTransaction(id: string): Promise<ApiResponse<void>> {
+    console.log(`Attempting to permanently delete transaction with ID: ${id}`);
+    try {
+      if (!id) {
+        console.error('permanentDeleteTransaction called with empty ID');
+        return {
+          success: false,
+          message: 'Invalid transaction ID',
+        };
+      }
+      
+      const response = await this.delete<void>(`/transactions/${id}/permanent`);
+      console.log('Permanent delete transaction response:', response);
+      return response;
+    } catch (error) {
+      console.error('Error in permanentDeleteTransaction:', error);
+      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+      return {
+        success: false,
+        message: errorMessage,
+      };
+    }
+  }
+  
+  // Restore a soft-deleted transaction
+  public async restoreTransaction(id: string): Promise<ApiResponse<Transaction>> {
+    console.log(`Attempting to restore transaction with ID: ${id}`);
+    try {
+      if (!id) {
+        console.error('restoreTransaction called with empty ID');
+        return {
+          success: false,
+          message: 'Invalid transaction ID',
+        };
+      }
+      
+      const response = await this.put<Transaction>(`/transactions/${id}/restore`, {});
+      console.log('Restore transaction response:', response);
+      
+      // If restore was successful, add back to cache if necessary
+      if (response.success && response.data) {
+        // Ensure our caches are up-to-date
+        await this.preloadEntityData();
+        
+        // Create a copy of the transaction to avoid mutating the response directly
+        const enhancedTransaction = { ...response.data } as Transaction;
+        
+        // Resolve account and category references if needed
+        if (typeof enhancedTransaction.account === 'string' && 
+            /^[0-9a-f]{24}$/i.test(enhancedTransaction.account) && 
+            this.accountsCache[enhancedTransaction.account]) {
+          // Use type assertion to fix type error
+          enhancedTransaction.account = this.accountsCache[enhancedTransaction.account] as unknown as string;
+        }
+        
+        if (typeof enhancedTransaction.category === 'string' && 
+            /^[0-9a-f]{24}$/i.test(enhancedTransaction.category) &&
+            this.categoriesCache[enhancedTransaction.category]) {
+          // Use type assertion to fix type error
+          enhancedTransaction.category = this.categoriesCache[enhancedTransaction.category] as unknown as string;
+        }
+        
+        // Ensure id is set
+        if (!enhancedTransaction.id && enhancedTransaction._id) {
+          enhancedTransaction.id = enhancedTransaction._id;
+        }
+        
+        return {
+          ...response,
+          data: enhancedTransaction
+        };
+      }
+      
+      return response;
+    } catch (error) {
+      console.error('Error in restoreTransaction:', error);
+      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+      return {
+        success: false,
+        message: errorMessage,
+      };
+    }
+  }
+
+  /**
+   * Category Methods
+   */
+  
+  // Get all transaction categories
+  public async getCategories(type?: CategoryType): Promise<ApiResponse<Category[]>> {
+    try {
+      const response = await this.get<Category[]>('/categories', type ? { type } : undefined);
+      
+      // Cache the categories if successful
+      if (response.success && response.data) {
+        response.data.forEach(category => {
+          if (category._id) {
+            this.categoriesCache[category._id] = category;
+          }
+          if (category.id) {
+            this.categoriesCache[category.id] = category;
+          }
+        });
+      }
+      
+      return response;
+    } catch (error) {
+      return this.handleServiceError<Category[]>('Failed to fetch categories', error);
+    }
+  }
+  
+  // Get a category by ID
+  public async getCategoryById(id: string): Promise<ApiResponse<Category>> {
+    // Return from cache if available
+    if (this.categoriesCache[id]) {
+      return {
+        success: true,
+        message: 'Category fetched from cache',
+        data: this.categoriesCache[id]
+      };
+    }
+    
+    try {
+      const response = await this.get<Category>(`/categories/${id}`);
+      if (response.success && response.data) {
+        // Cache the category
+        this.categoriesCache[id] = response.data;
+      }
+      return response;
+    } catch (error) {
+      return this.handleServiceError<Category>('Failed to fetch category', error);
+    }
+  }
+
+  /**
+   * Get account name by ID (with caching)
+   */
+  public async getAccountById(id: string): Promise<ApiResponse<Asset>> {
+    // Return from cache if available
+    if (this.accountsCache[id]) {
+      return {
+        success: true,
+        message: 'Account fetched from cache',
+        data: this.accountsCache[id]
+      };
+    }
+    
+    try {
+      const response = await this.get<Asset>(`/assets/${id}`);
+      if (response.success && response.data) {
+        // Cache the account
+        this.accountsCache[id] = response.data;
+      }
+      return response;
+    } catch (error) {
+      return this.handleServiceError<Asset>('Failed to fetch account', error);
+    }
+  }
+
+  /**
+   * Pre-load accounts and categories into cache
+   */
+  public async preloadEntityData(): Promise<void> {
+    try {
+      // Fetch and cache all accounts
+      const accountsResponse = await this.getAssets();
+      if (accountsResponse.success && accountsResponse.data) {
+        accountsResponse.data.forEach(account => {
+          if (account._id) {
+            this.accountsCache[account._id] = account;
+          }
+          if (account.id) {
+            this.accountsCache[account.id] = account;
+          }
+        });
+        console.log('Preloaded accounts to cache:', Object.keys(this.accountsCache).length);
+      }
+      
+      // Fetch and cache all categories
+      const categoriesResponse = await this.getCategories();
+      if (categoriesResponse.success && categoriesResponse.data) {
+        categoriesResponse.data.forEach(category => {
+          if (category._id) {
+            this.categoriesCache[category._id] = category;
+          }
+          if (category.id) {
+            this.categoriesCache[category.id] = category;
+          }
+        });
+        console.log('Preloaded categories to cache:', Object.keys(this.categoriesCache).length);
+      }
+    } catch (error) {
+      console.error('Error preloading entity data:', error);
+    }
+  }
+
+  /**
+   * Handle service errors with proper typing
+   */
+  private handleServiceError<T>(message: string, error: unknown): ApiResponse<T> {
+    console.error(message, error);
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'An unexpected error occurred',
+    };
   }
 }
 

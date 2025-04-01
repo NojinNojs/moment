@@ -4,6 +4,7 @@
  * This service handles all API communication with the backend using the Fetch API,
  * including authentication, request/response handling, and error handling.
  */
+import { Asset, AssetTransfer } from '@/types/assets';
 
 // Debug logging only in development mode
 if (import.meta.env.DEV) {
@@ -465,6 +466,69 @@ class ApiFetchService {
     localStorage.removeItem('auth_token');
     localStorage.removeItem('user');
     window.location.href = '/login';
+  }
+
+  /**
+   * Asset Management Methods
+   */
+  
+  // Fetch all assets
+  public async getAssets(type?: string): Promise<ApiResponse<Asset[]>> {
+    const params: Record<string, string> = {};
+    if (type) {
+      params.type = type;
+    }
+    return this.get<Asset[]>('/assets', params);
+  }
+
+  // Get a single asset by ID
+  public async getAssetById(id: string): Promise<ApiResponse<Asset>> {
+    return this.get<Asset>(`/assets/${id}`);
+  }
+
+  // Create a new asset
+  public async createAsset(assetData: Omit<Asset, 'id' | 'createdAt' | 'updatedAt'>): Promise<ApiResponse<Asset>> {
+    return this.post<Asset>('/assets', assetData);
+  }
+
+  // Update an existing asset
+  public async updateAsset(id: string, assetData: Partial<Asset>): Promise<ApiResponse<Asset>> {
+    return this.put<Asset>(`/assets/${id}`, assetData);
+  }
+
+  // Delete an asset (soft delete)
+  public async deleteAsset(id: string): Promise<ApiResponse<void>> {
+    return this.delete<void>(`/assets/${id}`);
+  }
+
+  // Restore a soft-deleted asset
+  public async restoreAsset(id: string): Promise<ApiResponse<Asset>> {
+    return this.put<Asset>(`/assets/${id}/restore`, {});
+  }
+
+  /**
+   * Asset Transfer Methods
+   */
+  
+  // Get all asset transfers
+  public async getAssetTransfers(): Promise<ApiResponse<AssetTransfer[]>> {
+    return this.get<AssetTransfer[]>('/assets/transfers');
+  }
+
+  // Get a specific asset transfer by ID
+  public async getAssetTransferById(id: string): Promise<ApiResponse<AssetTransfer>> {
+    return this.get<AssetTransfer>(`/assets/transfers/${id}`);
+  }
+
+  // Create a new asset transfer
+  public async createAssetTransfer(transferData: {
+    fromAsset: string;
+    toAsset: string;
+    amount: number;
+    description?: string;
+    date?: string;
+  }): Promise<ApiResponse<AssetTransfer>> {
+    return this.post<AssetTransfer>('/assets/transfers', transferData);
   }
 }
 

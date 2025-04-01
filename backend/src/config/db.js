@@ -2,9 +2,21 @@
 const mongoose = require('mongoose');
 const chalk = require('chalk');
 
+// Track if we've already logged a connection attempt to avoid duplicate logs
+let connectionAttemptLogged = false;
+
 const connectDB = async () => {
   try {
-    console.log(chalk.yellow('📊 Connecting to MongoDB...'));
+    // If already connected, return the existing connection
+    if (mongoose.connection.readyState === 1) {
+      return mongoose.connection;
+    }
+    
+    // Only log connection attempt once
+    if (!connectionAttemptLogged) {
+      console.log(chalk.yellow('📊 Connecting to MongoDB...'));
+      connectionAttemptLogged = true;
+    }
     
     const conn = await mongoose.connect(process.env.MONGO_URI, {
       // These options are no longer needed in mongoose 6+

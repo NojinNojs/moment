@@ -162,11 +162,24 @@ const swaggerOptions = {
         name: 'Transactions',
         description: 'Transaction operations',
       },
+      {
+        name: 'Categories',
+        description: 'Transaction category management',
+      },
+      {
+        name: 'Assets',
+        description: 'Asset management endpoints',
+      },
+      {
+        name: 'AssetTransfers',
+        description: 'Asset transfer management endpoints',
+      }
     ],
   },
   apis: [
     './src/routes/*.js',
-    './src/models/*.js'
+    './src/models/*.js',
+    './src/controllers/*.js'
   ],
 };
 
@@ -224,6 +237,10 @@ const customCss = `
     border-color: #f93e3e;
     background: rgba(249, 62, 62, 0.1);
   }
+  .swagger-ui .opblock.opblock-patch {
+    border-color: #50e3c2;
+    background: rgba(80, 227, 194, 0.1);
+  }
   .swagger-ui .opblock .opblock-summary-operation-id,
   .swagger-ui .opblock .opblock-summary-path,
   .swagger-ui .opblock .opblock-summary-path__deprecated {
@@ -248,12 +265,21 @@ const customCss = `
     border-radius: 6px;
     overflow: hidden;
   }
-  .swagger-ui table tbody tr td {
-    padding: 12px 10px;
+  .swagger-ui .markdown p, .swagger-ui .markdown pre {
+    margin: 1em 0;
+    line-height: 1.6;
   }
-  .swagger-ui .response-col_status {
+  .swagger-ui .response-col_description__inner p {
     font-size: 14px;
+    line-height: 1.5;
+  }
+  .swagger-ui .parameter__name, .swagger-ui .parameter__type {
     font-weight: 600;
+  }
+  .swagger-ui .model-box {
+    background-color: #f7f7f7;
+    padding: 15px;
+    border-radius: 4px;
   }
 `;
 

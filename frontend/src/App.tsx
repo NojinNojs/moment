@@ -6,7 +6,7 @@ import Footer from "./components/Footer";
 import Home from "./pages/Home";
 import About from "./pages/About";
 import { Login, Register } from "./pages/auth";
-import { Dashboard } from "./pages/dashboard";
+import DashboardLayout from "./pages/dashboard/index.tsx";
 import { NotFound, ErrorPage, BadRequestPage } from "./pages/misc";
 import { AuthProvider } from "./contexts/AuthContext";
 import { ProtectedRoute, AuthRoute } from "./components/ProtectedRoute";
@@ -127,7 +127,7 @@ function AnimatedRoutes() {
         {/* Protected routes - only accessible when logged in */}
         <Route path="/dashboard/*" element={
           <ProtectedRoute>
-            <Dashboard />
+            <DashboardLayout />
           </ProtectedRoute>
         } />
         

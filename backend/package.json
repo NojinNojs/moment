@@ -10,7 +10,17 @@
     "setup-env": "node scripts/setup-env.js",
     "setup-dev": "node scripts/setup-env.js development",
     "setup-prod": "node scripts/setup-env.js production",
-    "setup-test": "node scripts/setup-env.js test"
+    "setup-test": "node scripts/setup-env.js test",
+    "seed:categories": "node src/seeders/categorySeeders.js",
+    "init:categories": "node scripts/init-categories.js",
+    "setup:full": "npm run setup-dev && npm run seed:categories",
+    "setup:basic-categories": "cross-env USE_ADVANCED_CATEGORIES=false npm run seed:categories",
+    "setup:advanced-categories": "cross-env USE_ADVANCED_CATEGORIES=true npm run seed:categories",
+    "init:basic-categories": "cross-env USE_ADVANCED_CATEGORIES=false npm run init:categories",
+    "init:advanced-categories": "cross-env USE_ADVANCED_CATEGORIES=true npm run init:categories",
+    "drop:categories": "node scripts/drop-categories.js",
+    "reset:categories": "node scripts/reset-categories.js",
+    "fix:category-indexes": "node scripts/fix-category-indexes.js"
   },
   "keywords": [],
   "author": "",
@@ -25,6 +35,7 @@
     "csurf": "^1.10.0",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
+    "express-async-handler": "^1.2.0",
     "express-rate-limit": "^7.5.0",
     "express-validator": "^7.2.1",
     "figlet": "^1.8.0",
@@ -32,7 +43,8 @@
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.12.1",
     "swagger-jsdoc": "^6.2.8",
-    "swagger-ui-express": "^5.0.1"
+    "swagger-ui-express": "^5.0.1",
+    "winston": "^3.17.0"
   },
   "devDependencies": {
     "cross-env": "^7.0.3",

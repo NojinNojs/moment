@@ -122,3 +122,28 @@
     @apply bg-background text-foreground;
   }
 }
+
+@keyframes slideUp {
+  0% {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-slide-up {
+  animation: slideUp 0.5s ease-out forwards;
+}
+
+/* Basic mobile scrolling enhancements */
+.overflow-y-auto, .overflow-y-scroll {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Background size utility for animations */
+.bg-size-200 {
+  background-size: 200% 200%;
+}

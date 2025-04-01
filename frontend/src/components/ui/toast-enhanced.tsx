@@ -6,7 +6,7 @@ import { X, CheckCircle, AlertCircle, Info, AlertTriangle } from "lucide-react";
 type ToasterProps = React.ComponentProps<typeof Sonner>;
 
 const toastVariants = cva(
-  "group toast group flex w-full items-center justify-between space-x-4 overflow-hidden rounded-md border p-4 pr-6 shadow-lg transition-all data-[swipe=cancel]:translate-x-0 data-[swipe=end]:translate-x-[var(--radix-toast-swipe-end-x)] data-[swipe=move]:translate-x-[var(--radix-toast-swipe-move-x)] data-[opened]:animate-in data-[closed]:animate-out data-[closed]:fade-out-80 data-[closed]:slide-out-to-right-full data-[opened]:slide-in-from-top-full",
+  "group toast group flex w-full items-center justify-between space-x-4 overflow-hidden rounded-md border p-4 pr-6 shadow-lg transition-all data-[swipe=cancel]:translate-x-0 data-[swipe=end]:translate-x-[var(--radix-toast-swipe-end-x)] data-[swipe=move]:translate-x-[var(--radix-toast-swipe-move-x)] data-[opened]:animate-in data-[closed]:animate-out data-[closed]:fade-out-80 data-[closed]:slide-out-to-right-full data-[opened]:slide-in-from-top-full mb-safe-area-inset-bottom",
   {
     variants: {
       variant: {
@@ -78,9 +78,10 @@ export function Toaster({ ...props }: ToasterProps) {
   return (
     <Sonner
       className="toaster group"
+      position="bottom-right"
       toastOptions={{
         classNames: {
-          toast: "group toast group flex w-full items-center justify-between space-x-4 overflow-hidden rounded-md border p-4 pr-6 shadow-lg",
+          toast: "group toast group flex w-full items-center justify-between space-x-4 overflow-hidden rounded-md border p-4 pr-6 shadow-lg mb-safe-area-inset-bottom", 
           title: "text-foreground font-medium",
           description: "text-foreground text-sm",
           actionButton: "group-[.toast]:bg-primary group-[.toast]:text-primary-foreground",

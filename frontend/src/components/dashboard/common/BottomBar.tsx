@@ -2,14 +2,16 @@ import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import {
-  LayoutDashboard,
   Wallet,
   BarChart3,
   Settings,
-  Building2,
-  Receipt,
   ChevronUp,
   LucideIcon,
+  PiggyBank,
+  CreditCard,
+  Receipt,
+  Building2,
+  LayoutDashboard,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -27,18 +29,48 @@ interface NavigationItem {
 }
 
 // Base navigation items for mobile
-const navigation: NavigationItem[] = [
-  { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { 
-    name: "Financial", 
+const navigationItems = [
+  {
+    name: "Overview",
+    href: "/dashboard",
+    icon: LayoutDashboard,
+  },
+  {
+    name: "Finance",
     icon: Wallet,
     children: [
-      { name: "Transactions", href: "/dashboard/transactions", icon: Receipt },
-      { name: "Assets", href: "/dashboard/assets", icon: Building2 },
-    ]
+      {
+        name: "Bills",
+        href: "/dashboard/bills",
+        icon: Receipt,
+      },
+      {
+        name: "Savings",
+        href: "/dashboard/savings",
+        icon: PiggyBank,
+      },
+      {
+        name: "Transactions",
+        href: "/dashboard/transactions",
+        icon: CreditCard,
+      },
+      {
+        name: "Assets",
+        href: "/dashboard/assets",
+        icon: Building2,
+      },
+    ],
   },
-  { name: "Reports", href: "/dashboard/reports", icon: BarChart3 },
-  { name: "Settings", href: "/dashboard/settings", icon: Settings },
+  {
+    name: "Reports",
+    href: "/dashboard/reports",
+    icon: BarChart3,
+  },
+  {
+    name: "Settings",
+    href: "/dashboard/settings",
+    icon: Settings,
+  },
 ];
 
 export function BottomBar() {
@@ -57,9 +89,15 @@ export function BottomBar() {
   };
 
   return (
-    <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-background border-t border-border">
+    <div 
+      className="lg:hidden fixed bottom-0 left-0 right-0 z-[100] bg-background border-t border-border shadow-md"
+      style={{ 
+        paddingBottom: "env(safe-area-inset-bottom, 0px)",
+        bottom: 0
+      }}
+    >
       <nav className="grid grid-cols-4 h-16">
-        {navigation.map((item) => {
+        {navigationItems.map((item) => {
           const isActive = 
             (item.href && location.pathname === item.href) || 
             (item.href && item.href !== "/dashboard" && location.pathname.startsWith(item.href)) || 
@@ -126,7 +164,7 @@ export function BottomBar() {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: 10 }}
                     transition={{ duration: 0.2 }}
-                    className="absolute bottom-16 left-0 right-0 mx-auto w-48 bg-popover rounded-t-lg shadow-lg overflow-hidden border border-border"
+                    className="absolute bottom-16 left-0 right-0 mx-auto w-48 bg-popover rounded-t-lg shadow-lg overflow-hidden border border-border z-50"
                   >
                     <div className="p-1 flex flex-col">
                       {item.children.map((child) => {

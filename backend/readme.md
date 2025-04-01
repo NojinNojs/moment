@@ -4,65 +4,60 @@ A modern RESTful API built with Express.js, MongoDB, and JWT authentication, des
 
 ## 📑 Table of Contents
 
-- [Features](#features)
-- [Project Structure](#project-structure)
+- [Overview](#overview)
+- [Key Features](#key-features)
 - [Getting Started](#getting-started)
   - [Prerequisites](#prerequisites)
   - [Installation](#installation)
   - [Environment Setup](#environment-setup)
+  - [Database Setup](#database-setup)
+  - [Running the API](#running-the-api)
+- [Project Structure](#project-structure)
 - [API Documentation](#api-documentation)
   - [Base URL](#base-url)
   - [Authentication](#authentication)
   - [API Endpoints](#api-endpoints)
   - [Response Format](#response-format)
+- [Core Functionality](#core-functionality)
+  - [Authentication System](#authentication-system)
+  - [Transaction Management](#transaction-management)
+  - [Asset Management](#asset-management)
+  - [Categories System](#categories-system)
+- [Database Models](#database-models)
 - [Error Handling](#error-handling)
-- [Consuming the API](#consuming-the-api)
-- [License](#license)
+- [Security Measures](#security-measures)
+- [Testing](#testing)
+- [Deployment](#deployment)
+- [Troubleshooting](#troubleshooting)
+- [Contributing](#contributing)
 
-## ✨ Features
+## 🔍 Overview
 
-- **RESTful API Design**: Follows global standards for API design
-- **Express.js Server**: Fast, unopinionated backend framework
+The Moment API is the backend service for the Moment personal finance application. It provides a secure, scalable REST API that handles user authentication, data storage, and business logic for financial management features. The API follows RESTful principles and includes comprehensive validation, error handling, and documentation.
+
+## ✨ Key Features
+
+- **RESTful API Design**: Follows REST architectural principles for consistent interface
+- **Express.js Framework**: Fast, unopinionated backend framework
 - **MongoDB Database**: Flexible NoSQL database using Mongoose ODM
 - **JWT Authentication**: Secure authentication with JSON Web Tokens
-- **API Versioning**: Support for multiple API versions
+- **API Versioning**: Support for multiple API versions via URL prefixes
 - **Input Validation**: Request validation with express-validator
-- **Documentation**: Interactive OpenAPI/Swagger documentation
-- **Error Handling**: Standardized error responses
-- **CORS Support**: Cross-Origin Resource Sharing enabled
-- **Environment Configuration**: Separate development/production environments
-
-## 📂 Project Structure
-
-```
-backend/
-├── src/
-│   ├── config/         # Configuration (DB, env variables)
-│   ├── controllers/    # Route handlers (business logic)
-│   ├── middlewares/    # Custom middleware (auth, validation)
-│   ├── models/         # Mongoose data models
-│   ├── routes/         # API routes
-│   ├── services/       # External services integration
-│   ├── utils/          # Helper functions
-│   ├── public/         # Public assets for documentation
-│   ├── app.js          # Express app setup
-│   └── server.js       # Server entry point
-├── scripts/
-│   └── setup-env.js    # Environment setup automation
-├── .env.development    # Development environment variables
-├── .env.production     # Production environment variables
-├── .env.example        # Template for environment variables
-├── package.json        # Project dependencies
-└── README.md           # Project documentation
-```
+- **Swagger Documentation**: Interactive OpenAPI/Swagger documentation
+- **Error Handling**: Standardized error responses with proper HTTP codes
+- **Security Features**: CORS, rate limiting, secure headers, and more
+- **Logging**: Comprehensive logging with Winston
+- **Environment Configuration**: Separate development/production/testing environments
+- **Category Management**: Pre-built system for transaction categorization
 
 ## 🚀 Getting Started
 
 ### Prerequisites
 
-- Node.js (v16 or higher)
-- npm or yarn
-- MongoDB (local instance or MongoDB Atlas account)
+- Node.js (v16.x or higher)
+- npm (v7.x or higher)
+- MongoDB (v4.4 or higher) - local installation or cloud-based (MongoDB Atlas)
+- Git
 
 ### Installation
 
@@ -77,41 +72,132 @@ backend/
    npm install
    ```
 
-3. **Start the development server**
+3. **Set up environment variables**
+   ```bash
+   npm run setup-env
+   ```
+   This script guides you through setting up your environment variables, including:
+   - Server configuration
+   - Database connection
+   - Authentication settings
+   - API options
+
+   Alternatively, you can manually copy and edit the example file:
+   ```bash
+   cp .env.example .env
+   # Then edit .env with your preferred settings
+   ```
+
+### Database Setup
+
+1. **Connect to MongoDB**
+   
+   The API supports two methods for MongoDB connection:
+   
+   **Local MongoDB**:
+   - Install MongoDB on your local machine
+   - Start the MongoDB service
+   - Set your connection string to `mongodb://localhost:27017/momentdb`
+   
+   **MongoDB Atlas**:
+   - Create a MongoDB Atlas account
+   - Set up a cluster
+   - Get your connection string and add it to your .env file
+   - Make sure to whitelist your IP address in Atlas
+
+2. **Initialize Default Data**
+   
+   To seed the database with initial categories and settings:
+   ```bash
+   npm run seed:categories
+   ```
+
+### Running the API
+
+1. **Start the development server**
    ```bash
    npm run dev
    ```
-
-4. **Access the API documentation**
+   The API will be available at http://localhost:3000/api/v1
+   
+2. **Access the documentation**
+   
+   When the server is running, access the interactive API documentation at:
    ```
    http://localhost:3000/api/docs
    ```
 
-### Environment Setup
+3. **Testing with Postman**
+   
+   We provide a Postman collection for testing:
+   - Import the collection from `scripts/postman/moment-api.postman_collection.json`
+   - Set up a Postman environment with `baseUrl` variable
 
-We provide automated environment setup scripts to simplify configuration:
+## 📂 Project Structure
 
-```bash
-# Set up environment variables interactively
-npm run setup-env
-
-# Or set up a specific environment directly
-npm run setup-dev   # Development environment
-npm run setup-prod  # Production environment
 ```
-
-#### Available Environment Variables
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `PORT` | Server port number | `3000` |
-| `MONGO_URI` | MongoDB connection string | `mongodb://localhost:27017/momentdb` |
-| `JWT_SECRET` | Secret key for JWT tokens | Auto-generated |
-| `JWT_EXPIRE` | JWT token expiration time | `30d` (30 days) |
-| `CORS_ORIGIN` | Allowed origins for CORS | `http://localhost:5173` |
-| `LOG_LEVEL` | Logging level | `debug` |
-| `API_PREFIX` | API route prefix | `/api` |
-| `API_VERSION` | API version | `v1` |
+backend/
+├── src/
+│   ├── config/              # Configuration files
+│   │   ├── database.js      # Database connection
+│   │   ├── env.js           # Environment variable handling
+│   │   └── logger.js        # Logging configuration
+│   │
+│   ├── controllers/         # Request handlers
+│   │   ├── authController.js       # Authentication endpoints
+│   │   ├── transactionController.js # Transaction endpoints
+│   │   ├── assetController.js      # Asset endpoints
+│   │   ├── categoryController.js   # Category endpoints
+│   │   └── ...
+│   │
+│   ├── middlewares/         # Custom middleware
+│   │   ├── authMiddleware.js        # Authentication middleware
+│   │   ├── errorMiddleware.js       # Error handling middleware
+│   │   ├── validationMiddleware.js  # Request validation
+│   │   └── ...
+│   │
+│   ├── models/              # Mongoose data models
+│   │   ├── User.js          # User model
+│   │   ├── Transaction.js   # Transaction model
+│   │   ├── Asset.js         # Asset model
+│   │   ├── Category.js      # Category model
+│   │   └── ...
+│   │
+│   ├── routes/              # API routes
+│   │   ├── authRoutes.js        # Authentication routes
+│   │   ├── transactionRoutes.js # Transaction routes
+│   │   ├── assetRoutes.js       # Asset routes
+│   │   ├── categoryRoutes.js    # Category routes
+│   │   └── ...
+│   │
+│   ├── services/            # Business logic
+│   │   ├── authService.js        # Authentication logic
+│   │   ├── transactionService.js # Transaction logic
+│   │   └── ...
+│   │
+│   ├── utils/               # Helper functions
+│   │   ├── apiResponse.js   # Standardized response formatter
+│   │   ├── dateUtils.js     # Date/time utilities
+│   │   └── ...
+│   │
+│   ├── app.js               # Express app configuration
+│   └── server.js            # Server entry point
+│
+├── scripts/                 # Utility scripts
+│   ├── setup-env.js         # Environment setup script
+│   ├── seed-categories.js   # Database seeding script
+│   └── ...
+│
+├── tests/                   # Test files
+│   ├── integration/         # Integration tests
+│   ├── unit/                # Unit tests
+│   └── ...
+│
+├── .env.example             # Example environment variables
+├── .env.development         # Development environment variables
+├── .env.production          # Production environment variables
+└── ...                      # Configuration files
+```
 
 ## 📚 API Documentation
 
@@ -121,6 +207,11 @@ Interactive API documentation is available at `/api/docs` when the server is run
 
 ```
 http://localhost:3000/api/v1
+```
+
+For production:
+```
+https://api.moment-finance.com/api/v1
 ```
 
 ### Authentication
@@ -143,16 +234,41 @@ Authorization: Bearer YOUR_TOKEN_HERE
 | POST   | /auth/register  | Register a new user        | Public      |
 | POST   | /auth/login     | Authenticate user          | Public      |
 | GET    | /auth/me        | Get current user profile   | Protected   |
+| POST   | /auth/logout    | Logout user                | Protected   |
 
 #### Transaction Routes
 
-| Method | Endpoint               | Description                   | Access      |
-|--------|------------------------|-------------------------------|-------------|
-| GET    | /transactions          | Get all user transactions     | Protected   |
-| POST   | /transactions          | Create a new transaction      | Protected   |
-| GET    | /transactions/:id      | Get transaction by ID         | Protected   |
-| PUT    | /transactions/:id      | Update transaction            | Protected   |
-| DELETE | /transactions/:id      | Delete transaction            | Protected   |
+| Method | Endpoint                     | Description                   | Access      |
+|--------|------------------------------|-------------------------------|-------------|
+| GET    | /transactions                | Get all user transactions     | Protected   |
+| POST   | /transactions                | Create a new transaction      | Protected   |
+| GET    | /transactions/:id            | Get transaction by ID         | Protected   |
+| PUT    | /transactions/:id            | Update transaction            | Protected   |
+| DELETE | /transactions/:id            | Soft delete transaction       | Protected   |
+| DELETE | /transactions/:id/permanent  | Permanently delete transaction| Protected   |
+| PUT    | /transactions/:id/restore    | Restore deleted transaction   | Protected   |
+
+#### Asset Routes
+
+| Method | Endpoint                   | Description                | Access      |
+|--------|----------------------------|----------------------------|-------------|
+| GET    | /assets                    | Get all user assets        | Protected   |
+| POST   | /assets                    | Create a new asset         | Protected   |
+| GET    | /assets/:id                | Get asset by ID            | Protected   |
+| PUT    | /assets/:id                | Update asset               | Protected   |
+| DELETE | /assets/:id                | Delete asset               | Protected   |
+| POST   | /assets/transfer           | Transfer between assets    | Protected   |
+| GET    | /assets/transfers          | Get asset transfer history | Protected   |
+
+#### Category Routes
+
+| Method | Endpoint                  | Description                | Access      |
+|--------|---------------------------|----------------------------|-------------|
+| GET    | /categories               | Get all categories         | Protected   |
+| POST   | /categories               | Create a new category      | Protected   |
+| GET    | /categories/:id           | Get category by ID         | Protected   |
+| PUT    | /categories/:id           | Update category            | Protected   |
+| DELETE | /categories/:id           | Delete category            | Protected   |
 
 ### Response Format
 
@@ -179,9 +295,132 @@ All API responses follow a standard format:
 }
 ```
 
+## 💻 Core Functionality
+
+### Authentication System
+
+User authentication is implemented using JWT (JSON Web Tokens):
+
+- **Registration**: User provides name, email, and password
+- **Login**: User provides email and password, receives JWT token
+- **Token Validation**: Middleware validates JWT token for protected routes
+- **Token Expiration**: Tokens expire after the configured time (default: 30 days)
+
+Security measures include:
+- Password hashing with bcrypt
+- JWT secret key for signing tokens
+- Token expiration
+- HTTP-only cookies option for production
+
+Implementation details:
+- JWT tokens are created in the authController
+- Token validation is handled by the authMiddleware
+- All protected routes use the 'protect' middleware
+
+### Transaction Management
+
+Transactions form the core of the financial management system:
+
+- **Types**: Transactions can be income or expense
+- **Properties**: Include amount, category, date, description, etc.
+- **Soft Delete**: Transactions are marked as deleted but not removed
+- **Permanent Delete**: Option to permanently remove transactions
+- **Restore**: Deleted transactions can be restored
+
+Implementation:
+- Transactions belong to a specific user
+- Multiple filtering options (date range, category, type)
+- Pagination support for transaction listing
+- Sorting by various fields
+
+### Asset Management
+
+Assets represent financial accounts:
+
+- **Types**: Cash, bank account, credit card, investment, etc.
+- **Balance**: Each asset maintains a current balance
+- **Transfers**: Assets support transfers between accounts
+- **History**: Maintains transaction history for each asset
+
+Implementation:
+- Balance is updated automatically on transactions
+- Transfer operations create corresponding transactions
+- Validation ensures sufficient funds for transfers
+
+### Categories System
+
+Categories organize transactions for better insights:
+
+- **Types**: Income and expense categories
+- **Presets**: System comes with predefined categories
+- **Customization**: Users can create custom categories
+- **Color Coding**: Categories can have associated colors
+
+Implementation:
+- Categories are shared across users but belong to a system
+- Seeding script creates default categories
+- Categories can be customized with colors and icons
+
+## 🗃️ Database Models
+
+### User Model
+
+```javascript
+{
+  name: String,       // User's full name
+  email: String,      // Unique email address
+  password: String,   // Hashed password
+  createdAt: Date,    // Account creation date
+  updatedAt: Date     // Last update date
+}
+```
+
+### Transaction Model
+
+```javascript
+{
+  amount: Number,     // Transaction amount
+  type: String,       // 'income' or 'expense'
+  category: String,   // Category ID or name
+  title: String,      // Short title
+  description: String,// Optional description
+  date: Date,         // Transaction date
+  account: ObjectId,  // Reference to Asset model
+  isDeleted: Boolean, // Soft delete flag
+  user: ObjectId      // Reference to User model
+}
+```
+
+### Asset Model
+
+```javascript
+{
+  name: String,       // Asset name
+  type: String,       // Asset type (cash, bank, etc.)
+  balance: Number,    // Current balance
+  initialBalance: Number, // Starting balance
+  description: String,// Optional description
+  isDeleted: Boolean, // Soft delete flag
+  user: ObjectId      // Reference to User model
+}
+```
+
+### Category Model
+
+```javascript
+{
+  name: String,       // Category name
+  type: String,       // 'income' or 'expense'
+  color: String,      // Color code (hex)
+  icon: String,       // Icon identifier
+  isDefault: Boolean, // Whether it's a system default
+  user: ObjectId      // Reference to User model (null for defaults)
+}
+```
+
 ## ⚠️ Error Handling
 
-The API uses standard HTTP status codes:
+The API uses standard HTTP status codes and a consistent error response format:
 
 - `200 OK`: Request succeeded
 - `201 Created`: Resource created successfully
@@ -192,167 +431,127 @@ The API uses standard HTTP status codes:
 - `422 Unprocessable Entity`: Validation error
 - `500 Server Error`: Something went wrong on the server
 
-## 🔄 Consuming the API
+Error handling implementation:
+- Centralized error middleware
+- Standardized error response format
+- Detailed validation error messages
+- Production vs. development error details
+- Error logging with Winston logger
 
-### Using Fetch API (JavaScript)
+## 🔒 Security Measures
 
-```javascript
-// Example: Login with Fetch API
-const loginUser = async (email, password) => {
-  try {
-    const response = await fetch('http://localhost:3000/api/v1/auth/login', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ email, password }),
-    });
-    
-    const data = await response.json();
-    
-    if (!data.success) {
-      throw new Error(data.message);
-    }
-    
-    // Store token for future requests
-    localStorage.setItem('token', data.data.token);
-    
-    return data.data;
-  } catch (error) {
-    console.error('Login error:', error);
-    throw error;
-  }
-};
+The API implements several security best practices:
 
-// Example: Get user profile with Fetch API (protected route)
-const getUserProfile = async () => {
-  try {
-    const token = localStorage.getItem('token');
-    
-    if (!token) {
-      throw new Error('No authentication token found');
-    }
-    
-    const response = await fetch('http://localhost:3000/api/v1/auth/me', {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      },
-    });
-    
-    const data = await response.json();
-    
-    if (!data.success) {
-      throw new Error(data.message);
-    }
-    
-    return data.data;
-  } catch (error) {
-    console.error('Get profile error:', error);
-    throw error;
-  }
-};
+- **CORS**: Configurable Cross-Origin Resource Sharing
+- **Helmet**: HTTP security headers
+- **Rate Limiting**: Prevent brute force attacks
+- **Input Validation**: Validate all user inputs
+- **Password Security**: Bcrypt hashing with appropriate salt rounds
+- **XSS Protection**: Sanitize inputs to prevent cross-site scripting
+- **CSRF Protection**: Cross-site request forgery prevention
+- **MongoDB Injection Prevention**: Sanitize database queries
+- **Sensitive Data Exposure**: Hide sensitive data in responses
+
+## 🧪 Testing
+
+We use Jest and Supertest for testing:
+
+```bash
+# Run all tests
+npm run test
+
+# Run specific test suite
+npm run test:auth
+npm run test:transactions
+
+# Run tests with coverage
+npm run test:coverage
 ```
 
-### Using Axios (JavaScript)
+Test organization:
+- Unit tests for individual functions
+- Integration tests for API endpoints
+- Test database setup and teardown
 
-```javascript
-// Example: Login with Axios
-import axios from 'axios';
+## 🚢 Deployment
 
-const api = axios.create({
-  baseURL: 'http://localhost:3000/api/v1',
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
+### Deployment Options
 
-// Add a response interceptor to standardize error handling
-api.interceptors.response.use(
-  (response) => response.data,
-  (error) => {
-    const message = error.response?.data?.message || error.message;
-    return Promise.reject(new Error(message));
-  }
-);
+1. **Docker Deployment**
+   ```bash
+   # Build Docker image
+   docker build -t moment-api .
+   
+   # Run container
+   docker run -p 3000:3000 moment-api
+   ```
 
-// Add auth token to requests when available
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
+2. **Standard Node.js Deployment**
+   ```bash
+   # Build for production
+   npm run build
+   
+   # Start production server
+   npm start
+   ```
 
-// Authentication functions
-const authService = {
-  // Register a new user
-  register: async (userData) => {
-    const response = await api.post('/auth/register', userData);
-    if (response.success && response.data.token) {
-      localStorage.setItem('token', response.data.token);
-    }
-    return response.data;
-  },
-  
-  // Login user
-  login: async (credentials) => {
-    const response = await api.post('/auth/login', credentials);
-    if (response.success && response.data.token) {
-      localStorage.setItem('token', response.data.token);
-    }
-    return response.data;
-  },
-  
-  // Get current user profile
-  getCurrentUser: async () => {
-    const response = await api.get('/auth/me');
-    return response.data;
-  },
-  
-  // Logout user
-  logout: () => {
-    localStorage.removeItem('token');
-  },
-};
+3. **Cloud Deployment**
+   
+   The API can be deployed to any Node.js hosting service like:
+   - AWS Elastic Beanstalk
+   - Google Cloud Run
+   - Heroku
+   - Digital Ocean
 
-// Transaction functions
-const transactionService = {
-  // Get all transactions with optional filters
-  getTransactions: async (params = {}) => {
-    const response = await api.get('/transactions', { params });
-    return response;
-  },
-  
-  // Create a new transaction
-  createTransaction: async (transactionData) => {
-    const response = await api.post('/transactions', transactionData);
-    return response;
-  },
-  
-  // Get a single transaction by ID
-  getTransactionById: async (id) => {
-    const response = await api.get(`/transactions/${id}`);
-    return response;
-  },
-  
-  // Update a transaction
-  updateTransaction: async (id, transactionData) => {
-    const response = await api.put(`/transactions/${id}`, transactionData);
-    return response;
-  },
-  
-  // Delete a transaction
-  deleteTransaction: async (id) => {
-    const response = await api.delete(`/transactions/${id}`);
-    return response;
-  },
-};
+### Production Considerations
 
-export { authService, transactionService };
-```
+- Set up a production MongoDB instance (MongoDB Atlas recommended)
+- Configure environment variables for production
+- Set up proper logging
+- Implement monitoring with tools like Prometheus or Datadog
+- Set up CI/CD pipeline for automated deployments
 
-## 📄 License
+## ❓ Troubleshooting
 
-MIT 
+### Common Issues
+
+1. **Database Connection Errors**
+   - Check MongoDB connection string
+   - Verify network connectivity
+   - Check database user permissions
+   - Make sure IP is whitelisted if using Atlas
+
+2. **Authentication Issues**
+   - Check JWT secret in environment variables
+   - Verify token expiration settings
+   - Check for clock drift between systems
+
+3. **Validation Errors**
+   - Check API documentation for required fields
+   - Ensure data types match expected formats
+   - Verify that fields meet length/format requirements
+
+4. **Server Startup Problems**
+   - Check for port conflicts
+   - Verify all environment variables are set
+   - Check log files for detailed errors
+
+## 👥 Contributing
+
+Contributions are welcome! To contribute:
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/amazing-feature`
+3. Follow coding standards and conventions
+4. Write tests for your changes
+5. Submit a pull request with a clear description
+
+### Development Guidelines
+
+- Use consistent code formatting
+- Add appropriate comments and documentation
+- Write unit and integration tests
+- Follow existing patterns for controllers and routes
+- Update API documentation for any changes
+
+For more detailed information, see the main [CONTRIBUTING.md](../CONTRIBUTING.md) file. 

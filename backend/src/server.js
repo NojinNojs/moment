@@ -4,12 +4,35 @@ const chalk = require('chalk');
 const figlet = require('figlet');
 const connectDB = require('./config/db');
 const loadEnv = require('./config/dotenv');
+const getRoutesList = require('./utils/getRoutesList');
 
 // Load environment variables
 loadEnv();
 
-// Connect to the database - single connection for the entire app
-connectDB();
+// Single database connection for the entire app
+console.log(chalk.yellow('📊 Connecting to MongoDB...'));
+connectDB().then(async () => {
+  console.log(chalk.green('✅ MongoDB Connected: ') + chalk.bold.green('localhost ✓'));
+  
+  // Run category seeder if needed (after connection is established)
+  if (global.runCategorySeedersAfterConnection === true) {
+    try {
+      const seedCategories = require('./seeders/categorySeeders');
+      const success = await seedCategories();
+      
+      if (success) {
+        console.log(chalk.green('✅ Categories seeder completed successfully!'));
+      } else {
+        console.log(chalk.yellow('⚠️ Categories seeder completed with errors.'));
+      }
+    } catch (error) {
+      console.error(chalk.red(`❌ Error running category seeder: ${error.message}`));
+    }
+  }
+}).catch(err => {
+  console.error(chalk.red('❌ Failed to connect to MongoDB: ') + chalk.bold.red(err.message));
+  process.exit(1);
+});
 
 // Start the server
 const PORT = process.env.PORT || 3000;
@@ -33,13 +56,11 @@ const server = app.listen(PORT, () => {
   console.log(`${chalk.green('✅')} ${chalk.bold.yellow('MongoDB:')} ${chalk.bold.green('Connected')}`);
   console.log(chalk.bold('------------------------------------------------------') + '\n');
   
-  const routes = [
-    { path: `${process.env.API_PREFIX || '/api'}${process.env.API_VERSION ? '/' + process.env.API_VERSION : ''}/auth/register`, method: 'POST', description: 'Register a new user' },
-    { path: `${process.env.API_PREFIX || '/api'}${process.env.API_VERSION ? '/' + process.env.API_VERSION : ''}/auth/login`, method: 'POST', description: 'Authenticate user & get token' },
-    { path: `${process.env.API_PREFIX || '/api'}${process.env.API_VERSION ? '/' + process.env.API_VERSION : ''}/auth/me`, method: 'GET', description: 'Get current user profile' },
-    { path: `${process.env.API_PREFIX || '/api'}/docs`, method: 'GET', description: 'API Documentation' },
-    { path: `${process.env.API_PREFIX || '/api'}/health`, method: 'GET', description: 'Health Check' }
-  ];
+  // Get the list of available routes using our utility function
+  const routes = getRoutesList(app, {
+    apiPrefix: process.env.API_PREFIX || '/api',
+    apiVersion: process.env.API_VERSION || 'v1'
+  });
   
   console.log(chalk.bold.yellow('Available Routes:'));
   routes.forEach(route => {
