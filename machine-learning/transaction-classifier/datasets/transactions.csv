@@ -1,139 +1,177 @@
 text,label
-"Menerima gaji bulanan sebesar Rp 15.000.000",Income
-"Beli bahan makanan di Supermarket",Food & Dining
-"Bayar tagihan listrik bulan ini",Utilities
-"Langganan Netflix",Entertainment
-"Bayar tagihan kartu kredit",Debt & Loans
-"Investasi saham di BCA",Savings & Investments
-"Donasi untuk Palang Merah",Gifts & Donations
-"Naik Gojek ke bandara",Transportation
-"Beli laptop baru di Tokopedia",Shopping
-"Bayar membership gym",Health & Fitness
-"Bayar fitness center",Health & Fitness
-"Beli buku belajar Python",Education
-"Beli kopi di Starbucks",Food & Dining
-"Transfer uang untuk biaya sekolah anak",Education
-"Bayar cicilan mobil",Debt & Loans
-"Pulsa dan paket data",Utilities
-"Tiket konser Coldplay",Entertainment
-"Menerima gaji bulan Januari sebesar Rp 8.000.000",Income
-"Bonus akhir tahun dari kantor",Income
-"Hasil investasi saham menguntungkan",Income
-"Pendapatan freelance bulan ini",Income
-"Dividen dari reksadana diterima",Income
-"Beli makan siang di warteg",Food & Dining
-"Pesan makanan via GrabFood",Food & Dining
-"Kopi di Starbucks Grand Indonesia",Food & Dining
-"Belanja bulanan di Supermarket",Food & Dining
-"Nongkrong di kafe daerah Kemang",Food & Dining
-"Bayar bensin mobil di Pertamina",Transportation
-"Pesan Gojek ke kantor",Transportation
-"Beli tiket kereta Jakarta-Bandung",Transportation
-"Parkir di mall selama 3 jam",Transportation
-"Servis mobil di bengkel resmi",Transportation
-"Beli baju baru di Tokopedia",Shopping
-"Pembelian smartphone di Lazada",Shopping
-"Belanja perlengkapan rumah di IKEA",Shopping
-"Beli sepatu di Mall Taman Anggrek",Shopping
-"Pembelian kosmetik online",Shopping
-"Bayar tagihan listrik bulan April",Utilities
-"Pembayaran paket internet Indihome",Utilities
-"Isi pulsa Telkomsel 100rb",Utilities
-"Bayar tagihan air PDAM",Utilities
-"Langganan Netflix bulanan",Utilities
-"Nonton film di CGV",Entertainment
-"Langganan Spotify Premium",Entertainment
-"Beli tiket konser Coldplay",Entertainment
-"Main golf di klub kota",Entertainment
-"Langganan Disney+ Hotstar",Entertainment
-"Bayar membership gym",Health & Fitness
-"Beli obat di Apotek K24",Health & Fitness
-"Konsultasi dokter umum",Health & Fitness
-"Pembelian vitamin di GoApotik",Health & Fitness
-"Periksa gigi di klinik",Health & Fitness
-"Bayar SPP sekolah anak",Education
-"Beli buku programming Python",Education
-"Kursus online di Udemy",Education
-"Pembelian alat tulis sekolah",Education
-"Biaya les privat matematika",Education
-"Bayar cicilan KPR bulanan",Debt & Loans
-"Angsuran kartu kredit BCA",Debt & Loans
-"Pinjaman online yang dibayar",Debt & Loans
-"Cicilan motor bulan ini",Debt & Loans
-"Pelunasan hutang ke teman",Debt & Loans
-"Investasi saham di Bibit",Savings & Investments
-"Deposito di bank sebesar 10jt",Savings & Investments
-"Beli emas antam 5 gram",Savings & Investments
-"Setor tabungan bulanan",Savings & Investments
-"Investasi reksadana pasar uang",Savings & Investments
-"Donasi ke panti asuhan",Gifts & Donations
-"Hadiah ulang tahun untuk adik",Gifts & Donations
-"Sumbangan untuk korban banjir",Gifts & Donations
-"Transfer uang ke orang tua",Gifts & Donations
-"Amal ke masjid dekat rumah",Gifts & Donations
-"Biaya perbaikan laptop mendadak",Miscellaneous
-"Pengeluaran tak terduga",Miscellaneous
-"Kehilangan uang di jalan",Miscellaneous
-"Biaya administrasi bank",Miscellaneous
-"Pengiriman paket via JNE",Miscellaneous
-"Pendapatan dari dividen saham",Income
-"Honorarium mengajar bulan ini",Income
-"Uang THR dari perusahaan",Income
-"Pembayaran royalti buku",Income
-"Beli sarapan pagi di kaki lima",Food & Dining
-"Makan malam di restoran Padang",Food & Dining
-"Ngopi pagi di kedai kopi",Food & Dining
-"Beli snack di minimarket",Food & Dining
-"Bayar parkir tol jalan",Transportation
-"Servis rutin mobil bulanan",Transportation
-"Beli ban baru untuk motor",Transportation
-"Bayar tiket bus antar kota",Transportation
-"Beli tas branded online",Shopping
-"Pembelian gadget baru",Shopping
-"Belanja baju lebaran",Shopping
-"Beli peralatan dapur",Shopping
-"Bayar tagihan telepon rumah",Utilities
-"Pembayaran asuransi kesehatan",Utilities
-"Biaya langganan koran",Utilities
-"Bayar iuran RT bulanan",Utilities
-"Nonton pertandingan sepakbola",Entertainment
-"Langganan majalah bulanan",Entertainment
-"Beli game di Steam",Entertainment
-"Tiket wahana bermain anak",Entertainment
-"Konsultasi dokter spesialis",Health & Fitness
-"Beli alat olahraga",Health & Fitness
-"Pemeriksaan mata di optik",Health & Fitness
-"Terapi fisik mingguan",Health & Fitness
-"Bayar uang pangkal kuliah",Education
-"Beli modul kursus bahasa",Education
-"Biaya seminar online",Education
-"Pembelian buku pelajaran",Education
-"Bayar cicilan rumah",Debt & Loans
-"Pinjaman bank untuk modal usaha",Debt & Loans
-"Angsuran leasing mobil",Debt & Loans
-"Pelunasan pinjaman online",Debt & Loans
-"Beli reksadana campuran",Savings & Investments
-"Deposito berjangka 1 tahun",Savings & Investments
-"Investasi obligasi pemerintah",Savings & Investments
-"Beli cryptocurrency",Savings & Investments
-"Sumbangan untuk panti jompo",Gifts & Donations
-"Hadiah pernikahan teman",Gifts & Donations
-"Donasi bencana alam",Gifts & Donations
-"Bingkisan untuk klien",Gifts & Donations
-"Biaya servis AC rumah",Miscellaneous
-"Penggantian kunci pintu",Miscellaneous
-"Biaya notaris dokumen",Miscellaneous
-"Pembayaran denda perpustakaan",Miscellaneous
-"Pendapatan dari sewa properti",Income
-"Komisi penjualan bulan ini",Income
-"Beli makan siang kantor",Food & Dining
-"Bayar bengkel mobil",Transportation
-"Pembelian furniture baru",Shopping
-"Bayar iuran internet",Utilities
-"Beli tiket museum",Entertainment
-"Pemeriksaan kesehatan tahunan",Health & Fitness
-"Biaya kursus musik",Education
-"Bayar angsuran kredit usaha",Debt & Loans
-"Beli saham blue chip",Savings & Investments
-"Donasi yatim piatu",Gifts & Donations
-"Biaya servis elektronik",Miscellaneous
+Gaji bulan Januari dari PT Maju Jaya,Salary
+Transfer gaji bulan Februari,Salary
+Pembayaran gaji pokok karyawan,Salary
+Gaji tetap akhir bulan,Salary
+Pencairan gaji via transfer bank,Salary
+Take home pay bulan Maret,Salary
+Salary credit from Acme Corp,Salary
+Monthly salary deposit,Salary
+Base salary payment,Salary
+Net salary after deductions,Salary
+Payroll transfer from employer,Salary
+Salary for April 2024,Salary
+Pendapatan gaji bersih,Salary
+Gaji + tunjangan kesehatan,Salary
+Basic salary + transportation,Salary
+Bonus proyek Q1 selesai,Bonus
+Insentif kinerja tim,Bonus
+Bonus akhir tahun 2023,Bonus
+Bonus penjualan triwulanan,Bonus
+Bonus penyelesaian target,Bonus
+Bonus kehadiran sempurna,Bonus
+Performance bonus Q2,Bonus
+Sales achievement bonus,Bonus
+Annual performance incentive,Bonus
+Quarterly target bonus,Bonus
+Team completion bonus,Bonus
+Attendance perfect bonus,Bonus
+Extra payment for overtime,Bonus
+Bonus lembur akhir pekan,Bonus
+Pendapatan desain logo freelance,Freelance
+Honorarium mengajar privat,Freelance
+Bayaran jasa terjemahan dokumen,Freelance
+Fee konsultasi IT bulan ini,Freelance
+Pembayaran artikel 10 tulisan,Freelance
+Freelance web development fee,Freelance
+Graphic design project payment,Freelance
+Consulting service income,Freelance
+Translation work payment,Freelance
+Tutoring service earnings,Freelance
+Writing commission payment,Freelance
+Programming freelance income,Freelance
+Dividen saham BBCA Q2,Dividend
+Pembagian dividen saham TLKM,Dividend
+Dividen kuartalan dari portofolio,Dividend
+Hasil dividen reksadana campuran,Dividend
+Dividen saham Bank BCA,Dividend
+Stock dividend from APPL,Dividend
+Quarterly stock dividends,Dividend
+Mutual fund dividend payout,Dividend
+Portfolio dividend income,Dividend
+Investment trust dividends,Dividend
+Pendapatan sewa ruko bulanan,Rental
+Uang sewa apartemen Thamrin,Rental
+Pembayaran sewa kantor lantai 3,Rental
+Sewa harian mobil Avanza,Rental
+Income from property rental,Rental
+Apartment lease payment,Rental
+Office space rental income,Rental
+Car rental daily payment,Rental
+Equipment lease revenue,Rental
+THR Lebaran 1445 H,Holiday Bonus
+Tunjangan Hari Raya 2024,Holiday Bonus
+Bonus THR untuk karyawan,Holiday Bonus
+Eid al-Fitr holiday allowance,Holiday Bonus
+Year-end holiday bonus,Holiday Bonus
+Religious holiday payment,Holiday Bonus
+Festive season allowance,Holiday Bonus
+Penjualan mobil Honda bekas,Asset Sale
+Hasil lelang barang antik,Asset Sale
+Pendapatan jual laptop gaming,Asset Sale
+Uang hasil jual tanah warisan,Asset Sale
+Used car sale proceeds,Asset Sale
+Antique auction earnings,Asset Sale
+Secondhand electronics sale,Asset Sale
+Property sale commission,Asset Sale
+Uang saku dari orangtua,Allowance
+Transfer bulanan untuk biaya kuliah,Allowance
+Biaya hidup dari sponsor,Allowance
+Weekly allowance from parents,Allowance
+College monthly allowance,Allowance
+Living expense stipend,Allowance
+Student support money,Allowance
+Warisan orang tua setelah dijual,Inheritance
+Pembagian harta warisan keluarga,Inheritance
+Hibah tanah dari eyang,Inheritance
+Inheritance from late father,Inheritance
+Family estate distribution,Inheritance
+Received inheritance money,Inheritance
+Pensiun bulanan dari Taspen,Pension
+Dana pensiun dari BUMN,Pension
+Pembayaran pensiun pegawai negeri,Pension
+Monthly pension deposit,Pension
+Retirement fund payment,Pension
+Company pension scheme,Pension
+Pengembalian tiket pesawat Lion,Refund
+Refund hotel karena dibatalkan,Refund
+Uang kembali belanja online,Refund
+Flight ticket refund,Refund
+Hotel booking cancellation,Refund
+E-commerce purchase return,Refund
+Pendapatan warung makan,Small Business
+Hasil penjualan online shop,Small Business
+Keuntungan bisnis laundry,Small Business
+Cafe daily revenue,Small Business
+Online store profits,Small Business
+Home bakery sales,Small Business
+Hadiah ultah dari saudara,Gift
+Uang angpao tahun baru,Gift
+Bingkisan pernikahan teman,Gift
+Birthday gift money,Gift
+New year red packet,Gift
+Wedding present cash,Gift
+Keuntungan saham di pasar modal,Investment
+Return investasi reksadana,Investment
+Hasil investasi properti,Investment
+Stock market gains,Investment
+Mutual fund returns,Investment
+Real estate investment profit,Investment
+Transfer dari teman untuk patungan,Other
+Kiriman uang tidak dikenal,Other
+Donasi bencana gempa,Other
+Money from friend for dinner,Other
+Unidentified cash deposit,Other
+Charity donation transfer,Other
+"Pembayaran sewa apartemen bulanan","Rental"
+"Monthly apartment rental payment","Rental"
+"Pendapatan sewa kendaraan","Rental"
+"Vehicle rental income","Rental"
+"Bayaran sewa gedung kantor","Rental"
+"Office space lease payment","Rental"
+"Uang warisan dari orang tua","Inheritance"
+"Inheritance money from parents","Inheritance"
+"Harta warisan keluarga","Inheritance"
+"Family heritage assets","Inheritance"
+"Pembagian warisan","Inheritance"
+"Estate distribution payment","Inheritance"
+"Pensiun dari perusahaan","Pension"
+"Company pension fund","Pension"
+"Dana pensiun bulanan","Pension"
+"Monthly retirement fund","Pension"
+"Pembayaran pensiun","Pension"
+"Pension fund disbursement","Pension"
+"Uang jajan anak kuliah","Allowance"
+"College student allowance","Allowance"
+"Biaya hidup bulanan mahasiswa","Allowance"
+"Monthly living allowance for student","Allowance"
+"Uang saku pekerja lepas","Allowance"
+"Freelancer's stipend","Allowance"
+"Pendapatan bisnis retail","Small Business"
+"Retail business income","Small Business"
+"Keuntungan toko kelontong","Small Business"
+"Grocery store profits","Small Business"
+"Hasil usaha makanan","Small Business"
+"Food business revenue","Small Business"
+"Return saham teknologi","Investment"
+"Tech stock investment return","Investment"
+"Keuntungan reksadana","Investment"
+"Mutual fund gains","Investment"
+"Dividen portofolio","Investment"
+"Investment portfolio dividends","Investment"
+"Bonus target penjualan","Bonus"
+"Sales target bonus","Bonus"
+"Insentif proyek selesai","Bonus"
+"Project completion incentive","Bonus"
+"Bayaran jasa konsultasi","Freelance"
+"Consultation service payment","Freelance"
+"Honorarium narasumber","Freelance"
+"Speaker's honorarium","Freelance"
+"Pengembalian produk cacat","Refund"
+"Defective product refund","Refund"
+"Refund pembelian online","Refund"
+"Online purchase refund","Refund"
+"Hadiah ulang tahun perusahaan","Gift"
+"Company anniversary gift","Gift"
+"Angpao tahun baru","Gift"
+"New year's money gift","Gift"
