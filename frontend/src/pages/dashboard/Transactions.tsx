@@ -256,7 +256,7 @@ export default function Transactions() {
   
   const totalIncome = useMemo(() => 
     activeTransactions
-      .filter(t => t.type === "income")
+    .filter(t => t.type === "income")
       .reduce((sum, t) => sum + t.amount, 0),
     [activeTransactions]
   );
@@ -524,9 +524,9 @@ export default function Transactions() {
     }
 
     try {
-      // Get the transaction type and convert amount
-      const type = currentTransactionType;
-      const amount = parseFloat(formData.amount);
+    // Get the transaction type and convert amount
+    const type = currentTransactionType;
+    const amount = parseFloat(formData.amount);
 
       // Ensure date is properly formatted
       let formattedDate = formData.date;
@@ -541,18 +541,18 @@ export default function Transactions() {
         console.error("Error formatting date for submit:", error);
       }
 
-      if (currentTransactionMode === 'add') {
+    if (currentTransactionMode === 'add') {
         // Prepare transaction data for API
         const transactionData = {
           amount,
           type,
-          category: formData.category,
+        category: formData.category,
           title: formData.title || (type === 'income' ? 'Income' : 'Expense'), // Default title if empty
           description: formData.description || '', // Default empty string if not provided
           date: formattedDate || new Date().toISOString().split('T')[0], // Format date properly
-          account: formData.account
-        };
-
+        account: formData.account
+      };
+      
         // Debug log the transaction data
         console.log('Submitting transaction data:', transactionData);
 
@@ -565,7 +565,7 @@ export default function Transactions() {
         }
         
         if (response.success && response.data) {
-          // Add to transactions list
+      // Add to transactions list
           setTransactions(prev => [response.data as Transaction, ...prev]);
           
           // Emit event to notify other components (e.g. Overview) of the new transaction
@@ -576,13 +576,13 @@ export default function Transactions() {
           });
           
           // Show success toast
-          toast.success("Transaction added", {
+      toast.success("Transaction added", {
             description: `${type === "income" ? "Income" : "Expense"} of $${Math.abs(response.data.amount).toFixed(2)} has been added.`,
-            position: "bottom-right",
+        position: "bottom-right",
             id: `add-transaction-${response.data._id}`, // Use unique ID
-          });
+      });
         }
-      } else if (currentTransactionMode === 'edit' && currentTransactionId) {
+    } else if (currentTransactionMode === 'edit' && currentTransactionId) {
         // Get the transaction to edit
         const transactionToEdit = transactions.find(t => t.id === currentTransactionId);
         if (!transactionToEdit) {
@@ -600,11 +600,11 @@ export default function Transactions() {
           amount,
           type,
           category: formData.category,
-          title: formData.title,
-          description: formData.description,
+            title: formData.title,
+            description: formData.description,
           date: formattedDate,
-          account: formData.account
-        };
+            account: formData.account
+          };
 
         console.log('Updating transaction data:', {
           id: transactionToEdit._id?.toString() || transactionToEdit.id.toString(),
@@ -699,7 +699,7 @@ export default function Transactions() {
     setTransactionToDelete(transaction);
     setShowDeleteDialog(true);
   }, [transactions]);
-
+  
   // Actual implementation of soft delete
   const performSoftDelete = useCallback((id: number, isSoftDeleted: boolean) => {
     // Find the transaction before updating state
@@ -739,14 +739,14 @@ export default function Transactions() {
               type,
               amount
             });
-            
-            // Only show toast when NOT triggered by the DeleteTransactionDialog component
-            if (!showDeleteDialog) {
+    
+    // Only show toast when NOT triggered by the DeleteTransactionDialog component
+    if (!showDeleteDialog) {
               // Toast completely removed to avoid duplication with Overview.tsx
             }
           }
-        });
-    } else {
+          });
+        } else {
       // This is for restoring via the undo button in toast
       
       // Emit event to notify other components
@@ -767,10 +767,10 @@ export default function Transactions() {
       }
     }
   }, [transactions, showDeleteDialog]);
-
+  
   // Handle permanent deletion
   const handlePermanentDelete = useCallback((id: number) => {
-    const transaction = transactions.find(t => t.id === id);
+      const transaction = transactions.find(t => t.id === id);
     if (!transaction) return;
     
     // Get transaction details for event

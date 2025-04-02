@@ -84,8 +84,7 @@ class ApiService {
       timeout: API_TIMEOUT,
       headers: {
         'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'X-API-Key': API_KEY
+        'Accept': 'application/json'
       },
       withCredentials: true // Needed for CSRF cookies
     });
@@ -141,16 +140,18 @@ class ApiService {
   private handleRequest(config: InternalAxiosRequestConfig): InternalAxiosRequestConfig {
     // Add authorization token if available
     const token = localStorage.getItem('auth_token');
-    if (token) {
-      // Handle as axios headers
-      if (config.headers instanceof AxiosHeaders) {
-        config.headers.set('Authorization', `Bearer ${token}`);
-      }
+    if (token && config.headers instanceof AxiosHeaders) {
+      config.headers.set('Authorization', `Bearer ${token}`);
+    }
+
+    // Add API Key from environment variables to all requests
+    if (config.headers instanceof AxiosHeaders) {
+      // Set the API key for every request (ensuring it's always there)
+      config.headers.set('X-API-Key', API_KEY);
     }
 
     // Add CSRF token if available
     if (this.csrfToken && ['post', 'put', 'patch', 'delete'].includes(config.method?.toLowerCase() || '')) {
-      // Handle as axios headers
       if (config.headers instanceof AxiosHeaders) {
         config.headers.set('X-CSRF-Token', this.csrfToken);
       }

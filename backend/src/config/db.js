@@ -2,7 +2,8 @@
 const mongoose = require('mongoose');
 const chalk = require('chalk');
 
-// Track if we've already logged a connection attempt to avoid duplicate logs
+// Track connection state to avoid duplicate logs and connections
+let isConnecting = false;
 let connectionAttemptLogged = false;
 
 const connectDB = async () => {
@@ -11,6 +12,14 @@ const connectDB = async () => {
     if (mongoose.connection.readyState === 1) {
       return mongoose.connection;
     }
+
+    // If already attempting to connect, don't start another connection
+    if (isConnecting) {
+      return mongoose.connection;
+    }
+    
+    // Set connecting flag
+    isConnecting = true;
     
     // Only log connection attempt once
     if (!connectionAttemptLogged) {
@@ -32,12 +41,19 @@ const connectDB = async () => {
       maxPoolSize: 50, // Maximum number of connections in the pool
     });
     
+    // Reset connecting flag
+    isConnecting = false;
+    
+    // Only log connection success if not already logged
     console.log(chalk.green.bold('✅ MongoDB Connected: ') + 
                 chalk.blue.underline(`${conn.connection.host}`) + 
                 chalk.green(' ✓'));
                 
     return conn;
   } catch (error) {
+    // Reset connecting flag on error
+    isConnecting = false;
+    
     console.error(chalk.red.bold('❌ MongoDB Connection Error: ') + chalk.red(error.message));
     
     // Print more detailed error for common issues

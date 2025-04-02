@@ -103,6 +103,27 @@ app.use(securityMiddleware.cookieParser);
 if (process.env.CSRF_PROTECTION === 'true') {
   console.log(chalk.green('✅ CSRF Protection:') + chalk.bold.green(' Enabled'));
 
+  // Create a dedicated route for CSRF token before applying protection
+  app.get(`${API_BASE_PATH}/auth/csrf-token`, (req, res) => {
+    if (typeof req.csrfToken === 'function') {
+      return res.json({
+        success: true,
+        message: 'CSRF token generated successfully',
+        data: {
+          csrfToken: req.csrfToken()
+        }
+      });
+    } else {
+      return res.json({
+        success: true,
+        message: 'CSRF token function not available',
+        data: {
+          csrfToken: 'csrf-not-configured'
+        }
+      });
+    }
+  });
+
   // Routes that should be excluded from CSRF protection
   app.use((req, res, next) => {
     // Skip CSRF for these paths or methods
@@ -119,13 +140,21 @@ if (process.env.CSRF_PROTECTION === 'true') {
     securityMiddleware.csrf(req, res, next);
   });
 
-  // Special route for CSRF token
-  app.get(`${API_BASE_PATH}/auth/csrf-token`, securityMiddleware.csrf, securityMiddleware.csrfTokenProvider);
-
   // Add CSRF error handler
   app.use(securityMiddleware.csrfErrorHandler);
 } else {
   console.log(chalk.yellow('⚠️ CSRF Protection:') + chalk.bold.yellow(' Disabled'));
+  
+  // Provide a dummy CSRF endpoint even when disabled
+  app.get(`${API_BASE_PATH}/auth/csrf-token`, (req, res) => {
+    return res.json({
+      success: true,
+      message: 'CSRF protection is disabled',
+      data: {
+        csrfToken: 'csrf-disabled'
+      }
+    });
+  });
 }
 
 // Request logger middleware (for development)
