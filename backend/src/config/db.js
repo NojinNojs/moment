@@ -5,6 +5,7 @@ const chalk = require('chalk');
 // Track connection state to avoid duplicate logs and connections
 let isConnecting = false;
 let connectionAttemptLogged = false;
+let connectionErrorLogged = false;
 
 const connectDB = async () => {
   try {
@@ -43,6 +44,7 @@ const connectDB = async () => {
     
     // Reset connecting flag
     isConnecting = false;
+    connectionErrorLogged = false;
     
     // Only log connection success if not already logged
     console.log(chalk.green.bold('✅ MongoDB Connected: ') + 
@@ -54,20 +56,30 @@ const connectDB = async () => {
     // Reset connecting flag on error
     isConnecting = false;
     
-    console.error(chalk.red.bold('❌ MongoDB Connection Error: ') + chalk.red(error.message));
-    
-    // Print more detailed error for common issues
-    if (error.code === 18) {
-      console.error(chalk.yellow('Authentication failed - check username/password in MONGO_URI'));
-    } else if (error.code === 'ENOTFOUND') {
-      console.error(chalk.yellow('Server not found - check hostname in MONGO_URI'));
-    } else if (error.message.includes('bad auth')) {
-      console.error(chalk.yellow('Authorization failed - check database name and credentials'));
-    } else if (error.message.includes('already exists with different case')) {
-      console.error(chalk.yellow('Database name case sensitivity issue - ensure consistent database naming'));
+    // Only log the error once to avoid flooding the console
+    if (!connectionErrorLogged) {
+      console.error(chalk.red.bold('❌ MongoDB Connection Error: ') + chalk.red(error.message));
+      
+      // Print more detailed error for common issues
+      if (error.code === 18) {
+        console.error(chalk.yellow('Authentication failed - check username/password in MONGO_URI'));
+      } else if (error.code === 'ENOTFOUND') {
+        console.error(chalk.yellow('Server not found - check hostname in MONGO_URI'));
+      } else if (error.message.includes('bad auth')) {
+        console.error(chalk.yellow('Authorization failed - check database name and credentials'));
+      } else if (error.message.includes('already exists with different case')) {
+        console.error(chalk.yellow('Database name case sensitivity issue - ensure consistent database naming'));
+      }
+      
+      console.log(chalk.yellow('⚠️ Warning: The application will continue to run without database access.'));
+      console.log(chalk.yellow('   Some features may not work correctly.'));
+      console.log(chalk.yellow('   Please make sure MongoDB is running and try again.'));
+      
+      connectionErrorLogged = true;
     }
     
-    process.exit(1);
+    // Return the mongoose connection in its current state instead of exiting
+    return mongoose.connection;
   }
 };
 

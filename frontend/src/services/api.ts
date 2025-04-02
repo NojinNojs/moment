@@ -72,6 +72,7 @@ export interface ApiPaginatedResponse<T> extends ApiResponse {
 class ApiService {
   private axios: AxiosInstance;
   private csrfToken: string | null = null;
+  private isFetchingToken: boolean = false;
 
   // Add caching for accounts and categories
   private accountsCache: Record<string, Asset> = {};
@@ -84,7 +85,8 @@ class ApiService {
       timeout: API_TIMEOUT,
       headers: {
         'Content-Type': 'application/json',
-        'Accept': 'application/json'
+        'Accept': 'application/json',
+        'X-API-Key': API_KEY // Always include API key in default headers
       },
       withCredentials: true // Needed for CSRF cookies
     });
@@ -101,7 +103,7 @@ class ApiService {
       this.handleResponseError.bind(this)
     );
 
-    // Immediately fetch a CSRF token when service is initialized (if CSRF is enabled)
+    // Immediately fetch a CSRF token when service is initialized
     this.fetchCsrfToken().catch(err => {
       console.warn('Failed to fetch initial CSRF token:', err);
     });
@@ -111,6 +113,12 @@ class ApiService {
    * Fetch a CSRF token from the server
    */
   public async fetchCsrfToken(): Promise<string | null> {
+    // Prevent multiple simultaneous token fetches
+    if (this.isFetchingToken) {
+      return this.csrfToken;
+    }
+
+    this.isFetchingToken = true;
     try {
       const response = await this.axios.get<ApiResponse<{csrfToken: string}>>('/auth/csrf-token');
       
@@ -131,6 +139,8 @@ class ApiService {
     } catch (error) {
       console.error('Error fetching CSRF token:', error);
       return null;
+    } finally {
+      this.isFetchingToken = false;
     }
   }
 
@@ -146,11 +156,11 @@ class ApiService {
 
     // Add API Key from environment variables to all requests
     if (config.headers instanceof AxiosHeaders) {
-      // Set the API key for every request (ensuring it's always there)
+      // Double-check API key is always in headers
       config.headers.set('X-API-Key', API_KEY);
     }
 
-    // Add CSRF token if available
+    // Add CSRF token if available and method is not GET
     if (this.csrfToken && ['post', 'put', 'patch', 'delete'].includes(config.method?.toLowerCase() || '')) {
       if (config.headers instanceof AxiosHeaders) {
         config.headers.set('X-CSRF-Token', this.csrfToken);
@@ -161,7 +171,8 @@ class ApiService {
     if (import.meta.env.DEV) {
       console.log(`🌐 API Request: ${config.method?.toUpperCase()} ${config.url}`, { 
         data: config.data, 
-        params: config.params 
+        params: config.params,
+        headers: config.headers
       });
     }
 
@@ -249,21 +260,11 @@ class ApiService {
       });
     }
 
-    if (error.request) {
-      // Request was made but no response received (network error)
-      console.error('Network Error:', error.message);
+    // Handle network errors
       return Promise.reject({ 
         success: false, 
-        message: 'Network error. Please check your connection.' 
-      } as ApiError);
-    }
-
-    // Something else happened in setting up the request
-    console.error('Request Error:', error.message);
-    return Promise.reject({ 
-      success: false, 
-      message: error.message || 'An unexpected error occurred'
-    } as ApiError);
+      message: 'Network error occurred. Please check your connection.'
+    });
   }
 
   /**

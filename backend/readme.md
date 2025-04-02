@@ -119,7 +119,7 @@ The Moment API is the backend service for the Moment personal finance applicatio
    npm run dev
    ```
    The API will be available at http://localhost:3000/api/v1
-   
+
 2. **Access the documentation**
 
    When the server is running, access the interactive API documentation at:

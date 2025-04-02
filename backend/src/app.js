@@ -55,7 +55,7 @@ const corsOptions = {
     if (!origin) return callback(null, true);
     
     // Allow all origins if wildcard is set
-    if (allowedOrigins === '*') return callback(null, true);
+    if (allowedOrigins === '*' || allowedOrigins.includes('*')) return callback(null, true);
     
     // Allow all localhost origins for development and preview
     if (origin.match(/^https?:\/\/localhost(:\d+)?$/)) {
@@ -103,28 +103,29 @@ app.use(securityMiddleware.cookieParser);
 if (process.env.CSRF_PROTECTION === 'true') {
   console.log(chalk.green('✅ CSRF Protection:') + chalk.bold.green(' Enabled'));
 
-  // Create a dedicated route for CSRF token before applying protection
-  app.get(`${API_BASE_PATH}/auth/csrf-token`, (req, res) => {
-    if (typeof req.csrfToken === 'function') {
-      return res.json({
-        success: true,
-        message: 'CSRF token generated successfully',
-        data: {
-          csrfToken: req.csrfToken()
-        }
-      });
-    } else {
-      return res.json({
-        success: true,
-        message: 'CSRF token function not available',
-        data: {
-          csrfToken: 'csrf-not-configured'
-        }
-      });
+  // Initialize a new CSRF protection instance with custom cookie settings for local development
+  const csrfProtection = csrf({
+    cookie: {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+      path: '/'
     }
   });
 
-  // Routes that should be excluded from CSRF protection
+  // Create a dedicated route for CSRF token that applies csrf protection first
+  app.get(`${API_BASE_PATH}/auth/csrf-token`, csrfProtection, (req, res) => {
+    // Token function should now be available since we applied csrfProtection to this route
+    res.json({
+      success: true,
+      message: 'CSRF token generated successfully',
+      data: {
+        csrfToken: req.csrfToken()
+      }
+    });
+  });
+
+  // Apply CSRF protection to all routes except those that should be excluded
   app.use((req, res, next) => {
     // Skip CSRF for these paths or methods
     if (
@@ -137,7 +138,7 @@ if (process.env.CSRF_PROTECTION === 'true') {
     }
     
     // Apply CSRF protection to all other routes
-    securityMiddleware.csrf(req, res, next);
+    csrfProtection(req, res, next);
   });
 
   // Add CSRF error handler

@@ -815,12 +815,6 @@ const seedCategories = async () => {
     // Display categories in a table
     await displayCategoriesTable();
     
-    // Disconnect from database only if we connected in this function
-    if (connectionState !== 1) {
-      console.log(chalk.yellow('📊 Disconnecting from MongoDB...'));
-      await mongoose.disconnect();
-    }
-    
     console.log(chalk.green('✅ Categories seeding completed!'));
     
     // Only exit if running as standalone script
@@ -832,11 +826,6 @@ const seedCategories = async () => {
   } catch (error) {
     console.error(chalk.red(`❌ Error seeding categories: ${error.message}`));
     console.error(error);
-    
-    // Disconnect on error only if we connected in this function
-    if (mongoose.connection.readyState === 1) {
-      await mongoose.disconnect();
-    }
     
     // Only exit if running as standalone script
     if (require.main === module) {

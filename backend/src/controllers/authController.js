@@ -2,6 +2,7 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const apiResponse = require('../utils/apiResponse');
+const mongoose = require('mongoose');
 
 /**
  * Helper function to generate JWT token
@@ -18,12 +19,31 @@ const generateToken = (user) => {
 };
 
 /**
+ * Helper function to check database connection
+ */
+const checkDbConnection = (res) => {
+  if (mongoose.connection.readyState !== 1) {
+    return apiResponse.error(
+      res,
+      503,
+      'Database not connected. Please make sure MongoDB is running.',
+      { details: 'The application cannot perform database operations until MongoDB is running.' }
+    );
+  }
+  return false;
+};
+
+/**
  * @desc    Register a new user
  * @route   POST /api/v1/auth/register
  * @access  Public
  */
 exports.register = async (req, res) => {
   try {
+    // Check DB connection first
+    const connectionError = checkDbConnection(res);
+    if (connectionError) return connectionError;
+
     const { name, email, password } = req.body;
 
     // Check if user already exists
@@ -54,6 +74,17 @@ exports.register = async (req, res) => {
     }
   } catch (error) {
     console.error('Register error:', error);
+    
+    // Check for MongoDB connection errors
+    if (error.name === 'MongooseServerSelectionError' || error.name === 'MongoNotConnectedError') {
+      return apiResponse.error(
+        res,
+        503,
+        'Database connection error. Please make sure MongoDB is running.',
+        process.env.NODE_ENV === 'development' ? { message: error.message } : null
+      );
+    }
+    
     return apiResponse.error(
       res, 
       500, 
@@ -70,6 +101,10 @@ exports.register = async (req, res) => {
  */
 exports.login = async (req, res) => {
   try {
+    // Check DB connection first
+    const connectionError = checkDbConnection(res);
+    if (connectionError) return connectionError;
+
     const { email, password } = req.body;
 
     // Find user by email
@@ -91,6 +126,17 @@ exports.login = async (req, res) => {
     }
   } catch (error) {
     console.error('Login error:', error);
+    
+    // Check for MongoDB connection errors
+    if (error.name === 'MongooseServerSelectionError' || error.name === 'MongoNotConnectedError') {
+      return apiResponse.error(
+        res,
+        503,
+        'Database connection error. Please make sure MongoDB is running.',
+        process.env.NODE_ENV === 'development' ? { message: error.message } : null
+      );
+    }
+    
     return apiResponse.error(
       res, 
       500, 
@@ -107,6 +153,10 @@ exports.login = async (req, res) => {
  */
 exports.getCurrentUser = async (req, res) => {
   try {
+    // Check DB connection first
+    const connectionError = checkDbConnection(res);
+    if (connectionError) return connectionError;
+    
     const user = await User.findById(req.user.id).select('-password');
     
     if (!user) {
@@ -116,6 +166,17 @@ exports.getCurrentUser = async (req, res) => {
     return apiResponse.success(res, 200, 'User profile retrieved successfully', user);
   } catch (error) {
     console.error('Get current user error:', error);
+    
+    // Check for MongoDB connection errors
+    if (error.name === 'MongooseServerSelectionError' || error.name === 'MongoNotConnectedError') {
+      return apiResponse.error(
+        res,
+        503,
+        'Database connection error. Please make sure MongoDB is running.',
+        process.env.NODE_ENV === 'development' ? { message: error.message } : null
+      );
+    }
+    
     return apiResponse.error(
       res, 
       500, 
