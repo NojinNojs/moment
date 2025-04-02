@@ -121,7 +121,7 @@ The Moment API is the backend service for the Moment personal finance applicatio
    The API will be available at http://localhost:3000/api/v1
    
 2. **Access the documentation**
-   
+
    When the server is running, access the interactive API documentation at:
    ```
    http://localhost:3000/api/docs
@@ -451,6 +451,56 @@ The API implements several security best practices:
 - **CSRF Protection**: Cross-site request forgery prevention
 - **MongoDB Injection Prevention**: Sanitize database queries
 - **Sensitive Data Exposure**: Hide sensitive data in responses
+
+### CSRF Protection
+
+The API implements Cross-Site Request Forgery (CSRF) protection to prevent unauthorized actions from being performed on behalf of authenticated users.
+
+#### How CSRF Protection Works
+
+1. **Cookie-based Tokens**: Our implementation uses the `csurf` package to generate and validate CSRF tokens. This is a double-submit cookie pattern that provides robust protection.
+
+2. **Token Generation**: When a client first connects or specifically requests a CSRF token:
+   - The server generates a unique token
+   - The token is stored in an HTTP-only, secure cookie
+   - The token is also sent in the response body or headers
+
+3. **Token Validation**: For all state-changing requests (POST, PUT, DELETE, etc.):
+   - The client must include the token in the `X-CSRF-Token` header
+   - The server validates this token against the cookie
+   - If invalid, the request is rejected with a 403 error
+
+#### CSRF Protection Endpoints
+
+- `GET /api/v1/auth/csrf-token`: Get a fresh CSRF token
+
+#### Implementation in Frontend
+
+The frontend automatically:
+1. Fetches a CSRF token on application load
+2. Sends the token with each modification request
+3. Refreshes the token if it becomes invalid
+
+#### Configuration
+
+CSRF protection can be enabled/disabled via the `CSRF_PROTECTION` environment variable:
+
+```
+# Enable CSRF protection
+CSRF_PROTECTION=true
+
+# Disable CSRF protection (not recommended for production)
+CSRF_PROTECTION=false
+```
+
+#### Troubleshooting
+
+If you encounter CSRF validation errors:
+
+1. Ensure your frontend is sending the `X-CSRF-Token` header with non-GET requests
+2. Verify your backend has CSRF protection enabled
+3. Check that cookies are properly being set (requires `credentials: 'include'` in fetch/axios)
+4. Ensure you're using the `/auth/csrf-token` endpoint to get a fresh token
 
 ## 🧪 Testing
 

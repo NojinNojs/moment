@@ -82,14 +82,17 @@ securityMiddleware.helmet = helmet({
 // Cookie parser middleware (required for CSRF protection)
 securityMiddleware.cookieParser = cookieParser();
 
-// CSRF protection middleware
-securityMiddleware.csrf = csrf({ 
+// CSRF protection middleware - initialize once and export
+const csrfProtection = csrf({ 
   cookie: {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
     sameSite: 'strict'
   } 
 });
+
+// Export the CSRF middleware
+securityMiddleware.csrf = csrfProtection;
 
 // CSRF error handler
 securityMiddleware.csrfErrorHandler = (err, req, res, next) => {
@@ -104,11 +107,26 @@ securityMiddleware.csrfErrorHandler = (err, req, res, next) => {
   });
 };
 
-// CSRF token provider middleware
+// CSRF token provider middleware - simplified approach
 securityMiddleware.csrfTokenProvider = (req, res, next) => {
-  // Provide CSRF token in response header
-  res.set('X-CSRF-Token', req.csrfToken());
-  next();
+  // This middleware assumes it's used on a route where csrfProtection has already been applied
+  if (typeof req.csrfToken === 'function') {
+    res.json({
+      success: true,
+      message: 'CSRF token generated successfully',
+      data: {
+        csrfToken: req.csrfToken()
+      }
+    });
+  } else {
+    res.json({
+      success: false,
+      message: 'CSRF token generation failed - not properly configured',
+      data: {
+        csrfToken: null
+      }
+    });
+  }
 };
 
 module.exports = securityMiddleware; 

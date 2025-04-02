@@ -18,57 +18,55 @@ interface User {
   updatedAt?: string;
 }
 
-// API configuration
-let API_URL = import.meta.env.VITE_API_URL;
-// Fallback URL handling for production
-if (!API_URL) {
-  // Check if we're in production mode
-  if (import.meta.env.PROD) {
-    console.warn('No VITE_API_URL found in production, using fallback URL');
-    API_URL = 'http://localhost:3000/api/v1'; // Use your actual backend URL here
-  } else {
-    API_URL = 'http://localhost:3000/api/v1'; // Development fallback
-  }
+// Define proper error types instead of using 'any'
+interface ValidationErrors {
+  [key: string]: string | string[];
 }
 
-// Only log API URL in development
-if (import.meta.env.DEV) {
-  console.log('Final API_URL:', API_URL);
-}
-
-const API_KEY = import.meta.env.VITE_API_KEY || '';
-const API_TIMEOUT = 30000; // 30 seconds - increased from 10 seconds
-
-// Type for the API response
-interface ApiResponse<T = unknown> {
-  success: boolean;
-  message: string;
-  data?: T;
-  meta?: Record<string, unknown>;
-  errors?: Record<string, string[]>;
-}
-
-// Auth response type from frontend perspective
-interface AuthResponse {
+// Define login/register response data type
+interface AuthResponseData {
   token: string;
-  user: User;
-}
-
-// Raw auth response type directly from the backend
-interface RawAuthResponse {
   id: string;
   name: string;
   email: string;
-  token: string;
   createdAt?: string;
   updatedAt?: string;
 }
 
-// API error type
-interface ApiError {
-  success: false;
+// API Configuration
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api/v1';
+const API_TIMEOUT = parseInt(import.meta.env.VITE_API_TIMEOUT || '30000', 10);
+const API_KEY = import.meta.env.VITE_API_KEY || '';
+
+// Response Types
+export interface ApiResponse<T = unknown> {
+  success: boolean;
+  message?: string;
+  data?: T;
+  errors?: ValidationErrors;
+}
+
+export interface ApiError {
+  success: boolean;
   message: string;
-  errors?: Record<string, string[]>;
+  errors?: ValidationErrors;
+}
+
+export interface AuthResponse {
+  token: string;
+  user: User;
+}
+
+export interface PaginatedResponse<T> {
+  items: T[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+}
+
+export interface ApiPaginatedResponse<T> extends ApiResponse {
+  data: PaginatedResponse<T>;
 }
 
 class ApiService {
@@ -103,6 +101,38 @@ class ApiService {
       this.handleResponse.bind(this),
       this.handleResponseError.bind(this)
     );
+
+    // Immediately fetch a CSRF token when service is initialized (if CSRF is enabled)
+    this.fetchCsrfToken().catch(err => {
+      console.warn('Failed to fetch initial CSRF token:', err);
+    });
+  }
+
+  /**
+   * Fetch a CSRF token from the server
+   */
+  public async fetchCsrfToken(): Promise<string | null> {
+    try {
+      const response = await this.axios.get<ApiResponse<{csrfToken: string}>>('/auth/csrf-token');
+      
+      if (response.data?.success && response.data?.data?.csrfToken) {
+        this.csrfToken = response.data.data.csrfToken;
+        if (import.meta.env.DEV) {
+          console.log('CSRF token fetched successfully');
+        }
+        return this.csrfToken;
+      } else if (response.data?.message?.includes('disabled')) {
+        // CSRF protection is disabled on the server
+        console.log('CSRF protection is disabled on the server');
+        return null;
+      }
+      
+      console.warn('Failed to fetch CSRF token:', response.data);
+      return null;
+    } catch (error) {
+      console.error('Error fetching CSRF token:', error);
+      return null;
+    }
   }
 
   /**
@@ -140,8 +170,8 @@ class ApiService {
   /**
    * Handle request errors
    */
-  private handleRequestError(error: unknown): Promise<never> {
-    console.error('Request error:', error);
+  private handleRequestError(error: Error): Promise<never> {
+    console.error('Request Error:', error);
     return Promise.reject(error);
   }
 
@@ -167,6 +197,29 @@ class ApiService {
    * Handle response errors
    */
   private handleResponseError(error: AxiosError<ApiResponse>): Promise<never> {
+    // Check if this is a CSRF error
+    if (error.response?.status === 403 && 
+        (error.response?.data?.message?.toLowerCase().includes('csrf') || 
+         error.response?.data?.message?.toLowerCase().includes('token'))) {
+      console.warn('CSRF token validation failed, attempting to fetch a new token');
+      
+      // Get a new CSRF token and retry the request
+      return this.fetchCsrfToken().then(() => {
+        if (error.config) {
+          // Add the new CSRF token to the request
+          if (error.config.headers && this.csrfToken) {
+            error.config.headers['X-CSRF-Token'] = this.csrfToken;
+          }
+          // Retry the original request
+          return this.axios(error.config) as unknown as never;
+        }
+        return Promise.reject(error);
+      }).catch(() => {
+        // If fetching a new token fails, reject with the original error
+        return Promise.reject(error);
+      });
+    }
+    
     // Handle specific error cases
     if (error.response) {
       // Server responded with an error status
@@ -240,34 +293,28 @@ class ApiService {
    */
   public async login(email: string, password: string): Promise<ApiResponse<AuthResponse>> {
     try {
-      // Only log in development mode
+      // Ensure we have a CSRF token before making the login request
+      await this.fetchCsrfToken();
+      
       if (import.meta.env.DEV) {
-        console.log('Login request initiated with:', { email });
+        console.log('Using CSRF token for login:', this.csrfToken || 'CSRF disabled');
       }
       
-      const response = await this.post<RawAuthResponse>('/auth/login', { email, password });
+      // Make login request
+      const response = await this.axios.post<ApiResponse<AuthResponseData>>('/auth/login', { email, password });
       
-      // Only log in development mode
-      if (import.meta.env.DEV) {
-        console.log('Login raw response:', response);
-      }
-      
-      // Ensure we have a valid response to work with
-      if (!response || typeof response !== 'object') {
-        console.error('Invalid response format:', response);
+      if (!response.data) {
         return {
           success: false,
-          message: 'Invalid response format from server',
-          data: {
-            token: '',
-            user: { id: '', name: '', email: '', createdAt: '', updatedAt: '' }
-          }
+          message: 'Invalid server response: missing data',
         };
       }
       
-      if (response.success && response.data) {
-        if (!response.data.token) {
-          console.error('Login response is missing token:', response.data);
+      const responseData = response.data;
+      
+      if (responseData.success && responseData.data) {
+        if (!responseData.data.token) {
+          console.error('Login response is missing token:', responseData.data);
           return {
             success: false,
             message: 'Invalid server response: missing token',
@@ -278,8 +325,8 @@ class ApiService {
           };
         }
         
-        if (!response.data.name || !response.data.email || !response.data.id) {
-          console.error('Login response is missing user fields:', response.data);
+        if (!responseData.data.name || !responseData.data.email || !responseData.data.id) {
+          console.error('Login response is missing user fields:', responseData.data);
           return {
             success: false,
             message: 'Invalid server response: missing user data',
@@ -291,15 +338,15 @@ class ApiService {
         }
         
         // Store token
-        localStorage.setItem('auth_token', response.data.token);
+        localStorage.setItem('auth_token', responseData.data.token);
         
         // Extract user data from response
         const userData: User = {
-          id: response.data.id,
-          name: response.data.name,
-          email: response.data.email,
-          createdAt: response.data.createdAt || '',
-          updatedAt: response.data.updatedAt || ''
+          id: responseData.data.id,
+          name: responseData.data.name,
+          email: responseData.data.email,
+          createdAt: responseData.data.createdAt || '',
+          updatedAt: responseData.data.updatedAt || ''
         };
         
         localStorage.setItem('user', JSON.stringify(userData));
@@ -307,9 +354,9 @@ class ApiService {
         // Format response to match AuthResponse interface
         const formattedResponse: ApiResponse<AuthResponse> = {
           success: true,
-          message: response.message,
+          message: responseData.message,
           data: {
-            token: response.data.token,
+            token: responseData.data.token,
             user: userData
           }
         };
@@ -319,71 +366,62 @@ class ApiService {
       }
       
       // Handle failed login - still provide a properly structured response to prevent null access
-      console.error('Login failed:', response);
+      console.error('Login failed:', responseData);
       return {
         success: false,
-        message: response.message || 'Login failed',
-        errors: response.errors,
-        data: {
-          token: '',
-          user: { id: '', name: '', email: '', createdAt: '', updatedAt: '' }
-        }
+        message: responseData.message || 'Login failed',
       };
     } catch (error) {
-      console.error('Login exception:', error);
+      console.error('Login error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Login failed';
+      
       return {
         success: false,
-        message: error instanceof Error ? error.message : 'An unexpected error occurred during login',
-        data: {
-          token: '',
-          user: { id: '', name: '', email: '', createdAt: '', updatedAt: '' }
-        }
+        message: errorMessage
       };
     }
   }
 
   public async register(userData: { name: string; email: string; password: string }): Promise<ApiResponse<AuthResponse>> {
     try {
-      // Only log in development mode
+      // Ensure we have a CSRF token before making the register request
+      await this.fetchCsrfToken();
+      
       if (import.meta.env.DEV) {
-        console.log('Register request initiated with:', { name: userData.name, email: userData.email });
+        console.log('Using CSRF token for register:', this.csrfToken || 'CSRF disabled');
       }
       
-      const response = await this.post<RawAuthResponse>('/auth/register', userData);
+      // Make register request
+      const response = await this.axios.post<ApiResponse<AuthResponseData>>('/auth/register', userData);
       
-      // Only log in development mode
-      if (import.meta.env.DEV) {
-        console.log('Register raw response:', response);
-      }
-      
-      // Ensure we have a valid response to work with
-      if (!response || typeof response !== 'object') {
-        console.error('Invalid response format:', response);
+      if (!response.data) {
         return {
           success: false,
-          message: 'Invalid response format from server',
+          message: 'Invalid server response: missing data',
         };
       }
       
+      const responseData = response.data;
+      
       // If the registration was successful and there is data
-      if (response.success && response.data) {
+      if (responseData.success && responseData.data) {
         // Store the auth token
-        if (!response.data.token) {
-          console.error('Register response is missing token:', response.data);
+        if (!responseData.data.token) {
+          console.error('Register response is missing token:', responseData.data);
           return {
             success: false,
             message: 'Authentication token missing from server response',
           };
         }
         
-        localStorage.setItem('auth_token', response.data.token);
+        localStorage.setItem('auth_token', responseData.data.token);
         
         // Format user data
-        const { token, ...userData } = response.data;
+        const { token, ...userData } = responseData.data;
         
         // Additional validation of required fields
         if (!userData.id || !userData.name || !userData.email) {
-          console.error('Register response is missing user fields:', response.data);
+          console.error('Register response is missing user fields:', responseData.data);
           return {
             success: false,
             message: 'Incomplete user data in server response',
@@ -404,7 +442,7 @@ class ApiService {
         // Create formatted response
         const formattedResponse: ApiResponse<AuthResponse> = {
           success: true,
-          message: response.message || 'Registration successful',
+          message: responseData.message || 'Registration successful',
           data: {
             token,
             user,
@@ -420,17 +458,18 @@ class ApiService {
       }
       
       // If we got here, the response indicates failure
-      console.error('Registration failed:', response);
+      console.error('Registration failed:', responseData);
       return {
         success: false,
-        message: response.message || 'Registration failed',
-        errors: response.errors
-      } as ApiResponse<AuthResponse>;
+        message: responseData.message || 'Registration failed',
+      };
     } catch (error) {
-      console.error('Registration exception:', error);
+      console.error('Registration error:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Registration failed';
+      
       return {
         success: false,
-        message: error instanceof Error ? error.message : 'An unknown error occurred during registration',
+        message: errorMessage
       };
     }
   }
@@ -1035,7 +1074,6 @@ class ApiService {
   }
 }
 
-// Create a singleton instance
+// Create and export single instance of API service
 const apiService = new ApiService();
-
 export default apiService; 

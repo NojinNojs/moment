@@ -36,4 +36,7 @@ const validateApiKey = (req, res, next) => {
   next();
 };
 
-module.exports = validateApiKey; 
+// Export middleware functions
+module.exports = {
+  validateApiKey
+}; 

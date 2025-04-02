@@ -1,10 +1,11 @@
 // This file defines the routes for user registration and login.
 const express = require('express');
 const router = express.Router();
-const { body } = require('express-validator');
-const { register, login, getCurrentUser } = require('../controllers/authController');
+const authController = require('../controllers/authController');
 const { protect } = require('../middlewares/authMiddleware');
 const { validate } = require('../middlewares/validationMiddleware');
+const authValidation = require('../validators/authValidation');
+const securityMiddleware = require('../middlewares/securityMiddleware');
 
 /**
  * @swagger
@@ -71,31 +72,11 @@ const { validate } = require('../middlewares/validationMiddleware');
  *       500:
  *         $ref: '#/components/responses/ServerError'
  */
-// Validation rules for registration
-const registerValidation = [
-  body('name')
-    .trim()
-    .notEmpty().withMessage('Name is required')
-    .isLength({ min: 2, max: 50 }).withMessage('Name must be between 2 and 50 characters'),
-  
-  body('email')
-    .trim()
-    .notEmpty().withMessage('Email is required')
-    .isEmail().withMessage('Please provide a valid email address')
-    .normalizeEmail(),
-  
-  body('password')
-    .trim()
-    .notEmpty().withMessage('Password is required')
-    .isLength({ min: 8 }).withMessage('Password must be at least 8 characters long')
-    .matches(/^(?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[!@#$%^&*])/).withMessage('Password must contain at least one number, one uppercase letter, one lowercase letter, and one special character')
-];
-
 router.post(
   '/register',
-  registerValidation,
+  authValidation.registerValidation,
   validate,
-  register
+  authController.register
 );
 
 /**
@@ -159,24 +140,11 @@ router.post(
  *       500:
  *         $ref: '#/components/responses/ServerError'
  */
-// Validation rules for login
-const loginValidation = [
-  body('email')
-    .trim()
-    .notEmpty().withMessage('Email is required')
-    .isEmail().withMessage('Please provide a valid email address')
-    .normalizeEmail(),
-  
-  body('password')
-    .trim()
-    .notEmpty().withMessage('Password is required')
-];
-
 router.post(
   '/login',
-  loginValidation,
+  authValidation.loginValidation,
   validate,
-  login
+  authController.login
 );
 
 /**
@@ -227,6 +195,11 @@ router.post(
  *       500:
  *         $ref: '#/components/responses/ServerError'
  */
-router.get('/me', protect, getCurrentUser);
+router.get('/me', protect, authController.getCurrentUser);
+
+// CSRF token endpoint is handled in app.js
+
+// Logout - primarily used to clear cookies if used
+router.post('/logout', authController.logout);
 
 module.exports = router; 

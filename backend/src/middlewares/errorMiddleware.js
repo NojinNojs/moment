@@ -1,5 +1,17 @@
-// This middleware handles errors and sends a consistent response format.
-const errorMiddleware = (err, req, res, next) => {
+/**
+ * This file contains middleware functions for handling errors and not found routes.
+ * It ensures a consistent API response format across the application.
+ */
+
+// 404 Not Found handler
+const notFound = (req, res, next) => {
+  const error = new Error(`Not Found - ${req.originalUrl}`);
+  res.status(404);
+  next(error);
+};
+
+// Error handler middleware
+const errorHandler = (err, req, res, next) => {
   console.error(`Error: ${err.message}`);
   
   // Get the status code (use existing status or default to 500)
@@ -24,8 +36,13 @@ const errorMiddleware = (err, req, res, next) => {
   // Return the error with the appropriate status code
   res.status(statusCode).json({
     success: false,
-    message: err.message || 'An unexpected error occurred.'
+    message: err.message || 'An unexpected error occurred.',
+    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
   });
 };
 
-module.exports = errorMiddleware; 
+// Export middleware functions
+module.exports = {
+  notFound,
+  errorHandler
+}; 

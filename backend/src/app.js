@@ -12,6 +12,7 @@ const categoryRoutes = require('./routes/categoryRoutes');
 const errorMiddleware = require('./middlewares/errorMiddleware');
 const { swaggerUi, swaggerDocs, customCss } = require('./utils/swagger');
 const assetRoutes = require('./routes/assetRoutes');
+const csrf = require('csurf'); // Directly import csrf here
 
 // Security middleware
 const securityMiddleware = require('./middlewares/securityMiddleware');
@@ -20,37 +21,32 @@ const apiKeyMiddleware = require('./middlewares/apiKeyMiddleware');
 // Load environment variables
 loadEnv();
 
-// Connect to the database
-// This has been removed to prevent duplicate connection, as it's already in server.js
-// connectDB();
+// Connect to database
+connectDB();
 
-// Auto seed categories if enabled in environment settings
-if (process.env.AUTO_SEED_CATEGORIES === 'true') {
-  try {
-    // We'll only log this once to avoid duplicate logs
-    console.log(chalk.yellow('📊 Auto-seeding categories is enabled. Running category seeder...'));
-    
-    // Import the seeder but don't run it immediately
-    const seedCategories = require('./seeders/categorySeeders');
-    
-    // We'll run the seeder after the database connection is established
-    // This will be handled in server.js to avoid duplicate connections
-    // and prevent parallel seeding attempts
-    global.runCategorySeedersAfterConnection = true;
-    
-  } catch (error) {
-    console.error(chalk.red(`❌ Error initializing category seeder: ${error.message}`));
-    // Don't crash the app if seeding fails
-  }
+// Get API prefix from environment variables
+const API_PREFIX = process.env.API_PREFIX || '/api';
+const API_VERSION = process.env.API_VERSION || 'v1';
+
+// Create the full API base path
+const API_BASE_PATH = `${API_PREFIX}/${API_VERSION}`;
+
+// Set up trust proxy if configured (important for secure cookies behind a proxy/load balancer)
+if (process.env.TRUST_PROXY === 'true') {
+  const trustProxyValue = parseInt(process.env.TRUST_PROXY_HOPS || '1', 10);
+  app.set('trust proxy', isNaN(trustProxyValue) ? 1 : trustProxyValue);
+  console.log(chalk.green('✅ Trust Proxy:') + chalk.bold.green(' Enabled'));
 }
 
-// CORS Configuration
-const corsOptionsOrigin = process.env.CORS_ORIGIN || '*';
+// Apply common middleware
+app.use(express.json({ limit: '10mb' })); // JSON body parser
+app.use(express.urlencoded({ extended: true, limit: '10mb' })); // Parse URL-encoded bodies
 
-// Parse comma-separated origins into an array
-const allowedOrigins = corsOptionsOrigin === '*' 
-  ? '*' 
-  : corsOptionsOrigin.split(',').map(origin => origin.trim());
+// Get allowed origins from environment variable with fallback
+const corsOptionsOrigin = process.env.CORS_ORIGIN || '*';
+// Parse comma-separated list of allowed origins
+const allowedOrigins = corsOptionsOrigin === '*' ? '*' : corsOptionsOrigin.split(',').map(origin => origin.trim());
+console.log(chalk.green('✅ CORS Origins:'), corsOptionsOrigin === '*' ? chalk.bold.green(' All Origins (*)') : chalk.bold.green(` ${allowedOrigins.join(', ')}`));
 
 // CORS middleware to handle both trailing slash and non-trailing slash origins
 const corsOptions = {
@@ -98,9 +94,7 @@ const corsOptions = {
 // Apply security middleware
 app.use(cors(corsOptions));
 app.use(securityMiddleware.helmet);
-app.use(securityMiddleware.rateLimiter); // Global rate limiter
-app.use(express.json()); // Parse JSON bodies
-app.use(express.urlencoded({ extended: true })); // Parse URL-encoded bodies
+app.use(securityMiddleware.rateLimiter);
 
 // Cookie parser (needed for CSRF)
 app.use(securityMiddleware.cookieParser);
@@ -108,20 +102,28 @@ app.use(securityMiddleware.cookieParser);
 // Apply CSRF protection if enabled
 if (process.env.CSRF_PROTECTION === 'true') {
   console.log(chalk.green('✅ CSRF Protection:') + chalk.bold.green(' Enabled'));
-  
-  // Skip CSRF for API docs and specific paths
+
+  // Routes that should be excluded from CSRF protection
   app.use((req, res, next) => {
-    if (req.path.includes('/docs') || 
-        req.path.includes('/health') || 
-        req.method === 'GET') {
-      next();
-    } else {
-      securityMiddleware.csrf(req, res, next);
+    // Skip CSRF for these paths or methods
+    if (
+      req.path.includes('/docs') ||
+      req.path.includes('/health') ||
+      req.path === `${API_BASE_PATH}/auth/csrf-token` ||
+      req.method === 'GET'
+    ) {
+      return next();
     }
+    
+    // Apply CSRF protection to all other routes
+    securityMiddleware.csrf(req, res, next);
   });
-  
+
+  // Special route for CSRF token
+  app.get(`${API_BASE_PATH}/auth/csrf-token`, securityMiddleware.csrf, securityMiddleware.csrfTokenProvider);
+
+  // Add CSRF error handler
   app.use(securityMiddleware.csrfErrorHandler);
-  app.use(securityMiddleware.csrfTokenProvider);
 } else {
   console.log(chalk.yellow('⚠️ CSRF Protection:') + chalk.bold.yellow(' Disabled'));
 }
@@ -135,68 +137,35 @@ if (process.env.NODE_ENV === 'development') {
 }
 
 // Static files
-app.use(express.static(path.join(__dirname, 'public'))); // Serve static files
+app.use(express.static(path.join(__dirname, 'public')));
 
-// API version prefix
-const API_PREFIX = process.env.API_PREFIX || '/api';
-const API_VERSION = process.env.API_VERSION || 'v1';
-const API_PATH = `${API_PREFIX}/${API_VERSION}`;
-
-// Serve Swagger documentation
-app.use(`${API_PREFIX}/docs`, swaggerUi.serve);
-app.get(`${API_PREFIX}/docs`, swaggerUi.setup(swaggerDocs, { 
+// API documentation
+app.use(`${API_BASE_PATH}/docs`, swaggerUi.serve, swaggerUi.setup(swaggerDocs, {
   customCss,
-  customSiteTitle: "Moment API Documentation",
-  customfavIcon: '/favicon.ico'
+  swaggerOptions: {
+    persistAuthorization: true,
+  },
 }));
 
-// API Health Check
-app.get(`${API_PREFIX}/health`, (req, res) => {
+// Define a simple health check route
+app.get('/health', (req, res) => {
   res.status(200).json({
-    status: 'UP',
+    success: true,
+    message: 'Server is healthy',
     timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    version: process.env.npm_package_version || '1.0.0'
+    environment: process.env.NODE_ENV,
   });
 });
 
-// Apply stricter rate limits to auth routes
-app.use(`${API_PATH}/auth`, securityMiddleware.authLimiter);
-
-// Apply API Key validation to protected routes
-// Skip API Key validation for auth routes
-app.use(`${API_PATH}/transactions`, apiKeyMiddleware);
-
-// API Routes with versioning
-app.use(`${API_PATH}/auth`, authRoutes);
-app.use(`${API_PATH}/transactions`, transactionRoutes);
-app.use(`${API_PATH}/categories`, categoryRoutes);
-app.use(`${API_PATH}/assets`, assetRoutes);
-
-// Redirect legacy API routes (without version) to versioned routes
-app.use(`${API_PREFIX}/auth`, (req, res) => res.redirect(307, `${API_PATH}/auth${req.path}`));
-app.use(`${API_PREFIX}/transactions`, (req, res) => res.redirect(307, `${API_PATH}/transactions${req.path}`));
-app.use(`${API_PREFIX}/categories`, (req, res) => res.redirect(307, `${API_PATH}/categories${req.path}`));
-
-// Redirect unknown routes to API docs
-app.use(API_PREFIX, (req, res, next) => {
-  // Skip redirect for API endpoints we know
-  if (req.path.startsWith(`/${API_VERSION}/`) || 
-      req.path.startsWith('/docs') || 
-      req.path.startsWith('/health')) {
-    return next();
-  }
-  
-  // Redirect to docs for other API routes
-  res.redirect(`${API_PREFIX}/docs`);
-});
-
-// Catch-all route for non-API routes
-app.get('*', (req, res) => {
-  res.redirect(`${API_PREFIX}/docs`);
-});
+// Define routes
+app.use(`${API_BASE_PATH}/auth`, authRoutes);
+app.use(`${API_BASE_PATH}/transactions`, apiKeyMiddleware.validateApiKey, transactionRoutes);
+app.use(`${API_BASE_PATH}/categories`, apiKeyMiddleware.validateApiKey, categoryRoutes);
+app.use(`${API_BASE_PATH}/assets`, apiKeyMiddleware.validateApiKey, assetRoutes);
 
 // Error handling middleware
-app.use(errorMiddleware);
+app.use(errorMiddleware.notFound);
+app.use(errorMiddleware.errorHandler);
 
+// Export the app
 module.exports = app; 

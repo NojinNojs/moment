@@ -123,4 +123,26 @@ exports.getCurrentUser = async (req, res) => {
       process.env.NODE_ENV === 'development' ? { message: error.message } : null
     );
   }
+};
+
+/**
+ * @desc    Logout user (clear cookies)
+ * @route   POST /api/v1/auth/logout
+ * @access  Public
+ */
+exports.logout = (req, res) => {
+  try {
+    // If using cookies for authentication, you would clear them here
+    // res.clearCookie('token');
+    
+    return apiResponse.success(res, 200, 'Logged out successfully');
+  } catch (error) {
+    console.error('Logout error:', error);
+    return apiResponse.error(
+      res, 
+      500, 
+      'Server error', 
+      process.env.NODE_ENV === 'development' ? { message: error.message } : null
+    );
+  }
 }; 
