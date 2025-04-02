@@ -1,8 +1,6 @@
-# Setup API Klasifikasi Teks
+# Machine Learning API Documentation
 
-Ikuti instruksi terlebih dahulu untuk menjalankan API
-
-## 1. URL Semua API
+## 1. Endpoint URLs
 ### ```http://127.0.0.1:8000/transaction-classifier```
 Request Body:
 ```
@@ -19,44 +17,47 @@ Response:
 }
 ```
 
-## 2. Buat Virtual Environment
+## 2. How To Setup A Virtual Environment
+Virtual environments are important in python to help prevent conflicts between libraries and tools.
 
 ### **Windows**
 ```sh
-python -m venv venv
-venv\Scripts\activate
+python -m venv venv  # cmd for creating the virtual environment
+venv\Scripts\activate  # cmd for activating it
 ```
 
 ### **macOS/Linux**
 ```sh
-python3 -m venv venv
-source venv/bin/activate
+python3 -m venv venv  # cmd for creating the virtual environment
+source venv/bin/activate  # cmd for activating it
 ```
 
-## 3. Install Dependencies
-
-Setelah membuat dan aktivasi virtual environment silakan install library library dari `requirements.txt`.
-
+## 3. Dependencies
+There's a bunch of libs you might want to install before you can run this API.
+You can just run this command to download all the necessary libs. `requieremnts.txt` is just a text file that contains all the library names.
 ```sh
 pip install -r requirements.txt
 ```
 
-## 4. Jalankan API
-
-Untuk menjalankan API nya harus menggunakan **Uvicorn**:
+## 4. How To Run The API
+You have to use `uvicorn` to run the API.
 
 ```sh
 uvicorn moment-fastapi-app:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-## 5. Tes API Dengan Swagger UI
-Buka browser, ketik **http://127.0.0.1:8000/docs** untuk akses API nya secara langsung.
+## 5. API Testing
+After you run the API, visit **http://127.0.0.1:8000/docs** on your browser to have direct access to all endpoints.
 
-## 6. Matikan Virtual Environment
-
-Habis selesai menggunakan atau berhenti menjalankan API nya, virtual environment nya langsung dimatikan.
+## 6. Deactivate The Virtual Environment
+After you're done with your shenanigans it's best to deactivate your virtual environment.<br>
+*REMEMBER,* don't deactivate your venv if you still want to run the app or install any other tools.<br>
+If you wanna run the API again be sure to activate your venv (Virtual Environment) first.<br>
+Instructions on how to activate your venv can be viewed [here](#2-how-to-setup-a-virtual-environment).<br>
+Running the API without activating your venv will result in unexpected behaviour.<br>
+I'm tired of having to explain these things to non-python devs. Just follow my instruction and you'll be fine.<br>
 
 ```sh
-deactivate
+deactivate  # this is the cmd to deactivate any venv
 ```
 
