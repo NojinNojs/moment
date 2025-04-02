@@ -1,0 +1,139 @@
+text,label
+"Menerima gaji bulanan sebesar Rp 15.000.000",Income
+"Beli bahan makanan di Supermarket",Food & Dining
+"Bayar tagihan listrik bulan ini",Utilities
+"Langganan Netflix",Entertainment
+"Bayar tagihan kartu kredit",Debt & Loans
+"Investasi saham di BCA",Savings & Investments
+"Donasi untuk Palang Merah",Gifts & Donations
+"Naik Gojek ke bandara",Transportation
+"Beli laptop baru di Tokopedia",Shopping
+"Bayar membership gym",Health & Fitness
+"Bayar fitness center",Health & Fitness
+"Beli buku belajar Python",Education
+"Beli kopi di Starbucks",Food & Dining
+"Transfer uang untuk biaya sekolah anak",Education
+"Bayar cicilan mobil",Debt & Loans
+"Pulsa dan paket data",Utilities
+"Tiket konser Coldplay",Entertainment
+"Menerima gaji bulan Januari sebesar Rp 8.000.000",Income
+"Bonus akhir tahun dari kantor",Income
+"Hasil investasi saham menguntungkan",Income
+"Pendapatan freelance bulan ini",Income
+"Dividen dari reksadana diterima",Income
+"Beli makan siang di warteg",Food & Dining
+"Pesan makanan via GrabFood",Food & Dining
+"Kopi di Starbucks Grand Indonesia",Food & Dining
+"Belanja bulanan di Supermarket",Food & Dining
+"Nongkrong di kafe daerah Kemang",Food & Dining
+"Bayar bensin mobil di Pertamina",Transportation
+"Pesan Gojek ke kantor",Transportation
+"Beli tiket kereta Jakarta-Bandung",Transportation
+"Parkir di mall selama 3 jam",Transportation
+"Servis mobil di bengkel resmi",Transportation
+"Beli baju baru di Tokopedia",Shopping
+"Pembelian smartphone di Lazada",Shopping
+"Belanja perlengkapan rumah di IKEA",Shopping
+"Beli sepatu di Mall Taman Anggrek",Shopping
+"Pembelian kosmetik online",Shopping
+"Bayar tagihan listrik bulan April",Utilities
+"Pembayaran paket internet Indihome",Utilities
+"Isi pulsa Telkomsel 100rb",Utilities
+"Bayar tagihan air PDAM",Utilities
+"Langganan Netflix bulanan",Utilities
+"Nonton film di CGV",Entertainment
+"Langganan Spotify Premium",Entertainment
+"Beli tiket konser Coldplay",Entertainment
+"Main golf di klub kota",Entertainment
+"Langganan Disney+ Hotstar",Entertainment
+"Bayar membership gym",Health & Fitness
+"Beli obat di Apotek K24",Health & Fitness
+"Konsultasi dokter umum",Health & Fitness
+"Pembelian vitamin di GoApotik",Health & Fitness
+"Periksa gigi di klinik",Health & Fitness
+"Bayar SPP sekolah anak",Education
+"Beli buku programming Python",Education
+"Kursus online di Udemy",Education
+"Pembelian alat tulis sekolah",Education
+"Biaya les privat matematika",Education
+"Bayar cicilan KPR bulanan",Debt & Loans
+"Angsuran kartu kredit BCA",Debt & Loans
+"Pinjaman online yang dibayar",Debt & Loans
+"Cicilan motor bulan ini",Debt & Loans
+"Pelunasan hutang ke teman",Debt & Loans
+"Investasi saham di Bibit",Savings & Investments
+"Deposito di bank sebesar 10jt",Savings & Investments
+"Beli emas antam 5 gram",Savings & Investments
+"Setor tabungan bulanan",Savings & Investments
+"Investasi reksadana pasar uang",Savings & Investments
+"Donasi ke panti asuhan",Gifts & Donations
+"Hadiah ulang tahun untuk adik",Gifts & Donations
+"Sumbangan untuk korban banjir",Gifts & Donations
+"Transfer uang ke orang tua",Gifts & Donations
+"Amal ke masjid dekat rumah",Gifts & Donations
+"Biaya perbaikan laptop mendadak",Miscellaneous
+"Pengeluaran tak terduga",Miscellaneous
+"Kehilangan uang di jalan",Miscellaneous
+"Biaya administrasi bank",Miscellaneous
+"Pengiriman paket via JNE",Miscellaneous
+"Pendapatan dari dividen saham",Income
+"Honorarium mengajar bulan ini",Income
+"Uang THR dari perusahaan",Income
+"Pembayaran royalti buku",Income
+"Beli sarapan pagi di kaki lima",Food & Dining
+"Makan malam di restoran Padang",Food & Dining
+"Ngopi pagi di kedai kopi",Food & Dining
+"Beli snack di minimarket",Food & Dining
+"Bayar parkir tol jalan",Transportation
+"Servis rutin mobil bulanan",Transportation
+"Beli ban baru untuk motor",Transportation
+"Bayar tiket bus antar kota",Transportation
+"Beli tas branded online",Shopping
+"Pembelian gadget baru",Shopping
+"Belanja baju lebaran",Shopping
+"Beli peralatan dapur",Shopping
+"Bayar tagihan telepon rumah",Utilities
+"Pembayaran asuransi kesehatan",Utilities
+"Biaya langganan koran",Utilities
+"Bayar iuran RT bulanan",Utilities
+"Nonton pertandingan sepakbola",Entertainment
+"Langganan majalah bulanan",Entertainment
+"Beli game di Steam",Entertainment
+"Tiket wahana bermain anak",Entertainment
+"Konsultasi dokter spesialis",Health & Fitness
+"Beli alat olahraga",Health & Fitness
+"Pemeriksaan mata di optik",Health & Fitness
+"Terapi fisik mingguan",Health & Fitness
+"Bayar uang pangkal kuliah",Education
+"Beli modul kursus bahasa",Education
+"Biaya seminar online",Education
+"Pembelian buku pelajaran",Education
+"Bayar cicilan rumah",Debt & Loans
+"Pinjaman bank untuk modal usaha",Debt & Loans
+"Angsuran leasing mobil",Debt & Loans
+"Pelunasan pinjaman online",Debt & Loans
+"Beli reksadana campuran",Savings & Investments
+"Deposito berjangka 1 tahun",Savings & Investments
+"Investasi obligasi pemerintah",Savings & Investments
+"Beli cryptocurrency",Savings & Investments
+"Sumbangan untuk panti jompo",Gifts & Donations
+"Hadiah pernikahan teman",Gifts & Donations
+"Donasi bencana alam",Gifts & Donations
+"Bingkisan untuk klien",Gifts & Donations
+"Biaya servis AC rumah",Miscellaneous
+"Penggantian kunci pintu",Miscellaneous
+"Biaya notaris dokumen",Miscellaneous
+"Pembayaran denda perpustakaan",Miscellaneous
+"Pendapatan dari sewa properti",Income
+"Komisi penjualan bulan ini",Income
+"Beli makan siang kantor",Food & Dining
+"Bayar bengkel mobil",Transportation
+"Pembelian furniture baru",Shopping
+"Bayar iuran internet",Utilities
+"Beli tiket museum",Entertainment
+"Pemeriksaan kesehatan tahunan",Health & Fitness
+"Biaya kursus musik",Education
+"Bayar angsuran kredit usaha",Debt & Loans
+"Beli saham blue chip",Savings & Investments
+"Donasi yatim piatu",Gifts & Donations
+"Biaya servis elektronik",Miscellaneous
