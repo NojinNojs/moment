@@ -84,6 +84,7 @@ const typeOptions = [
   { label: "All types", value: "all", icon: <Filter className="h-4 w-4" /> },
   { label: "Income only", value: "income", icon: <PiggyBank className="h-4 w-4" /> },
   { label: "Expenses only", value: "expense", icon: <CreditCard className="h-4 w-4" /> },
+  { label: "Transfers only", value: "transfer", icon: <ArrowDownUp className="h-4 w-4" /> },
 ];
 
 // Sort options
@@ -254,67 +255,67 @@ export function TransactionHistory({
     setCurrentPage(1);
   }, [searchQuery, sortBy, typeFilter, categoryFilters]);
 
-  // Filter and sort transactions
+  // Filter the transactions based on the search query and filters
   const filteredTransactions = useMemo(() => {
-    // First filter out soft-deleted transactions
-    let result = transactions.filter(t => !t.isDeleted);
-
-    // Apply type filter
-    if (typeFilter !== "all") {
-      result = result.filter((t) => t.type === typeFilter);
-    }
-
-    // Apply category filters (multiple)
-    if (categoryFilters.length > 0) {
-      result = result.filter((t) =>
-        categoryFilters.some(category => 
-          getCategoryString(t.category).toLowerCase().includes(category.toLowerCase())
-        )
-      );
-    }
-
-    // Apply search filter
-    if (searchQuery.trim()) {
+    // Start with all transactions
+    let filtered = [...transactions];
+    
+    // Filter out soft-deleted transactions
+    filtered = filtered.filter(t => !t.isDeleted);
+    
+    // Apply search query filter
+    if (searchQuery) {
       const query = searchQuery.toLowerCase();
-      result = result.filter(
-        (t) =>
-          t.title.toLowerCase().includes(query) ||
-          getCategoryString(t.category).toLowerCase().includes(query) ||
-          t.description?.toLowerCase().includes(query)
+      filtered = filtered.filter(t => 
+        t.title?.toLowerCase().includes(query) || 
+        (typeof t.category === 'string' && t.category?.toLowerCase().includes(query)) ||
+        (typeof t.category === 'object' && t.category?.name?.toLowerCase().includes(query)) ||
+        t.description?.toLowerCase().includes(query) ||
+        (t.fromAsset && t.fromAsset.toString().toLowerCase().includes(query)) ||
+        (t.toAsset && t.toAsset.toString().toLowerCase().includes(query))
       );
     }
-
-    // Apply sorting
-    result.sort((a, b) => {
-      const [sortField, sortDirection] = sortBy.split("-");
-      const isAsc = sortDirection === "asc";
-
-      switch (sortField) {
-        case "date":
-          return isAsc
-            ? new Date(a.date).getTime() - new Date(b.date).getTime()
-            : new Date(b.date).getTime() - new Date(a.date).getTime();
-        case "amount": {
-          const amountA = Math.abs(a.amount);
-          const amountB = Math.abs(b.amount);
-          return isAsc ? amountA - amountB : amountB - amountA;
-        }
-        case "title":
-          return isAsc
-            ? a.title.localeCompare(b.title)
-            : b.title.localeCompare(a.title);
-        case "category": {
-          const aValue = getCategoryString(a.category).toLowerCase();
-          const bValue = getCategoryString(b.category).toLowerCase();
-          return isAsc ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue);
-        }
-        default:
-          return 0;
+    
+    // Apply type filter
+    if (typeFilter !== 'all') {
+      if (typeFilter === 'transfer') {
+        // Filter for asset transfers
+        filtered = filtered.filter(t => t.transferType === 'transfer');
+      } else {
+        // Filter for income/expense
+        filtered = filtered.filter(t => t.type === typeFilter && t.transferType !== 'transfer');
       }
+    }
+    
+    // Apply category filter if enabled
+    if (categoryFilters.length > 0) {
+      filtered = filtered.filter(t => {
+        const categoryStr = getCategoryString(t.category);
+        return categoryFilters.includes(categoryStr);
+      });
+    }
+    
+    // Apply sort
+    const [sortField, sortDirection] = sortBy.split('-');
+    filtered.sort((a, b) => {
+      if (sortField === 'date') {
+        const dateA = new Date(a.date).getTime();
+        const dateB = new Date(b.date).getTime();
+        return sortDirection === 'asc' ? dateA - dateB : dateB - dateA;
+      } else if (sortField === 'amount') {
+        return sortDirection === 'asc' ? a.amount - b.amount : b.amount - a.amount;
+      } else if (sortField === 'title') {
+        const titleA = a.title?.toLowerCase() || '';
+        const titleB = b.title?.toLowerCase() || '';
+        return sortDirection === 'asc' 
+          ? titleA.localeCompare(titleB)
+          : titleB.localeCompare(titleA);
+      }
+      return 0;
     });
-
-    return result;
-  }, [transactions, searchQuery, sortBy, typeFilter, categoryFilters]);
+    
+    return filtered;
+  }, [transactions, searchQuery, typeFilter, categoryFilters, sortBy]);
 
   // Scroll filter bar
   const scrollFilterBar = (direction: 'left' | 'right') => {

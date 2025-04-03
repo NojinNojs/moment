@@ -158,48 +158,76 @@ export default function Transactions() {
     }
   }, []);
 
+  // Function to reload all transaction-related data
+  const refreshAllData = useCallback(async () => {
+    console.log("Refreshing all transaction data...");
+    try {
+      await Promise.all([
+        fetchTransactions({ resolveReferences: true }),
+        fetchAccounts(),
+        fetchAssetTransfers()
+      ]);
+      console.log("All transaction data refreshed successfully");
+    } catch (error) {
+      console.error("Error refreshing transaction data:", error);
+    }
+  }, [fetchTransactions, fetchAccounts, fetchAssetTransfers]);
+
   // Fetch accounts and transfers when component mounts
   useEffect(() => {
     fetchAccounts();
     fetchAssetTransfers();
   }, [fetchAccounts, fetchAssetTransfers]);
 
-  // Fetch transactions when component mounts
+  // Fetch transactions when component mounts or data changes
   useEffect(() => {
     fetchTransactions({ resolveReferences: true });
   }, [fetchTransactions]);
 
+  // Set up event listeners to update data when transactions change
+  useEffect(() => {
+    // Listen for transaction events to refresh data
+    const createdListener = TransactionEventBus.on('transaction:created', refreshAllData);
+    const updatedListener = TransactionEventBus.on('transaction:updated', refreshAllData);
+    const deletedListener = TransactionEventBus.on('transaction:softDeleted', refreshAllData);
+    const restoredListener = TransactionEventBus.on('transaction:restored', refreshAllData);
+
+    // Clean up listeners on unmount
+    return () => {
+      createdListener();
+      updatedListener();
+      deletedListener();
+      restoredListener();
+    };
+  }, [refreshAllData]);
+
   // Function to convert AssetTransfer to Transaction format
   const convertTransfersToTransactions = useCallback((transfers: AssetTransfer[]): Transaction[] => {
-    // Buat map untuk menyimpan ID yang sudah dibuat agar tidak ada duplikasi
     const usedIds = new Set<number>();
     
-    // Helper function untuk generate ID unik
     const generateUniqueId = (seed?: string): number => {
-      // Coba generate ID dari seed jika ada
+      // Try to generate ID from seed if available
       let id: number;
       if (seed) {
-        // Pastikan substring tidak melebihi panjang string asli
         const substringLength = Math.min(seed.length, 8);
         const substring = seed.substring(0, substringLength);
         id = parseInt(substring, 16);
       } else {
-        // Jika tidak ada seed, generate random ID
+        // If no seed is available, generate a random ID
         id = Math.floor(Math.random() * 100000) + 1;
       }
       
-      // Pastikan ID valid
+      // Ensure ID is valid
       if (isNaN(id) || id === 0 || usedIds.has(id)) {
-        // Jika invalid atau sudah digunakan, generate ID baru
         id = Math.floor(Math.random() * 100000) + 1;
         
-        // Pastikan ID baru tidak duplikat (recursive check)
+        // Ensure new ID isn't a duplicate
         while (usedIds.has(id)) {
           id = Math.floor(Math.random() * 100000) + 1;
         }
       }
       
-      // Tambahkan ke set ID yang sudah digunakan
+      // Add to set of used IDs
       usedIds.add(id);
       return id;
     };
@@ -208,20 +236,22 @@ export default function Transactions() {
       // Extract asset names - handling both string IDs and object references
       const fromAssetName = typeof transfer.fromAsset === 'object' && transfer.fromAsset 
         ? transfer.fromAsset.name 
-        : 'Unknown';
+        : typeof transfer.fromAsset === 'string' ? transfer.fromAsset : 'Unknown';
         
       const toAssetName = typeof transfer.toAsset === 'object' && transfer.toAsset
         ? transfer.toAsset.name
-        : 'Unknown';
+        : typeof transfer.toAsset === 'string' ? transfer.toAsset : 'Unknown';
       
-      // Dapatkan ID dari transfer (object ID, string ID, atau property ID)
+      // Get ID from transfer
       const transferIdStr = String(transfer._id || transfer.id || '');
       
-      // Generate ID unik untuk transaction
+      // Generate unique ID for transaction
       const numericId = generateUniqueId(transferIdStr);
       
+      // Create a proper transaction object from the transfer
       return {
         id: numericId,
+        _id: transfer._id || undefined,
         title: `Transfer: ${fromAssetName} → ${toAssetName}`,
         amount: transfer.amount,
         date: typeof transfer.date === 'string' ? transfer.date : new Date(transfer.date).toISOString().split('T')[0],
@@ -248,7 +278,7 @@ export default function Transactions() {
     });
   }, [transactions, assetTransfers, convertTransfersToTransactions]);
 
-  // Use getAllTransactions for calculations
+  // Use getAllTransactions for calculations AND history display
   const activeTransactions = useMemo(() => 
     getAllTransactions.filter(t => !t.isDeleted),
     [getAllTransactions]
@@ -256,7 +286,7 @@ export default function Transactions() {
   
   const totalIncome = useMemo(() => 
     activeTransactions
-    .filter(t => t.type === "income")
+      .filter(t => t.type === "income")
       .reduce((sum, t) => sum + t.amount, 0),
     [activeTransactions]
   );
@@ -524,9 +554,9 @@ export default function Transactions() {
     }
 
     try {
-    // Get the transaction type and convert amount
-    const type = currentTransactionType;
-    const amount = parseFloat(formData.amount);
+      // Get the transaction type and convert amount
+      const type = currentTransactionType;
+      const amount = parseFloat(formData.amount);
 
       // Ensure date is properly formatted
       let formattedDate = formData.date;
@@ -541,17 +571,17 @@ export default function Transactions() {
         console.error("Error formatting date for submit:", error);
       }
 
-    if (currentTransactionMode === 'add') {
+      if (currentTransactionMode === 'add') {
         // Prepare transaction data for API
         const transactionData = {
           amount,
           type,
-        category: formData.category,
+          category: formData.category,
           title: formData.title || (type === 'income' ? 'Income' : 'Expense'), // Default title if empty
           description: formData.description || '', // Default empty string if not provided
           date: formattedDate || new Date().toISOString().split('T')[0], // Format date properly
-        account: formData.account
-      };
+          account: formData.account
+        };
       
         // Debug log the transaction data
         console.log('Submitting transaction data:', transactionData);
@@ -565,10 +595,7 @@ export default function Transactions() {
         }
         
         if (response.success && response.data) {
-      // Add to transactions list
-          setTransactions(prev => [response.data as Transaction, ...prev]);
-          
-          // Emit event to notify other components (e.g. Overview) of the new transaction
+          // Emit event to notify other components
           TransactionEventBus.emit('transaction:created', {
             transaction: response.data,
             type,
@@ -576,13 +603,13 @@ export default function Transactions() {
           });
           
           // Show success toast
-      toast.success("Transaction added", {
+          toast.success("Transaction added", {
             description: `${type === "income" ? "Income" : "Expense"} of $${Math.abs(response.data.amount).toFixed(2)} has been added.`,
-        position: "bottom-right",
+            position: "bottom-right",
             id: `add-transaction-${response.data._id}`, // Use unique ID
-      });
+          });
         }
-    } else if (currentTransactionMode === 'edit' && currentTransactionId) {
+      } else if (currentTransactionMode === 'edit' && currentTransactionId) {
         // Get the transaction to edit
         const transactionToEdit = transactions.find(t => t.id === currentTransactionId);
         if (!transactionToEdit) {
@@ -600,11 +627,11 @@ export default function Transactions() {
           amount,
           type,
           category: formData.category,
-            title: formData.title,
-            description: formData.description,
+          title: formData.title,
+          description: formData.description,
           date: formattedDate,
-            account: formData.account
-          };
+          account: formData.account
+        };
 
         console.log('Updating transaction data:', {
           id: transactionToEdit._id?.toString() || transactionToEdit.id.toString(),
@@ -675,8 +702,8 @@ export default function Transactions() {
         }
       }
 
-      // Fetch all transactions with resolved references
-      await fetchTransactions({ resolveReferences: true });
+      // Refresh data to ensure UI is up-to-date
+      await refreshAllData();
       
       // Close modal
       handleCloseModal();
@@ -688,7 +715,7 @@ export default function Transactions() {
         position: "bottom-right"
       });
     }
-  }, [currentTransactionId, currentTransactionMode, currentTransactionType, formData, formErrors, handleCloseModal, validateForm, transactions, fetchTransactions]);
+  }, [currentTransactionId, currentTransactionMode, currentTransactionType, formData, formErrors, handleCloseModal, validateForm, refreshAllData]);
 
   // Handle soft delete transaction
   const handleSoftDelete = useCallback((id: number) => {
@@ -837,9 +864,9 @@ export default function Transactions() {
         onAddExpense={handleAddExpense}
       />
       
-      {/* Transaction history */}
+      {/* Transaction history - Use getAllTransactions instead of just transactions */}
       <TransactionHistory
-        transactions={transactions}
+        transactions={getAllTransactions}
         onEditTransaction={handleEditTransaction}
         onDeleteTransaction={handleSoftDelete}
         onAddTransaction={type => type === 'income' ? handleAddIncome() : handleAddExpense()}
