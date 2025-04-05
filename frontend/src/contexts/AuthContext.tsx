@@ -1,7 +1,8 @@
 import { createContext, useState, useEffect, ReactNode } from 'react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
-import { User, AuthContextType } from './auth-utils';
+import { User, AuthContextType, UserSettings } from './auth-utils';
+import apiService from '@/services/api';
 
 // Create auth context
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -68,6 +69,43 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     setUser(userData);
   };
 
+  // Update user settings
+  const updateUserSettings = async (newSettings: Partial<UserSettings>): Promise<boolean> => {
+    if (!user) {
+      toast.error('You must be logged in to update settings');
+      return false;
+    }
+
+    try {
+      // Send settings update to backend
+      const response = await apiService.updateUserSettings(newSettings);
+
+      if (response.success && response.data) {
+        // Update user state with new settings
+        const updatedUser = {
+          ...user,
+          settings: response.data
+        };
+
+        // Update localStorage
+        localStorage.setItem('user', JSON.stringify(updatedUser));
+        
+        // Update state
+        setUser(updatedUser);
+        
+        toast.success('Settings updated successfully');
+        return true;
+      } else {
+        toast.error(response.message || 'Failed to update settings');
+        return false;
+      }
+    } catch (error) {
+      console.error('Settings update error:', error);
+      toast.error('An error occurred while updating settings');
+      return false;
+    }
+  };
+
   // Logout function
   const logout = () => {
     // Clear localStorage
@@ -87,6 +125,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     isLoading,
     login,
     logout,
+    updateUserSettings,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -24,6 +24,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TransactionItem, Transaction } from "./TransactionItem";
+import useCurrencyFormat from '@/hooks/useCurrencyFormat';
 
 interface TransactionListProps {
   transactions: Transaction[];
@@ -105,6 +106,7 @@ export const TransactionList = ({
   compactMode = true,
   groupByDate = false,
 }: TransactionListProps) => {
+  const { formatCurrency } = useCurrencyFormat();
   const [sortField, setSortField] = useState<SortField>('date');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const [filterType, setFilterType] = useState<'all' | 'income' | 'expense'>('all');
@@ -226,23 +228,6 @@ export const TransactionList = ({
       prevFilteredTransactionsRef.current = filteredAndSortedTransactions;
     }
   }, [filteredAndSortedTransactions, groupByDate, groupTransactions]);
-  
-  // Format currency with appropriate locale - memoize this too
-  const formatCurrency = useCallback((amount: number): string => {
-    try {
-      // Use period as thousand separator and comma as decimal separator (European/Indonesian style)
-      const absAmount = Math.abs(amount);
-      const currencyFormatter = new Intl.NumberFormat('en-US', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-      });
-      
-      return (amount < 0 ? '-$' : '$') + currencyFormatter.format(absAmount);
-    } catch (error) {
-      console.error("Error formatting currency:", error);
-      return `${amount < 0 ? '-$' : '$'}${Math.abs(amount).toFixed(2)}`;
-    }
-  }, []);
   
   // Card animation variants
   const cardVariants = {

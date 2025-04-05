@@ -30,6 +30,8 @@ import {
   Plane, Landmark, Laptop, AlertCircle, Tags
 } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
+import useCurrencyFormat from '@/hooks/useCurrencyFormat';
+import { CurrencyInput } from "@/components/dashboard/transactions/forms/CurrencyInput";
 
 // Define interfaces for types
 interface FuseCategoryOption {
@@ -150,173 +152,6 @@ const selectionFeedbackCss = `
 // Add the selection feedback css to the component
 const combinedStyles = `${globalStyles}\n${selectionFeedbackCss}`;
 
-// Mock CurrencyInput component if not available
-const CurrencyInput = ({ value, onChange, ...props }: { 
-  value: string; 
-  onChange: (value: string) => void;
-  hasError?: boolean;
-  placeholder?: string;
-  locale?: 'en-US' | 'id-ID';
-  className?: string;
-  [key: string]: unknown;
-}) => {
-  const [isFocused, setIsFocused] = useState(false);
-  const [isHovered, setIsHovered] = useState(false);
-  const [displayValue, setDisplayValue] = useState("");
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [cursorPosition, setCursorPosition] = useState(0);
-  
-  // Select the locale for formatting (default to en-US)
-  const locale = 'en-US' as const; // Change to 'id-ID' for Indonesian format
-  
-  // Get the decimal separator based on locale
-  const decimalSeparator = locale === ('id-ID' as 'en-US' | 'id-ID') ? ',' : '.';
-  const thousandSeparator = locale === ('id-ID' as 'en-US' | 'id-ID') ? '.' : ',';
-  
-  // Wrap formatDisplayValue in useCallback to ensure stable reference
-  const formatDisplayValue = useCallback((value: string): string => {
-    if (!value) return value;
-    
-    // If the value ends with a decimal point, preserve it
-    const endsWithDecimal = value.endsWith(decimalSeparator);
-    
-    // Split the number by decimal point
-    const parts = value.split(decimalSeparator);
-    
-    // Format the integer part with thousand separators
-    const formattedInteger = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, thousandSeparator);
-    
-    // Return the formatted value with the appropriate decimal separator
-    if (parts.length > 1) {
-      return `${formattedInteger}${decimalSeparator}${parts[1]}`;
-    }
-    
-    return endsWithDecimal ? `${formattedInteger}${decimalSeparator}` : formattedInteger;
-  }, [decimalSeparator, thousandSeparator]);
-
-  // Update the useEffect dependency array
-  useEffect(() => {
-    setDisplayValue(formatDisplayValue(value));
-  }, [value, formatDisplayValue]);
-  
-  // Count separators before a specific position in the formatted string
-  const countSeparatorsBeforePosition = (formattedValue: string, position: number, separator: string): number => {
-    let count = 0;
-    for (let i = 0; i < Math.min(position, formattedValue.length); i++) {
-      if (formattedValue[i] === separator) count++;
-    }
-    return count;
-  };
-  
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Save current cursor position and selection
-    const cursorPos = e.target.selectionStart || 0;
-    const inputValue = e.target.value;
-    
-    // Check if empty
-    if (!inputValue) {
-      onChange("");
-      setDisplayValue("");
-      return;
-    }
-    
-    // Create a regex that allows only digits and the decimal separator
-    const validPattern = new RegExp(`[^0-9${decimalSeparator}]`, 'g');
-    const strippedValue = inputValue.replace(validPattern, '');
-    
-    // Handle multiple decimal points
-    const parts = strippedValue.split(decimalSeparator);
-    const numericValue = parts.length > 1 
-      ? parts[0] + decimalSeparator + parts.slice(1).join('')
-      : strippedValue;
-    
-    // Count how many separators were before the cursor in the previous formatted value
-    const prevFormattedValue = displayValue;
-    const prevSeparatorsBeforeCursor = countSeparatorsBeforePosition(prevFormattedValue, cursorPos, thousandSeparator);
-    
-    // Update the parent component with the raw numeric value
-    onChange(numericValue);
-    
-    // Calculate the new cursor position
-    // We need to adjust for any separators that were added or removed
-    const newFormattedValue = formatDisplayValue(numericValue);
-    const newSeparatorsBeforeCursor = countSeparatorsBeforePosition(newFormattedValue, cursorPos, thousandSeparator);
-    
-    // Adjust cursor position based on added/removed separators
-    const separatorDifference = newSeparatorsBeforeCursor - prevSeparatorsBeforeCursor;
-    const newCursorPos = cursorPos + separatorDifference;
-    
-    // Store the new cursor position to be applied after render
-    setCursorPosition(newCursorPos);
-  };
-  
-  // Apply cursor position after the display value updates
-  useEffect(() => {
-    if (isFocused && inputRef.current) {
-      inputRef.current.setSelectionRange(cursorPosition, cursorPosition);
-    }
-  }, [displayValue, isFocused, cursorPosition]);
-
-  return (
-    <div 
-      className={cn(
-        "relative flex group rounded-md transition-all duration-200",
-        props.hasError ? 'has-error' : '',
-        isFocused ? 'is-focused ring-1 ring-primary/40' : '',
-        isHovered && !isFocused ? 'hover-state' : ''
-      )}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-    >
-      <div className={cn(
-        "flex items-center justify-center w-12 border rounded-l-md transition-all duration-200",
-        "bg-muted/60 text-muted-foreground backdrop-blur-sm",
-        isFocused ? "border-primary border-r-primary/20" : "border-input",
-        props.hasError ? "border-red-500" : "",
-        isHovered && !isFocused ? "border-input/80 bg-muted/80" : "",
-        "h-10"
-      )}>
-        <div className={cn(
-          "flex items-center justify-center",
-          isFocused ? "text-primary" : "text-muted-foreground"
-        )}>
-          <DollarSign className="h-4 w-4" />
-        </div>
-      </div>
-      
-      <div className="relative flex-1" data-field="input-field">
-        <Input
-          ref={inputRef}
-          type="text"
-          inputMode="decimal"
-          className={cn(
-            "rounded-l-none h-10 pl-3 font-medium transition-all duration-200 border-l-0",
-            props.hasError 
-              ? 'border-red-500 focus-visible:ring-red-500' 
-              : isFocused 
-                ? 'border-primary' 
-                : isHovered ? 'border-input/80' : 'border-input'
-          )}
-          style={{ 
-            borderTopLeftRadius: 0, 
-            borderBottomLeftRadius: 0 
-          }}
-          placeholder="Enter amount"
-          value={displayValue}
-          onChange={handleChange}
-          onFocus={() => setIsFocused(true)}
-          onBlur={() => setIsFocused(false)}
-          {...props}
-        />
-      </div>
-      
-      {Boolean(props.hasError) && (
-        <div className="absolute right-0 top-0 bottom-0 w-1.5 bg-red-500 rounded-r-md"></div>
-      )}
-    </div>
-  );
-};
-
 /**
  * TransactionForm - A reusable form component for income and expense transactions
  * Features:
@@ -349,6 +184,8 @@ export const TransactionForm = ({
   accounts = [],
   isLoadingAccounts = false,
 }: TransactionFormProps) => {
+  const { formatCurrency, currencyLocale, currencySymbol } = useCurrencyFormat();
+  
   // State for clicked item selection
   const [clickedItemId, setClickedItemId] = useState<string | null>(null);
   
@@ -630,16 +467,6 @@ export const TransactionForm = ({
   const selectedAccount = accountOptions.find(
     (acc) => getAccountId(acc) === transactionAccount
   ) as AccountWithBalance | undefined;
-
-  // Format currency for display
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(amount);
-  };
 
   // Format account type with first letter capital
   const formatAccountType = (accountType: string) => {
@@ -1136,6 +963,8 @@ export const TransactionForm = ({
             formErrors.amount ? "border-destructive ring-destructive/30" : ""
           )}
           hasError={!!formErrors.amount}
+          locale={currencyLocale}
+          currencySymbol={currencySymbol}
         />
         {formErrors.amount && (
           <p className="text-xs text-red-500 mt-1 flex items-center gap-1.5">

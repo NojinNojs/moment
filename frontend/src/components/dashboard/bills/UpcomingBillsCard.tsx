@@ -13,6 +13,7 @@ import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
+import useCurrencyFormat from '@/hooks/useCurrencyFormat';
 
 interface Bill {
   id: number;
@@ -50,20 +51,13 @@ export const UpcomingBillsCard = ({
   className
 }: UpcomingBillsCardProps) => {
   const [animateItems, setAnimateItems] = useState(false);
+  const { formatCurrency } = useCurrencyFormat();
   
   // Trigger staggered animation after component mounts
   useEffect(() => {
     const timer = setTimeout(() => setAnimateItems(true), 300);
     return () => clearTimeout(timer);
   }, []);
-  
-  // Format currency to show appropriate decimals
-  const formatCurrency = (amount: number): string => {
-    return '$' + amount.toLocaleString('en-US', { 
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2 
-    });
-  };
   
   // Get days until due date
   const getDaysUntilDue = (dueDate: string): number => {

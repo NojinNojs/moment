@@ -27,6 +27,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { CurrencyInput } from "@/components/dashboard/transactions/forms/CurrencyInput";
+import useCurrencyFormat from '@/hooks/useCurrencyFormat';
 
 // Define valid asset types to match the drawer
 type ValidAssetType = "cash" | "bank" | "e-wallet" | "emergency";
@@ -52,6 +53,7 @@ export function EditAssetModal({
   onUpdateAsset,
 }: EditAssetModalProps) {
   const [loading, setLoading] = useState(false);
+  const { currencyLocale, currencySymbol } = useCurrencyFormat();
   const [form, setForm] = useState({
     name: asset?.name || "",
     type: (asset?.type as ValidAssetType) || "cash",
@@ -226,7 +228,8 @@ export function EditAssetModal({
                   }}
                   placeholder="0.00"
                   className="w-full"
-                  locale="en-US" // Use US format by default, can be made configurable
+                  locale={currencyLocale}
+                  currencySymbol={currencySymbol}
                 />
               </div>
 

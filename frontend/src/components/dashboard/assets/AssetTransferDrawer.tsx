@@ -15,9 +15,9 @@ import {
   DrawerDescription
 } from "@/components/ui/drawer";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { cn, formatCurrency } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { CurrencyInput } from "@/components/dashboard/transactions/forms/CurrencyInput";
-import { FormControl } from "@/components/ui/form";
+import useCurrencyFormat from '@/hooks/useCurrencyFormat';
 
 interface AssetTransferDrawerProps {
   assets: Asset[];
@@ -28,6 +28,12 @@ interface AssetTransferDrawerProps {
   onAddAsset?: () => void;
 }
 
+// Helper function to get asset ID consistently
+const getAssetId = (asset: Asset | undefined): string => {
+  if (!asset) return '';
+  return String(asset.id || asset._id || '');
+};
+
 export function AssetTransferDrawer({
   open,
   onOpenChange,
@@ -36,8 +42,7 @@ export function AssetTransferDrawer({
   onTransfer,
   onAddAsset
 }: AssetTransferDrawerProps) {
-  // Define locale
-  const locale = 'en-US' as const;
+  const { formatCurrency, currencyLocale, currencySymbol } = useCurrencyFormat();
 
   // State for tracking selected assets, amount and description
   const [fromAsset, setFromAsset] = useState<Asset | undefined>(sourceAsset);
@@ -67,20 +72,13 @@ export function AssetTransferDrawer({
   
   // Get the destination assets (excluding the selected source asset)
   const destinationAssets = useMemo(() => {
-    try {
-      // Ensure assets is always a valid array before filtering
-      if (!assets || !Array.isArray(assets)) return [];
-      
-      // Filter out the selected source asset using its ID
-      return assets.filter(asset => {
-        if (!asset) return false;
-        const assetId = asset.id || asset._id || '';
-        return assetId !== fromAsset?.id && assetId !== fromAsset?._id;
-      });
-    } catch (error) {
-      console.error("Error filtering destination assets:", error);
-      return [];
-    }
+    if (!fromAsset || !Array.isArray(assets)) return [];
+    const fromAssetId = getAssetId(fromAsset);
+    
+    return assets.filter(asset => {
+      if (!asset) return false;
+      return getAssetId(asset) !== fromAssetId && !asset.isDeleted;
+    });
   }, [assets, fromAsset]);
   
   // Fetch asset transfers when drawer opens
@@ -107,29 +105,23 @@ export function AssetTransferDrawer({
       // For exactly two assets case
       
       // Start with sourceAsset if provided
-      let fromId = "";
-      let toId = "";
-      
       if (sourceAsset) {
-        fromId = sourceAsset.id || sourceAsset._id || "";
+        setFromAsset(sourceAsset);
         
         // Find the other asset for destination
-        const otherAsset = validAssets.find(asset => 
-          asset.id !== fromId && asset._id !== fromId
-        );
+        const sourceId = getAssetId(sourceAsset);
+        const otherAsset = validAssets.find(asset => getAssetId(asset) !== sourceId);
         
         if (otherAsset) {
-          toId = otherAsset.id || otherAsset._id || "";
+          setToAsset(otherAsset);
+        } else {
+          setToAsset(undefined);
         }
       } else if (!fromAsset) {
         // No source asset provided, use the first two assets
-        fromId = validAssets[0]?.id || validAssets[0]?._id || "";
-        toId = validAssets[1]?.id || validAssets[1]?._id || "";
+        setFromAsset(validAssets[0]);
+        setToAsset(validAssets[1]);
       }
-      
-      // Only update state if we have valid IDs to prevent unnecessary rerenders
-      if (fromId) setFromAsset(validAssets.find(asset => asset.id === fromId || asset._id === fromId));
-      if (toId) setToAsset(validAssets.find(asset => asset.id === toId || asset._id === toId));
     } else if (sourceAsset) {
       // For multiple assets case, just set the source asset if provided
       setFromAsset(sourceAsset);
@@ -140,10 +132,6 @@ export function AssetTransferDrawer({
       setToAsset(undefined);
     }
   }, [open, sourceAsset, hasExactlyTwoAssets, validAssets, fromAsset]);
-  
-  // Get the selected assets immediately when IDs change
-  const fromAssetId = fromAsset?.id || fromAsset?._id || '';
-  const toAssetId = toAsset?.id || toAsset?._id || '';
   
   // Animation variants
   const containerAnimation = {
@@ -197,7 +185,7 @@ export function AssetTransferDrawer({
     }
     
     // Parse the value with locale-specific formatting
-    const valueForParsing = locale === ('id-ID' as 'en-US' | 'id-ID')
+    const valueForParsing = currencyLocale === ('id-ID' as 'en-US' | 'id-ID')
       ? value.replace(/\./g, '').replace(/,/g, '.')
       : value.replace(/,/g, '');
     
@@ -238,8 +226,8 @@ export function AssetTransferDrawer({
       const destinationAsset = toAsset || validAssets[1];
       
       // Make sure we're not trying to transfer to the same asset - compare only IDs
-      const sourceId = String(sourceAsset.id || sourceAsset._id || '');
-      const destId = String(destinationAsset.id || destinationAsset._id || '');
+      const sourceId = getAssetId(sourceAsset);
+      const destId = getAssetId(destinationAsset);
       
       if (sourceId === destId) {
         setError("Source and destination assets cannot be the same");
@@ -303,8 +291,8 @@ export function AssetTransferDrawer({
     }
     
       // Check if from and to assets are the same - compare only IDs
-      const fromId = String(fromAsset.id || fromAsset._id || '');
-      const toId = String(toAsset.id || toAsset._id || '');
+      const fromId = getAssetId(fromAsset);
+      const toId = getAssetId(toAsset);
       
       if (fromId === toId) {
       setError("Source and destination assets cannot be the same");
@@ -336,23 +324,53 @@ export function AssetTransferDrawer({
     }
   };
   
+  // Asset details card for selected asset
+  const renderAssetCard = (asset: Asset, label: string) => {
+    if (!asset) return null;
+    
+    const AssetIcon = getAssetIcon(asset.type);
+    const iconBg = getAssetIconBg(asset.type);
+    
+    return (
+      <motion.div
+        initial="initial"
+        animate="animate"
+        exit="exit"
+        variants={cardAnimation}
+        className="p-4 bg-gray-50 dark:bg-gray-800/30 border border-border rounded-lg shadow-sm hover:shadow-md transition-all"
+      >
+        <div className="flex items-center gap-3">
+          <div className={cn("w-10 h-10 rounded-full flex items-center justify-center", iconBg)}>
+            <AssetIcon className="h-5 w-5" />
+          </div>
+          <div className="flex-1">
+            <div className="font-medium text-base">{asset.name}</div>
+            <div className="text-xs text-muted-foreground flex items-center gap-1">
+              {label}
+              {asset.institution && <span>• {asset.institution}</span>}
+            </div>
+          </div>
+          <div className="text-right">
+            <div className="font-semibold">{formatCurrency(asset.balance)}</div>
+            <div className="text-xs text-muted-foreground">Available</div>
+          </div>
+      </div>
+      </motion.div>
+    );
+  };
+  
   // Function to render asset selection comboboxes
   const renderAssetCombobox = (
-    value: string,
-    onSelect: (value: string) => void,
+    selectedAsset: Asset | undefined,
+    onSelect: (asset: Asset) => void,
     isOpen: boolean,
     setIsOpen: (open: boolean) => void,
-    assets: Asset[],
+    availableAssets: Asset[],
     placeholder: string,
     disabled = false
   ) => {
     // Ensure assets is always a valid array
-    const safeAssets = assets && Array.isArray(assets) ? assets : [];
-    
-    // Find selected asset safely
-    const selectedAsset = safeAssets.find(asset => 
-      asset && ((asset.id && asset.id === value) || (asset._id && asset._id === value))
-    );
+    const safeAssets = availableAssets && Array.isArray(availableAssets) ? availableAssets : [];
     
     return (
       <div className="w-full">
@@ -364,7 +382,7 @@ export function AssetTransferDrawer({
               aria-expanded={isOpen}
               className={cn(
                 "w-full justify-between h-10 bg-background font-normal",
-                !value && "text-muted-foreground",
+                !selectedAsset && "text-muted-foreground",
                 disabled && "opacity-50 cursor-not-allowed"
               )}
               disabled={disabled}
@@ -395,22 +413,20 @@ export function AssetTransferDrawer({
                   {safeAssets.map((asset) => {
                     if (!asset) return null;
                     
-                    const assetId = asset.id || asset._id || '';
+                    const isSelected = selectedAsset && getAssetId(selectedAsset) === getAssetId(asset);
                     const AssetIcon = getAssetIcon(asset.type);
                     const iconBg = getAssetIconBg(asset.type);
                     
                     return (
                       <div
-                        key={assetId}
+                        key={getAssetId(asset)}
                         className={cn(
                           "flex items-center gap-2 w-full p-2 rounded-md cursor-pointer hover:bg-muted",
-                          assetId === value && "bg-muted"
+                          isSelected && "bg-muted"
                         )}
                         onClick={() => {
-                          if (assetId) {
-                            onSelect(assetId);
-                            setIsOpen(false);
-                          }
+                          onSelect(asset);
+                          setIsOpen(false);
                         }}
                       >
                         <span className={cn(
@@ -428,7 +444,7 @@ export function AssetTransferDrawer({
                         <span className="ml-auto font-medium">
                           {formatCurrency(asset.balance)}
                         </span>
-                        {assetId === value && (
+                        {isSelected && (
                           <Check className="ml-2 h-4 w-4 text-primary" />
                         )}
                       </div>
@@ -444,41 +460,6 @@ export function AssetTransferDrawer({
           </PopoverContent>
         </Popover>
       </div>
-    );
-  };
-  
-  // Asset details card for selected asset
-  const renderAssetCard = (asset: Asset, label: string) => {
-    if (!asset) return null;
-    
-    const AssetIcon = getAssetIcon(asset.type);
-    const iconBg = getAssetIconBg(asset.type);
-    
-    return (
-      <motion.div
-        initial="initial"
-        animate="animate"
-        exit="exit"
-        variants={cardAnimation}
-        className="p-4 bg-muted/30 border border-border rounded-lg shadow-sm hover:shadow-md transition-all"
-      >
-        <div className="flex items-center gap-3">
-          <div className={cn("w-10 h-10 rounded-full flex items-center justify-center", iconBg)}>
-            <AssetIcon className="h-5 w-5" />
-          </div>
-          <div className="flex-1">
-            <div className="font-medium text-base">{asset.name}</div>
-            <div className="text-xs text-muted-foreground flex items-center gap-1">
-              {label}
-              {asset.institution && <span>• {asset.institution}</span>}
-            </div>
-          </div>
-          <div className="text-right">
-            <div className="font-semibold">{formatCurrency(asset.balance)}</div>
-            <div className="text-xs text-muted-foreground">Available</div>
-          </div>
-      </div>
-      </motion.div>
     );
   };
   
@@ -530,11 +511,11 @@ export function AssetTransferDrawer({
         <div className="space-y-2">
           <Label htmlFor="from-asset" className="text-[15px] font-medium">From</Label>
           {renderAssetCombobox(
-            fromAssetId,
-            (value) => {
-              setFromAsset(validAssets.find(asset => asset.id === value || asset._id === value));
+            fromAsset,
+            (asset) => {
+              setFromAsset(asset);
               // Reset to asset if it's the same
-              if (value === toAssetId) {
+              if (toAsset && getAssetId(asset) === getAssetId(toAsset)) {
                 setToAsset(undefined);
               }
               // Clear error when user fixes selection
@@ -570,9 +551,9 @@ export function AssetTransferDrawer({
         <div className="space-y-2">
           <Label htmlFor="to-asset" className="text-[15px] font-medium">To</Label>
           {renderAssetCombobox(
-            toAssetId,
-            (value) => {
-              setToAsset(validAssets.find(asset => asset.id === value || asset._id === value));
+            toAsset,
+            (asset) => {
+              setToAsset(asset);
               // Clear error when user fixes selection
               if (error && (error.includes("destination") || error.includes("same"))) {
                 setError("");
@@ -580,9 +561,9 @@ export function AssetTransferDrawer({
             },
             toOpen,
             setToOpen,
-            destinationAssets.length > 0 ? destinationAssets : validAssets,
+            destinationAssets.length > 0 ? destinationAssets : validAssets.filter(a => a !== fromAsset),
             "Select destination asset",
-            !fromAssetId
+            !fromAsset
           )}
         </div>
       </motion.div>
@@ -612,16 +593,15 @@ export function AssetTransferDrawer({
       <div className="space-y-2">
         <Label className="text-[15px] font-medium">Transfer Amount</Label>
         <div className="space-y-2.5">
-          <FormControl>
-            <CurrencyInput
-              value={formattedAmount}
-              onChange={handleAmountChange}
-              placeholder="0.00"
-              hasError={!!error}
-              className="w-full"
-              locale={locale}
-            />
-          </FormControl>
+          <CurrencyInput
+            value={formattedAmount}
+            onChange={handleAmountChange}
+            placeholder="0.00"
+            hasError={!!error}
+            className="w-full"
+            locale={currencyLocale}
+            currencySymbol={currencySymbol}
+          />
           
           {/* Quick percentage buttons - improved layout and styling */}
           {fromAsset && (
@@ -708,7 +688,7 @@ export function AssetTransferDrawer({
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 10 }}
-            className="bg-muted/30 p-4 rounded-lg border border-border mt-2"
+            className="bg-gray-50 dark:bg-gray-800/30 p-4 rounded-lg border border-border mt-2"
           >
             <h4 className="font-medium mb-3 flex items-center">
               <Info className="h-4 w-4 mr-2 text-primary" />
@@ -780,8 +760,8 @@ export function AssetTransferDrawer({
                      (fromAsset && parseFloat(formattedAmount) > fromAsset.balance) ||
                      (validAssets[0] && !fromAsset && parseFloat(formattedAmount) > validAssets[0].balance)) :
                     // For more than two assets, check asset selection too
-                    (!fromAssetId || 
-                  !toAssetId || 
+                    (!fromAsset || 
+                  !toAsset || 
                   !formattedAmount || 
                   parseFloat(formattedAmount) <= 0 || 
                      (fromAsset && parseFloat(formattedAmount) > fromAsset.balance))

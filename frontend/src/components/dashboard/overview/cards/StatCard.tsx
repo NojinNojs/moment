@@ -9,14 +9,15 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-interface TrendInfo {
+// Define trend info type
+export interface TrendInfo {
   value: number;
   isPositive: boolean;
 }
 
 interface StatCardProps {
   title: string;
-  value: string;
+  value: string | number;
   subtitle?: string;
   icon?: LucideIcon;
   color?: "blue" | "green" | "purple" | "cyan" | "amber" | "pink" | "red" | "yellow";
@@ -27,6 +28,7 @@ interface StatCardProps {
   period?: string;
   percentage?: number;
   isComingSoon?: boolean;
+  formatter?: (value: number) => string;
 }
 
 /**
@@ -39,12 +41,10 @@ export function StatCard({
   icon: Icon,
   color = "blue",
   trend,
-  className,
-  onClick,
-  style,
   period,
   percentage,
-  isComingSoon
+  isComingSoon,
+  formatter
 }: StatCardProps) {
   // Card background gradients
   const cardBackgrounds = {
@@ -100,6 +100,11 @@ export function StatCard({
     negative: "bg-red-100/60 text-red-700 dark:bg-red-700/20 dark:text-red-300"
   };
 
+  // Format the value if it's a number and formatter is provided
+  const displayValue = typeof value === 'number' && formatter 
+    ? formatter(value) 
+    : value.toString();
+
   // Create trend info from percentage if provided
   const trendInfo = percentage ? {
     value: Math.abs(percentage),
@@ -131,19 +136,16 @@ export function StatCard({
     >
       <Card 
         className={cn(
-          "h-full border overflow-hidden",
-          cardBackgrounds[color],
+          "border overflow-hidden h-full", 
           borderColors[color],
-          onClick ? "cursor-pointer hover:shadow-md transition-shadow" : "",
-          className
+          cardBackgrounds[color]
         )}
-        onClick={onClick}
-        style={style}
       >
-        {/* Mobile-optimized grid layout */}
-        <div className="grid grid-rows-[auto_1fr_auto] h-full p-3 sm:p-4 pb-2 sm:pb-3 gap-1 sm:gap-2">
-          {/* Header with title and icon - more compact on mobile */}
+        <div className="grid grid-rows-[auto_1fr_auto] h-full p-3 sm:p-4 pb-2 sm:pb-3 
+        gap-1 sm:gap-2">
+          {/* Header with title and trend */}
           <div className="flex items-center justify-between">
+            {/* Title with icon */}
             <div className="flex items-center gap-1.5 sm:gap-2">
               {Icon && (
                 <motion.div 
@@ -194,7 +196,7 @@ export function StatCard({
               animate={{ scale: 1, opacity: 1 }}
               transition={{ type: "spring", stiffness: 300, damping: 15 }}
             >
-              {value}
+              {displayValue}
             </motion.div>
             
             {/* Subtitle or period - smaller on mobile */}

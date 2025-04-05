@@ -9,12 +9,14 @@ import { Asset, AssetTransfer } from '@/types/assets';
 import { Transaction, CreateTransactionDto } from '@/types/transactions';
 import { Category, CategoryType } from '@/types/categories';
 import { EventBus } from '@/lib/utils';
+import { UserSettings } from '@/contexts/auth-utils';
 
 // Define User type inline to avoid dependency on missing module
 interface User {
   id: string;
   name: string;
   email: string;
+  settings?: UserSettings;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -1277,6 +1279,28 @@ class ApiService {
       success: false,
       message: error instanceof Error ? error.message : 'An unexpected error occurred',
     };
+  }
+
+  /**
+   * User Settings Methods
+   */
+  
+  // Get user settings
+  public async getUserSettings(): Promise<ApiResponse<UserSettings>> {
+    try {
+      return this.get<UserSettings>('/auth/settings');
+    } catch (error) {
+      return this.handleServiceError<UserSettings>('Failed to fetch user settings', error);
+    }
+  }
+  
+  // Update user settings
+  public async updateUserSettings(settings: Partial<UserSettings>): Promise<ApiResponse<UserSettings>> {
+    try {
+      return this.put<UserSettings>('/auth/settings', settings);
+    } catch (error) {
+      return this.handleServiceError<UserSettings>('Failed to update user settings', error);
+    }
   }
 }
 

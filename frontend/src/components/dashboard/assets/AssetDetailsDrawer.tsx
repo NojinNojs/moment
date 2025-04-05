@@ -22,12 +22,13 @@ import {
 } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { cn, formatCurrency } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
 import { Card } from "@/components/ui/card";
 import { getAssetIcon, getAssetIconBg, getAssetColor } from "@/lib/asset-utils";
 import { TransactionItem, Transaction } from "@/components/dashboard/transactions/list/TransactionItem";
 import apiService from "@/services/api";
+import useCurrencyFormat from '@/hooks/useCurrencyFormat';
 
 interface AssetDetailsDrawerProps {
   asset: Asset;
@@ -74,6 +75,7 @@ export function AssetDetailsDrawer({
   onDelete,
   onTransfer,
 }: AssetDetailsDrawerProps) {
+  const { formatCurrency } = useCurrencyFormat();
   const [showFullscreenView] = useState(false);
   const [showFullTransactions, setShowFullTransactions] = useState<boolean>(false);
   const [assetTransfers, setAssetTransfers] = useState<AssetTransfer[]>([]);

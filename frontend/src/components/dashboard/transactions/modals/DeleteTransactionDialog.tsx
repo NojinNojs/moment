@@ -3,10 +3,11 @@ import { Trash2, AlertTriangle, Undo, X, CreditCard, ArrowDownRight, ArrowUpRigh
 import { toast } from "sonner";
 import { AlertDialog, AlertDialogContent, AlertDialogDescription } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { cn, formatCurrency } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { Transaction } from "../list/TransactionItem";
 import apiService from '@/services/api';
+import useCurrencyFormat from '@/hooks/useCurrencyFormat';
 
 // Deletion timeout in milliseconds (5 seconds)
 const DELETION_TIMEOUT = 5000;
@@ -74,6 +75,7 @@ export function DeleteTransactionDialog({
   onOpenChange,
   onSoftDelete
 }: DeleteTransactionDialogProps) {
+  const { formatCurrency } = useCurrencyFormat();
   // Define all state hooks at the top level
   const [showState, setShowState] = useState(false);
   // Use state variables properly - they are referenced in functions below

@@ -28,6 +28,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { CurrencyInput } from "@/components/dashboard/transactions/forms/CurrencyInput";
+import useCurrencyFormat from '@/hooks/useCurrencyFormat';
 
 interface EditAssetDrawerProps {
   asset: Asset;
@@ -52,6 +53,7 @@ export function EditAssetDrawer({
   onUpdateAsset,
 }: EditAssetDrawerProps) {
   const [loading, setLoading] = useState(false);
+  const { currencyLocale, currencySymbol } = useCurrencyFormat();
 
   // Set up form with validation
   const form = useForm<z.infer<typeof formSchema>>({
@@ -238,9 +240,6 @@ export function EditAssetDrawer({
                   control={form.control}
                   name="balance"
                   render={({ field }) => {
-                    // Select the locale for formatting (default to en-US)
-                    const locale = 'en-US';
-                    
                     return (
                       <FormItem>
                         <FormLabel className="text-base">Current Balance</FormLabel>
@@ -248,14 +247,15 @@ export function EditAssetDrawer({
                           <CurrencyInput
                             value={field.value.toString()}
                             onChange={(value) => {
-                              const valueForParsing = locale === ('id-ID' as 'en-US' | 'id-ID')
+                              const valueForParsing = currencyLocale === ('id-ID' as 'en-US' | 'id-ID')
                                 ? value.replace(/\./g, '').replace(/,/g, '.')
                                 : value.replace(/,/g, '');
                               field.onChange(parseFloat(valueForParsing) || 0);
                             }}
                             placeholder="0.00"
                             className="w-full"
-                            locale="en-US"
+                            locale={currencyLocale}
+                            currencySymbol={currencySymbol}
                           />
                         </FormControl>
                         <FormMessage />

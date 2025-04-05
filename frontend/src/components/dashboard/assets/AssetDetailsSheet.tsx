@@ -22,11 +22,12 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
-import { cn, formatCurrency } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
 import { getAssetIcon, getAssetIconBg, getAssetColor } from "@/lib/asset-utils";
 import { TransactionItem, Transaction } from "@/components/dashboard/transactions/list/TransactionItem";
 import apiService from "@/services/api";
+import useCurrencyFormat from '@/hooks/useCurrencyFormat';
 
 interface AssetDetailsSheetProps {
   asset: Asset;
@@ -97,6 +98,7 @@ export function AssetDetailsSheet({
   const [assetTransfers, setAssetTransfers] = useState<AssetTransfer[]>([]);
   const [assetTransactions, setAssetTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
+  const { formatCurrency } = useCurrencyFormat();
   
   // Get icon component using utility function
   const AssetIcon = getAssetIcon(asset.type);

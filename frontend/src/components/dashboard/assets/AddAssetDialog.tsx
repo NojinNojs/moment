@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import React from "react";
 import {
   PlusCircle,
   Wallet,
@@ -43,6 +43,7 @@ import { motion } from "framer-motion";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import { CurrencyInput } from "@/components/dashboard/transactions/forms/CurrencyInput";
+import useCurrencyFormat from '@/hooks/useCurrencyFormat';
 
 interface AddAssetDialogProps {
   isOpen: boolean;
@@ -60,7 +61,7 @@ const assetSchema = z.object({
   type: z.enum(["cash", "bank", "e-wallet", "emergency"], {
     required_error: "Please select an asset type",
   }),
-  balance: z.number().default(0),
+  balance: z.string().default("0"),
   institution: z.string().optional(),
   description: z.string().optional(),
 });
@@ -71,8 +72,8 @@ export function AddAssetDialog({
   onAddAsset,
   initialAssetType,
 }: AddAssetDialogProps) {
-  // Define locale
-  const locale = 'en-US'; // Default locale
+  // Get currency formatting hooks
+  const { currencyLocale, currencySymbol } = useCurrencyFormat();
   
   // Setup form with validation
   const form = useForm<z.infer<typeof assetSchema>>({
@@ -80,14 +81,14 @@ export function AddAssetDialog({
     defaultValues: {
       name: "",
       type: (initialAssetType as ValidAssetType) || "cash",
-      balance: 0,
+      balance: "0",
       institution: "",
       description: "",
     },
   });
 
   // Update form when initialAssetType changes
-  useEffect(() => {
+  React.useEffect(() => {
     if (
       initialAssetType &&
       ["cash", "bank", "e-wallet", "emergency"].includes(initialAssetType)
@@ -97,12 +98,12 @@ export function AddAssetDialog({
   }, [initialAssetType, form]);
 
   // Reset form when dialog is opened
-  useEffect(() => {
+  React.useEffect(() => {
     if (isOpen) {
       form.reset({
         name: "",
         type: (initialAssetType as ValidAssetType) || "cash",
-        balance: 0,
+        balance: "0",
         institution: "",
         description: "",
       });
@@ -148,13 +149,35 @@ export function AddAssetDialog({
   // Conditionally show fields based on asset type
   const showInstitutionField = ["bank", "e-wallet"].includes(selectedType);
 
+  // Convert string to number for the final submission
+  const parseBalance = (value: string): number => {
+    try {
+      // For Indonesian locale
+      if (currencyLocale === 'id-ID') {
+        // Convert 1.234,56 to 1234.56
+        const normalized = value.replace(/\./g, '').replace(/,/g, '.');
+        return parseFloat(normalized) || 0;
+      } 
+      // For US locale and others
+      else {
+        // Remove commas and parse
+        const normalized = value.replace(/,/g, '');
+        return parseFloat(normalized) || 0;
+      }
+    } catch (error) {
+      console.error('Error parsing balance:', error);
+      return 0;
+    }
+  };
+
   // Handle form submission
   const onSubmit = (values: z.infer<typeof assetSchema>) => {
     try {
+      // Convert balance string to number only at submission time
       onAddAsset({
         name: values.name,
         type: values.type as AssetType,
-        balance: values.balance,
+        balance: parseBalance(values.balance),
         institution: values.institution,
         description: values.description,
       });
@@ -292,16 +315,12 @@ export function AddAssetDialog({
                         </FormLabel>
                         <FormControl>
                           <CurrencyInput
-                            value={field.value.toString()}
-                            onChange={(value) => {
-                              const valueForParsing = locale === ('id-ID' as 'en-US' | 'id-ID')
-                                ? value.replace(/\./g, '').replace(/,/g, '.')
-                                : value.replace(/,/g, '');
-                              field.onChange(parseFloat(valueForParsing) || 0);
-                            }}
+                            value={field.value}
+                            onChange={field.onChange}
                             placeholder="0.00"
                             className="w-full"
-                            locale="en-US" // Use US format by default, can be made configurable
+                            locale={currencyLocale}
+                            currencySymbol={currencySymbol}
                           />
                         </FormControl>
                         <FormMessage />

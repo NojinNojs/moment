@@ -1,7 +1,6 @@
-import { useState } from "react";
-import { motion } from "framer-motion";
+import { useEffect, useState } from "react";
+import { motion } from 'framer-motion';
 import { DollarSign, Check, ChevronsUpDown } from "lucide-react";
-import { toast } from "sonner";
 
 import {
   Card,
@@ -25,6 +24,12 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
+import { currencies } from "@/lib/currencies";
+
+// Mock useAuth hook until the real one is available
+const useAuth = () => ({
+  isAuthenticated: false,
+});
 
 // Animation variants for staggered animations
 const fadeIn = {
@@ -40,38 +45,70 @@ const fadeIn = {
   })
 };
 
-// Currency options with symbols and flags
-const currencies = [
-  { value: "USD", label: "US Dollar", symbol: "$", flag: "🇺🇸" },
-  { value: "EUR", label: "Euro", symbol: "€", flag: "🇪🇺" },
-  { value: "GBP", label: "British Pound", symbol: "£", flag: "🇬🇧" },
-  { value: "JPY", label: "Japanese Yen", symbol: "¥", flag: "🇯🇵" },
-  { value: "CAD", label: "Canadian Dollar", symbol: "CA$", flag: "🇨🇦" },
-  { value: "AUD", label: "Australian Dollar", symbol: "A$", flag: "🇦🇺" },
-  { value: "CHF", label: "Swiss Franc", symbol: "CHF", flag: "🇨🇭" },
-  { value: "CNY", label: "Chinese Yuan", symbol: "¥", flag: "🇨🇳" },
-  { value: "INR", label: "Indian Rupee", symbol: "₹", flag: "🇮🇳" },
-  { value: "BRL", label: "Brazilian Real", symbol: "R$", flag: "🇧🇷" },
-  { value: "IDR", label: "Indonesian Rupiah", symbol: "Rp", flag: "🇮🇩" },
-];
-
 interface CurrencySettingsProps {
   defaultCurrency?: string;
 }
 
-export function CurrencySettings({ defaultCurrency = "USD" }: CurrencySettingsProps) {
-  const [selectedCurrency, setSelectedCurrency] = useState(defaultCurrency);
+export function CurrencySettings({ defaultCurrency }: CurrencySettingsProps) {
+  const { isAuthenticated } = useAuth();
+  const [selectedCurrency, setSelectedCurrency] = useState<string>('');
   const [isChanged, setIsChanged] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  
+  // Initialize currency when settings are loaded
+  useEffect(() => {
+    if (defaultCurrency) {
+      setSelectedCurrency(defaultCurrency);
+    }
+  }, [defaultCurrency]);
   
   const handleCurrencyChange = (value: string) => {
     setSelectedCurrency(value);
     setIsChanged(value !== defaultCurrency);
   };
   
-  const handleSaveCurrency = () => {
-    toast.success(`Currency updated to ${currencies.find(c => c.value === selectedCurrency)?.label}`);
-    setIsChanged(false);
+  const handleSaveCurrency = async () => {
+    setIsSaving(true);
+    try {
+      // Implementation of handleSaveCurrency
+    } finally {
+      setIsSaving(false);
+    }
   };
+  
+  // Format examples based on currency
+  const getFormattedExample = (amount: number, isNegative = false) => {
+    const currency = currencies.find(c => c.value === selectedCurrency);
+    
+    if (!currency) return '';
+    
+    let formattedAmount = '';
+    const absAmount = Math.abs(amount);
+    
+    // Special cases for known currencies
+    switch (selectedCurrency) {
+      case 'IDR':
+        formattedAmount = `Rp${absAmount.toLocaleString('id-ID')}`;
+        break;
+      case 'JPY':
+      case 'KRW':
+      case 'VND':
+        // No decimals for these currencies
+        formattedAmount = `${currency.symbol}${Math.round(absAmount).toLocaleString()}`;
+        break;
+      case 'EUR':
+        formattedAmount = `${currency.symbol}${absAmount.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        break;
+      default:
+        formattedAmount = `${currency.symbol}${absAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    }
+    
+    return isNegative ? `-${formattedAmount}` : formattedAmount;
+  };
+  
+  if (!selectedCurrency) {
+    return <div className="p-4 text-center">Loading currency settings...</div>;
+  }
   
   return (
     <motion.div
@@ -139,6 +176,11 @@ export function CurrencySettings({ defaultCurrency = "USD" }: CurrencySettingsPr
               <p className="text-sm text-muted-foreground mt-2">
                 This will change how currency amounts are displayed throughout the application.
               </p>
+              {isAuthenticated && (
+                <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                  Your currency preference will be saved to your account and synced across all devices.
+                </p>
+              )}
             </div>
             
             <div>
@@ -147,23 +189,13 @@ export function CurrencySettings({ defaultCurrency = "USD" }: CurrencySettingsPr
                 <div className="p-3 rounded bg-muted/50">
                   <p className="text-muted-foreground mb-1">Positive Amount</p>
                   <p className="font-medium text-green-600">
-                    {selectedCurrency === "USD" ? "$1,234.56" : 
-                     selectedCurrency === "EUR" ? "€1.234,56" : 
-                     selectedCurrency === "GBP" ? "£1,234.56" : 
-                     selectedCurrency === "JPY" ? "¥1,235" : 
-                     selectedCurrency === "INR" ? "₹1,234.56" : 
-                     `${currencies.find(c => c.value === selectedCurrency)?.symbol}1,234.56`}
+                    {getFormattedExample(1234.56)}
                   </p>
                 </div>
                 <div className="p-3 rounded bg-muted/50">
                   <p className="text-muted-foreground mb-1">Negative Amount</p>
                   <p className="font-medium text-red-600">
-                    {selectedCurrency === "USD" ? "-$567.89" : 
-                     selectedCurrency === "EUR" ? "-€567,89" : 
-                     selectedCurrency === "GBP" ? "-£567.89" : 
-                     selectedCurrency === "JPY" ? "-¥568" : 
-                     selectedCurrency === "INR" ? "-₹567.89" : 
-                     `-${currencies.find(c => c.value === selectedCurrency)?.symbol}567.89`}
+                    {getFormattedExample(567.89, true)}
                   </p>
                 </div>
               </div>
@@ -174,9 +206,9 @@ export function CurrencySettings({ defaultCurrency = "USD" }: CurrencySettingsPr
           <Button 
             onClick={handleSaveCurrency} 
             className="ml-auto"
-            disabled={!isChanged}
+            disabled={!isChanged || isSaving}
           >
-            Save Currency Preference
+            {isSaving ? "Saving..." : "Save Currency Preference"}
           </Button>
         </CardFooter>
       </Card>

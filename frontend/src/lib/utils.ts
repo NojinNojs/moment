@@ -59,16 +59,38 @@ export const EventBus = {
 
 /**
  * Format a number as currency
+ * This is a legacy function; for proper currency formatting with user settings, use useCurrencyFormat hook
+ * 
  * @param value The number to format
  * @param currency The currency code (default: USD)
  * @returns Formatted currency string
+ * @deprecated Use the useCurrencyFormat hook instead for app-wide currency consistency
  */
 export function formatCurrency(value: number, currency = "USD"): string {
-  return new Intl.NumberFormat("en-US", {
+  // Apply locale based on currency
+  let locale = 'en-US';
+  
+  switch (currency) {
+    case 'IDR':
+      locale = 'id-ID';
+      break;
+    case 'EUR':
+      locale = 'de-DE';
+      break;
+    case 'GBP':
+      locale = 'en-GB';
+      break;
+  }
+  
+  // Handle zero decimals for certain currencies
+  const noDecimalCurrencies = ['JPY', 'KRW', 'VND'];
+  const decimals = noDecimalCurrencies.includes(currency) ? 0 : 2;
+  
+  return new Intl.NumberFormat(locale, {
     style: "currency",
     currency: currency,
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
   }).format(value)
 }
 
@@ -182,4 +204,74 @@ export function formatAmountWithCommas(value: string | number, locale: 'en-US' |
   }
   
   return formattedInteger;
+}
+
+// Map to determine currency code from browser locale
+export const localeToCurrency: Record<string, string> = {
+  // English variants
+  'en-US': 'USD',
+  'en-GB': 'GBP',
+  'en-CA': 'CAD',
+  'en-AU': 'AUD',
+  'en-NZ': 'NZD',
+  'en-SG': 'SGD',
+  
+  // Asian languages/countries
+  'id': 'IDR',
+  'id-ID': 'IDR',
+  'zh-CN': 'CNY',
+  'zh-HK': 'HKD',
+  'zh-TW': 'TWD',
+  'ja': 'JPY',
+  'ja-JP': 'JPY',
+  'ko': 'KRW',
+  'ko-KR': 'KRW',
+  'th': 'THB',
+  'th-TH': 'THB',
+  'vi': 'VND',
+  'vi-VN': 'VND',
+  'ms': 'MYR',
+  'ms-MY': 'MYR',
+  
+  // European languages/countries
+  'de': 'EUR',
+  'fr': 'EUR',
+  'it': 'EUR',
+  'es': 'EUR',
+  'pt': 'EUR',
+  'pt-BR': 'BRL',
+  'ru': 'RUB',
+};
+
+/**
+ * Detect the user's currency based on browser locale
+ * @returns Detected currency code
+ */
+export function detectUserCurrency(): string {
+  try {
+    // Get browser language
+    const browserLocale = navigator.language;
+    
+    // Try to find a direct match
+    if (browserLocale in localeToCurrency) {
+      return localeToCurrency[browserLocale];
+    }
+    
+    // Try to find a match for the language part (e.g., 'en' from 'en-US')
+    const languageCode = browserLocale.split('-')[0];
+    if (languageCode in localeToCurrency) {
+      return localeToCurrency[languageCode];
+    }
+    
+    // Default to IDR for Indonesia
+    if (browserLocale.includes('ID') || languageCode === 'id') {
+      return 'IDR';
+    }
+    
+    // Fallback to USD
+    return 'USD';
+  } catch (error) {
+    console.error('Error detecting user currency:', error);
+    return 'USD';
+  }
 }

@@ -165,7 +165,7 @@ export default function Settings() {
                 Global
               </Badge>
             </div>
-            <CurrencySettings defaultCurrency="USD" />
+            <CurrencySettings />
           </motion.div>
 
           {/* Security Section */}

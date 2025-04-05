@@ -10,6 +10,7 @@ import { motion } from "framer-motion";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { StatCard } from "@/components/dashboard/overview/cards/StatCard";
+import useCurrencyFormat from "@/hooks/useCurrencyFormat";
 
 // Animation variants
 const slideUp = {
@@ -41,6 +42,9 @@ export function TransactionOverview({
   expensesTrend,
   netTrend
 }: TransactionOverviewProps) {
+  // Use the currency format hook
+  const { formatCurrency } = useCurrencyFormat();
+
   // Refs for carousel
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -273,7 +277,8 @@ export function TransactionOverview({
         >
           <StatCard
             title="Net Balance"
-            value={`$${netAmount.toLocaleString()}`}
+            value={netAmount}
+            formatter={formatCurrency}
             icon={Wallet}
             color="blue"
             trend={netTrend}
@@ -281,7 +286,8 @@ export function TransactionOverview({
 
           <StatCard
             title="Total Income"
-            value={`$${totalIncome.toLocaleString()}`}
+            value={totalIncome}
+            formatter={formatCurrency}
             icon={ArrowUpRight}
             color="green"
             trend={incomeTrend}
@@ -289,7 +295,8 @@ export function TransactionOverview({
 
           <StatCard
             title="Total Expenses"
-            value={`$${totalExpenses.toLocaleString()}`}
+            value={totalExpenses}
+            formatter={formatCurrency}
             icon={ArrowDownRight}
             color="red"
             trend={expensesTrend}
@@ -322,7 +329,8 @@ export function TransactionOverview({
               >
                 <StatCard
                   title="Net Balance"
-                  value={`$${netAmount.toLocaleString()}`}
+                  value={netAmount}
+                  formatter={formatCurrency}
                   icon={Wallet}
                   color="blue"
                   trend={netTrend}
@@ -337,7 +345,8 @@ export function TransactionOverview({
               >
                 <StatCard
                   title="Total Income"
-                  value={`$${totalIncome.toLocaleString()}`}
+                  value={totalIncome}
+                  formatter={formatCurrency}
                   icon={ArrowUpRight}
                   color="green"
                   trend={incomeTrend}
@@ -352,7 +361,8 @@ export function TransactionOverview({
               >
                 <StatCard
                   title="Total Expenses"
-                  value={`$${totalExpenses.toLocaleString()}`}
+                  value={totalExpenses}
+                  formatter={formatCurrency}
                   icon={ArrowDownRight}
                   color="red"
                   trend={expensesTrend}

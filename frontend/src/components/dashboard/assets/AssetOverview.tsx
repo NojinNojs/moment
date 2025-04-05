@@ -1,12 +1,12 @@
 import { motion } from "framer-motion";
 import {
-  CreditCard,
-  Landmark,
-  Wallet,
-  Coins,
   ChevronLeft,
   ChevronRight,
   Info,
+  Briefcase,
+  Wallet,
+  PiggyBank,
+  ChevronDown,
 } from "lucide-react";
 import { Asset } from "@/types/assets";
 import { cn } from "@/lib/utils";
@@ -20,6 +20,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import useCurrencyFormat from "@/hooks/useCurrencyFormat";
 
 interface AssetOverviewProps {
   assets: Asset[];
@@ -27,6 +28,7 @@ interface AssetOverviewProps {
 }
 
 export function AssetOverview({ assets, }: AssetOverviewProps) {
+  const { formatCurrency, formatPercent } = useCurrencyFormat();
   const [activeIndex, setActiveIndex] = useState(0);
   const [isAtStart, setIsAtStart] = useState(true);
   const [isAtEnd, setIsAtEnd] = useState(false);
@@ -51,20 +53,11 @@ export function AssetOverview({ assets, }: AssetOverviewProps) {
   const totalBank = calculateTypeTotal("bank");
   const totalEWallet = calculateTypeTotal("e-wallet");
 
-  // Format currency for display
-  const formatCurrency = (value: number): string => {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(value);
-  };
-
   // Format percentage
-  const formatPercentage = (part: number, total: number): string => {
+  const formatPercentage = (value: number, total: number): string => {
     if (total === 0) return "0%";
-    return `${Math.round((part / total) * 100)}%`;
+    const percentage = (value / total) * 100;
+    return formatPercent(Math.round(percentage));
   };
 
   // Track scroll position for mobile view
@@ -184,7 +177,8 @@ export function AssetOverview({ assets, }: AssetOverviewProps) {
         >
           <StatCard
             title="Total Assets"
-            value={formatCurrency(totalAssets)}
+            value={totalAssets}
+            formatter={formatCurrency}
             icon={Wallet}
             color="blue"
             subtitle="Current balance across all assets"
@@ -200,8 +194,9 @@ export function AssetOverview({ assets, }: AssetOverviewProps) {
         >
           <StatCard
             title="Cash & Emergency"
-            value={formatCurrency(totalCash)}
-            icon={Coins}
+            value={totalCash}
+            formatter={formatCurrency}
+            icon={PiggyBank}
             color="green"
             subtitle={`${formatPercentage(
               totalCash,
@@ -223,8 +218,9 @@ export function AssetOverview({ assets, }: AssetOverviewProps) {
         >
           <StatCard
             title="Bank Accounts"
-            value={formatCurrency(totalBank)}
-            icon={Landmark}
+            value={totalBank}
+            formatter={formatCurrency}
+            icon={ChevronDown}
             color="cyan"
             subtitle={`${formatPercentage(
               totalBank,
@@ -245,9 +241,10 @@ export function AssetOverview({ assets, }: AssetOverviewProps) {
           transition={{ delay: 0.4 }}
         >
           <StatCard
-            title="E-Wallets"
-            value={formatCurrency(totalEWallet)}
-            icon={CreditCard}
+            title="E-Wallet"
+            value={totalEWallet}
+            formatter={formatCurrency}
+            icon={Briefcase}
             color="purple"
             subtitle={`${formatPercentage(
               totalEWallet,
@@ -278,7 +275,8 @@ export function AssetOverview({ assets, }: AssetOverviewProps) {
             >
               <StatCard
                 title="Total Assets"
-                value={formatCurrency(totalAssets)}
+                value={totalAssets}
+                formatter={formatCurrency}
                 icon={Wallet}
                 color="blue"
                 subtitle="Current balance across all assets"
@@ -298,8 +296,9 @@ export function AssetOverview({ assets, }: AssetOverviewProps) {
             >
               <StatCard
                 title="Cash & Emergency"
-                value={formatCurrency(totalCash)}
-                icon={Coins}
+                value={totalCash}
+                formatter={formatCurrency}
+                icon={PiggyBank}
                 color="green"
                 subtitle={`${formatPercentage(
                   totalCash,
@@ -325,8 +324,9 @@ export function AssetOverview({ assets, }: AssetOverviewProps) {
             >
               <StatCard
                 title="Bank Accounts"
-                value={formatCurrency(totalBank)}
-                icon={Landmark}
+                value={totalBank}
+                formatter={formatCurrency}
+                icon={ChevronDown}
                 color="cyan"
                 subtitle={`${formatPercentage(
                   totalBank,
@@ -351,9 +351,10 @@ export function AssetOverview({ assets, }: AssetOverviewProps) {
               whileTap={{ scale: 0.98 }}
             >
               <StatCard
-                title="E-Wallets"
-                value={formatCurrency(totalEWallet)}
-                icon={CreditCard}
+                title="E-Wallet"
+                value={totalEWallet}
+                formatter={formatCurrency}
+                icon={Briefcase}
                 color="purple"
                 subtitle={`${formatPercentage(
                   totalEWallet,

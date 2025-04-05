@@ -53,6 +53,9 @@ import apiService from "@/services/api";
 // Import the Asset type
 import { Asset, AssetTransfer } from "@/types/assets";
 
+// Import the useCurrencyFormat hook
+import useCurrencyFormat from "@/hooks/useCurrencyFormat";
+
 // Simple fade in animation preset
 const fadeIn = {
   initial: { opacity: 0 },
@@ -151,6 +154,7 @@ const emergencyDirectAssetBalanceUpdate = async (account: Record<string, unknown
 
 export default function Overview() {
   const navigate = useNavigate();
+  const { formatCurrency } = useCurrencyFormat();
   // Add auth context
   const { user } = useAuth();
 
@@ -2146,7 +2150,8 @@ export default function Overview() {
                 >
                   <StatCard
                     title="Balance"
-                    value={`$${financialData.balance.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`}
+                    value={financialData.balance}
+                    formatter={formatCurrency}
                     icon={Wallet}
                     color="green"
                     period="Total assets value"
@@ -2162,7 +2167,8 @@ export default function Overview() {
                 >
                   <StatCard
                     title="Income"
-                    value={`$${financialData.income.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`}
+                    value={financialData.income}
+                    formatter={formatCurrency}
                     icon={ArrowUpRight}
                     color="blue"
                     period="Last 30 days"
@@ -2178,7 +2184,8 @@ export default function Overview() {
                 >
                   <StatCard
                     title="Expenses"
-                    value={`$${financialData.expenses.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`}
+                    value={financialData.expenses}
+                    formatter={formatCurrency}
                     icon={ArrowDownRight}
                     color="red"
                     period="Last 30 days"
@@ -2270,7 +2277,8 @@ export default function Overview() {
             <motion.div {...slideUp} transition={{ delay: 0.1, duration: 0.3 }}>
               <StatCard
                 title="Balance"
-                value={`$${financialData.balance.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`}
+                value={financialData.balance}
+                formatter={formatCurrency}
                 icon={Wallet}
                 color="green"
                 period="Total assets value"
@@ -2281,7 +2289,8 @@ export default function Overview() {
             <motion.div {...slideUp} transition={{ delay: 0.15, duration: 0.3 }}>
               <StatCard
                 title="Income"
-                value={`$${financialData.income.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`}
+                value={financialData.income}
+                formatter={formatCurrency}
                 icon={ArrowUpRight}
                 color="blue"
                 period="Last 30 days"
@@ -2292,7 +2301,8 @@ export default function Overview() {
             <motion.div {...slideUp} transition={{ delay: 0.2, duration: 0.3 }}>
               <StatCard
                 title="Expenses"
-                value={`$${financialData.expenses.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`}
+                value={financialData.expenses}
+                formatter={formatCurrency}
                 icon={ArrowDownRight}
                 color="red"
                 period="Last 30 days"

@@ -42,6 +42,7 @@ import { motion } from "framer-motion";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import { CurrencyInput } from "@/components/dashboard/transactions/forms/CurrencyInput";
+import useCurrencyFormat from '@/hooks/useCurrencyFormat';
 
 interface AddAssetDrawerProps {
   open: boolean;
@@ -70,8 +71,8 @@ export function AddAssetDrawer({
   onAddAsset,
   initialAssetType,
 }: AddAssetDrawerProps) {
-  // Define locale constant
-  const locale = 'en-US' as const; // Properly typed as literal
+  // Replace the hardcoded locale with the hook
+  const { currencyLocale, currencySymbol } = useCurrencyFormat();
   
   // Setup form with validation
   const form = useForm<z.infer<typeof assetSchema>>({
@@ -298,14 +299,15 @@ export function AddAssetDrawer({
                           <CurrencyInput
                             value={field.value.toString()}
                             onChange={(value) => {
-                              const valueForParsing = locale === ('id-ID' as 'en-US' | 'id-ID')
+                              const valueForParsing = currencyLocale === ('id-ID' as 'en-US' | 'id-ID')
                                 ? value.replace(/\./g, '').replace(/,/g, '.')
                                 : value.replace(/,/g, '');
                               field.onChange(parseFloat(valueForParsing) || 0);
                             }}
                             placeholder="0.00"
                             className="w-full"
-                            locale="en-US"
+                            locale={currencyLocale}
+                            currencySymbol={currencySymbol}
                           />
                         </FormControl>
                         <FormMessage />

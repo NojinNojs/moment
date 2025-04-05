@@ -27,6 +27,22 @@ const bcrypt = require('bcrypt');
  *           type: string
  *           format: password
  *           description: The user's password (will be hashed)
+ *         settings:
+ *           type: object
+ *           properties:
+ *             currency:
+ *               type: string
+ *               description: The user's preferred currency
+ *             language:
+ *               type: string
+ *               description: The user's preferred language
+ *             colorMode:
+ *               type: string
+ *               enum: [light, dark]
+ *               description: The user's preferred color mode
+ *             notifications:
+ *               type: boolean
+ *               description: Whether the user wants to receive notifications
  *         createdAt:
  *           type: string
  *           format: date
@@ -39,6 +55,11 @@ const bcrypt = require('bcrypt');
  *         name: John Doe
  *         email: john@example.com
  *         password: password123
+ *         settings:
+ *           currency: USD
+ *           language: en
+ *           colorMode: light
+ *           notifications: true
  */
 
 /**
@@ -47,6 +68,7 @@ const bcrypt = require('bcrypt');
  * @field name - User's full name
  * @field email - User's email (must be unique)
  * @field password - User's hashed password
+ * @field settings - User's preferences and settings
  * @field createdAt - Timestamp when the user was created
  * @field updatedAt - Timestamp when the user was last updated
  */
@@ -71,6 +93,25 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Password is required'],
     minlength: [8, 'Password must be at least 8 characters long']
+  },
+  settings: {
+    currency: {
+      type: String,
+      default: 'USD'
+    },
+    language: {
+      type: String,
+      default: 'en'
+    },
+    colorMode: {
+      type: String,
+      enum: ['light', 'dark'],
+      default: 'light'
+    },
+    notifications: {
+      type: Boolean,
+      default: true
+    }
   }
 }, {
   timestamps: true // Automatically adds createdAt and updatedAt fields

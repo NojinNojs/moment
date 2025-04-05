@@ -67,6 +67,7 @@ exports.register = async (req, res) => {
         id: user._id,
         name: user.name,
         email: user.email,
+        settings: user.settings,
         token
       });
     } else {
@@ -119,6 +120,7 @@ exports.login = async (req, res) => {
         id: user._id,
         name: user.name,
         email: user.email,
+        settings: user.settings,
         token
       });
     } else {
@@ -175,6 +177,93 @@ exports.getCurrentUser = async (req, res) => {
         'Database connection error. Please make sure MongoDB is running.',
         process.env.NODE_ENV === 'development' ? { message: error.message } : null
       );
+    }
+    
+    return apiResponse.error(
+      res, 
+      500, 
+      'Server error', 
+      process.env.NODE_ENV === 'development' ? { message: error.message } : null
+    );
+  }
+};
+
+/**
+ * @desc    Get user settings
+ * @route   GET /api/v1/auth/settings
+ * @access  Private
+ */
+exports.getUserSettings = async (req, res) => {
+  try {
+    // Check DB connection first
+    const connectionError = checkDbConnection(res);
+    if (connectionError) return connectionError;
+    
+    const user = await User.findById(req.user.id).select('settings');
+    
+    if (!user) {
+      return apiResponse.notFound(res, 'User not found');
+    }
+
+    return apiResponse.success(res, 200, 'User settings retrieved successfully', user.settings);
+  } catch (error) {
+    console.error('Get user settings error:', error);
+    
+    return apiResponse.error(
+      res, 
+      500, 
+      'Server error', 
+      process.env.NODE_ENV === 'development' ? { message: error.message } : null
+    );
+  }
+};
+
+/**
+ * @desc    Update user settings
+ * @route   PUT /api/v1/auth/settings
+ * @access  Private
+ */
+exports.updateUserSettings = async (req, res) => {
+  try {
+    // Check DB connection first
+    const connectionError = checkDbConnection(res);
+    if (connectionError) return connectionError;
+    
+    // Get settings from request body
+    const { currency, language, colorMode, notifications } = req.body;
+    
+    // Build settings object with only provided fields
+    const settingsUpdate = {};
+    
+    if (currency !== undefined) settingsUpdate['settings.currency'] = currency;
+    if (language !== undefined) settingsUpdate['settings.language'] = language;
+    if (colorMode !== undefined) settingsUpdate['settings.colorMode'] = colorMode;
+    if (notifications !== undefined) settingsUpdate['settings.notifications'] = notifications;
+    
+    // If no settings provided
+    if (Object.keys(settingsUpdate).length === 0) {
+      return apiResponse.badRequest(res, 'No settings provided to update');
+    }
+    
+    // Update user settings
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
+      { $set: settingsUpdate },
+      { new: true, runValidators: true }
+    ).select('settings');
+    
+    if (!user) {
+      return apiResponse.notFound(res, 'User not found');
+    }
+    
+    return apiResponse.success(res, 200, 'User settings updated successfully', user.settings);
+  } catch (error) {
+    console.error('Update user settings error:', error);
+    
+    // Check for validation errors
+    if (error.name === 'ValidationError') {
+      const messages = Object.values(error.errors).map(val => val.message);
+      return apiResponse.badRequest(res, messages.join(', '));
     }
     
     return apiResponse.error(

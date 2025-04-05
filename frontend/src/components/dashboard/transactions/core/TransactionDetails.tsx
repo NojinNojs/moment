@@ -46,6 +46,7 @@ import { Transaction } from "../list/TransactionItem";
 import apiService from "@/services/api";
 import { motion } from "framer-motion";
 import { Category } from "@/types/categories";
+import useCurrencyFormat from '@/hooks/useCurrencyFormat';
 
 export interface TransactionDetailsProps {
   transaction: Transaction;
@@ -216,6 +217,8 @@ export const TransactionDetails = ({
   onEdit,
   onDelete,
 }: TransactionDetailsProps) => {
+  const { formatCurrency } = useCurrencyFormat();
+  
   // Add state for local resolved data
   const [resolvedCategory, setResolvedCategory] = useState<CategoryType | null>(null);
   const [resolvedAccount, setResolvedAccount] = useState<AccountType | null>(null);
@@ -296,43 +299,40 @@ export const TransactionDetails = ({
     }
   }, [transaction.date]);
   
-  // Format currency to match the rest of the application - memoize
+  // Replace the formattedCurrency with the hook version
   const formattedCurrency = useMemo(() => {
     try {
       // Use absolute value for formatting
       const absAmount = Math.abs(transaction.amount);
       
-      // Format with appropriate separators
-      const formattedAmount = absAmount.toLocaleString('en-US');
-      
       // For transfers, don't add + or - symbols
       if (transaction.transferType === 'transfer') {
-        return `$${formattedAmount}`;
+        return formatCurrency(absAmount);
       }
       
       // Add symbol and sign for income/expense
       // For expenses, always show minus sign regardless of amount value
       if (transaction.type === 'expense') {
-        return `- $${formattedAmount}`;
+        return `- ${formatCurrency(absAmount)}`;
       }
       
       // For income, always show plus sign
-      return `+ $${formattedAmount}`;
+      return `+ ${formatCurrency(absAmount)}`;
     } catch (error) {
       console.error("Error formatting currency:", error);
       
-      if (transaction.transferType === 'transfer') {
-        return `$${Math.abs(transaction.amount)}`;
-      }
-      
       // Handle error case with same logic
-      if (transaction.type === 'expense') {
-        return `- $${Math.abs(transaction.amount)}`;
+      if (transaction.transferType === 'transfer') {
+        return formatCurrency(Math.abs(transaction.amount));
       }
       
-      return `+ $${Math.abs(transaction.amount)}`;
+      if (transaction.type === 'expense') {
+        return `- ${formatCurrency(Math.abs(transaction.amount))}`;
+      }
+      
+      return `+ ${formatCurrency(Math.abs(transaction.amount))}`;
     }
-  }, [transaction.amount, transaction.transferType, transaction.type]);
+  }, [transaction.amount, transaction.transferType, transaction.type, formatCurrency]);
   
   // Safe close handler - memoize
   const handleClose = useCallback(() => {

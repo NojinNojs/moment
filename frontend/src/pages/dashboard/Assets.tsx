@@ -420,78 +420,6 @@ export default function Assets() {
     setShowAddAssetModal(true);
   };
 
-  // Handle soft delete (temporary hiding without permanent removal)
-  const handleSoftDelete = async (assetId: string, isSoftDeleted: boolean) => {
-    try {
-      if (!assetId) {
-        toast.error("Error", {
-          description: "Missing asset ID. Cannot perform operation."
-        });
-        return;
-      }
-      
-      if (isSoftDeleted) {
-        // For soft deletion, update the asset in local state first
-        setAssets(prevAssets => prevAssets.map(asset => {
-          const aId = asset.id || asset._id;
-          if (aId === assetId) {
-            return { ...asset, isDeleted: true };
-          }
-          return asset;
-        }));
-        
-        // Then make the API call
-        await apiService.deleteAsset(assetId);
-      } else {
-        // For restoration, make the API call first
-        const response = await apiService.restoreAsset(assetId);
-        
-        if (response.success && response.data) {
-          // Then update the asset in local state
-          setAssets(prevAssets => prevAssets.map(asset => {
-            const aId = asset.id || asset._id;
-            if (aId === assetId) {
-              return { ...asset, isDeleted: false };
-            }
-            return asset;
-          }));
-          
-          toast.success("Asset Restored", {
-            description: "Asset has been restored successfully.",
-          });
-        } else {
-          let errorMessage = response.message || 'An error occurred';
-          
-          // Make error message more user-friendly
-          if (errorMessage.includes('another asset with the same name')) {
-            errorMessage = "Cannot restore this asset because another asset with the same name and type already exists.";
-          }
-          
-          toast.error("Failed to Restore Asset", {
-            description: errorMessage,
-          });
-        }
-      }
-    } catch (err: unknown) {
-      let errorMessage = 'An unexpected error occurred';
-      
-      if (err && typeof err === 'object') {
-        // Try to extract error message from different possible formats
-        const errorObj = err as ApiErrorResponse;
-        errorMessage = errorObj.message || (errorObj.data && errorObj.data.message) || errorMessage;
-      }
-      
-      // Make error message more user-friendly
-      if (errorMessage.includes('another asset with the same name')) {
-        errorMessage = "Cannot restore this asset because another asset with the same name and type already exists.";
-      }
-      
-      toast.error("Error", {
-        description: errorMessage,
-      });
-    }
-  };
-
   return (
     <div className="min-h-screen bg-background pb-16 lg:pb-0">
       <div className="py-6 lg:py-8">
@@ -654,10 +582,9 @@ export default function Assets() {
       {selectedAsset && (
         <DeleteAssetDialog
           asset={selectedAsset}
-          isOpen={showDeleteDialog}
+          open={showDeleteDialog}
           onOpenChange={setShowDeleteDialog}
           onConfirm={handleConfirmDelete}
-          onSoftDelete={handleSoftDelete}
         />
       )}
     </div>

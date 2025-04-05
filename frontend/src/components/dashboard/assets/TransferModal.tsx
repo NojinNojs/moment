@@ -12,7 +12,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { formatCurrency } from "@/lib/utils";
 import { 
   ArrowLeftRight, 
   AlertCircle,
@@ -30,6 +29,7 @@ import { toast } from "sonner";
 import { getAssetIcon, getAssetIconBg } from "@/lib/asset-utils";
 import { Textarea } from "@/components/ui/textarea";
 import { CurrencyInput } from "@/components/dashboard/transactions/forms/CurrencyInput";
+import useCurrencyFormat from '@/hooks/useCurrencyFormat';
 
 // Define props
 interface TransferModalProps {
@@ -41,6 +41,12 @@ interface TransferModalProps {
   onAddAsset?: () => void;
 }
 
+// Helper function to get asset ID consistently
+const getAssetId = (asset: Asset | undefined): string => {
+  if (!asset) return '';
+  return String(asset.id || asset._id || '');
+};
+
 export function TransferModal({
   isOpen,
   onClose,
@@ -49,6 +55,7 @@ export function TransferModal({
   onTransfer,
   onAddAsset
 }: TransferModalProps) {
+  const { formatCurrency, currencyLocale, currencySymbol } = useCurrencyFormat();
   // State variables
   const [fromAsset, setFromAsset] = useState<Asset | undefined>(sourceAsset);
   const [toAsset, setToAsset] = useState<Asset | undefined>(undefined);
@@ -58,9 +65,6 @@ export function TransferModal({
   const [error, setError] = useState<string>("");
   const [fromOpen, setFromOpen] = useState(false);
   const [toOpen, setToOpen] = useState(false);
-  
-  // Define locale
-  const locale = 'en-US' as const;
   
   // Refs for handling direct input
   const descriptionRef = useRef<HTMLTextAreaElement>(null);
@@ -79,12 +83,6 @@ export function TransferModal({
   const itemAnimation = {
     hidden: { opacity: 0, y: 10 },
     show: { opacity: 1, y: 0, transition: { type: "spring", damping: 15 } }
-  };
-
-  const cardAnimation = {
-    initial: { y: 10, opacity: 0 },
-    animate: { y: 0, opacity: 1, transition: { type: "spring", damping: 20 } },
-    exit: { y: -10, opacity: 0, transition: { duration: 0.2 } }
   };
   
   // Derived state
@@ -113,9 +111,8 @@ export function TransferModal({
       
       // If exactly two assets, auto-select the other one
       if (validAssets.length === 2) {
-        const otherAsset = validAssets.find(a => 
-          a.id !== sourceAsset.id && a._id !== sourceAsset._id
-        );
+        const sourceId = getAssetId(sourceAsset);
+        const otherAsset = validAssets.find(a => getAssetId(a) !== sourceId);
         
         if (otherAsset) {
           setToAsset(otherAsset);
@@ -133,20 +130,13 @@ export function TransferModal({
   
   // Calculate destination assets (all assets except the currently selected source asset)
   const destinationAssets = useMemo(() => {
-    try {
-      // Ensure assets is always a valid array before filtering
-      if (!assets || !Array.isArray(assets)) return [];
-      
-      return assets.filter(asset => {
-        if (!asset || !fromAsset) return false;
-        const assetId = asset.id || asset._id;
-        const fromAssetId = fromAsset.id || fromAsset._id;
-        return assetId !== fromAssetId;
-      });
-    } catch (error) {
-      console.error("Error filtering destination assets:", error);
-      return [];
-    }
+    if (!fromAsset || !Array.isArray(assets)) return [];
+    const fromAssetId = getAssetId(fromAsset);
+    
+    return assets.filter(asset => {
+      if (!asset) return false;
+      return getAssetId(asset) !== fromAssetId && !asset.isDeleted;
+    });
   }, [assets, fromAsset]);
   
   // Swap source and destination assets
@@ -179,7 +169,7 @@ export function TransferModal({
     }
     
     // Parse the value with locale-specific formatting
-    const valueForParsing = locale === ('id-ID' as 'en-US' | 'id-ID')
+    const valueForParsing = currencyLocale === ('id-ID' as 'en-US' | 'id-ID')
       ? value.replace(/\./g, '').replace(/,/g, '.')
       : value.replace(/,/g, '');
     
@@ -227,8 +217,8 @@ export function TransferModal({
     }
     
     // Convert IDs to strings for safe comparison
-    const fromAssetId = String(fromAsset.id || fromAsset._id || '');
-    const toAssetId = String(toAsset.id || toAsset._id || '');
+    const fromAssetId = getAssetId(fromAsset);
+    const toAssetId = getAssetId(toAsset);
     
     // Check only ID equality, not name
     if (fromAssetId === toAssetId) {
@@ -308,21 +298,16 @@ export function TransferModal({
   
   // Function to render asset selection comboboxes
   const renderAssetCombobox = (
-    value: string,
-    onSelect: (value: string) => void,
+    selectedAsset: Asset | undefined,
+    onSelect: (asset: Asset) => void,
     isOpen: boolean,
     setIsOpen: (open: boolean) => void,
-    assets: Asset[],
+    availableAssets: Asset[],
     placeholder: string,
     disabled = false
   ) => {
     // Ensure assets is always a valid array
-    const safeAssets = assets && Array.isArray(assets) ? assets : [];
-    
-    // Find selected asset safely
-    const selectedAsset = safeAssets.find(asset => 
-      asset && ((asset.id && asset.id === value) || (asset._id && asset._id === value))
-    );
+    const safeAssets = availableAssets && Array.isArray(availableAssets) ? availableAssets : [];
     
     return (
       <div className="w-full">
@@ -334,7 +319,7 @@ export function TransferModal({
               aria-expanded={isOpen}
               className={cn(
                 "w-full justify-between h-11 bg-background font-normal",
-                !value && "text-muted-foreground",
+                !selectedAsset && "text-muted-foreground",
                 disabled && "opacity-50 cursor-not-allowed",
                 "focus:ring-2 focus:ring-offset-2 focus:ring-primary"
               )}
@@ -366,22 +351,20 @@ export function TransferModal({
                   {safeAssets.map((asset) => {
                     if (!asset) return null;
                     
-                    const assetId = asset.id || asset._id || '';
+                    const isSelected = selectedAsset && getAssetId(selectedAsset) === getAssetId(asset);
                     const AssetIcon = getAssetIcon(asset.type);
                     const iconBg = getAssetIconBg(asset.type);
                     
                     return (
                       <div
-                        key={assetId}
+                        key={getAssetId(asset)}
                         className={cn(
                           "flex items-center gap-2 w-full p-2 rounded-md cursor-pointer hover:bg-muted",
-                          assetId === value && "bg-muted"
+                          isSelected && "bg-muted"
                         )}
                         onClick={() => {
-                          if (assetId) {
-                            onSelect(assetId);
-                            setIsOpen(false);
-                          }
+                          onSelect(asset);
+                          setIsOpen(false);
                         }}
                       >
                         <span className={cn(
@@ -399,7 +382,7 @@ export function TransferModal({
                         <span className="ml-auto font-medium">
                           {formatCurrency(asset.balance)}
                         </span>
-                        {assetId === value && (
+                        {isSelected && (
                           <Check className="ml-2 h-4 w-4 text-primary" />
                         )}
                       </div>
@@ -420,36 +403,24 @@ export function TransferModal({
   
   // Asset details card for selected asset
   const renderAssetCard = (asset: Asset, label: string) => {
-    if (!asset) return null;
-    
     const AssetIcon = getAssetIcon(asset.type);
-    const iconBg = getAssetIconBg(asset.type);
     
     return (
-      <motion.div
-        initial="initial"
-        animate="animate"
-        exit="exit"
-        variants={cardAnimation}
-        className="p-4 bg-muted/30 border border-border rounded-lg shadow-sm hover:shadow-md transition-all"
-      >
-        <div className="flex items-center gap-3">
-          <div className={cn("w-10 h-10 rounded-full flex items-center justify-center", iconBg)}>
-            <AssetIcon className="h-5 w-5" />
-          </div>
-          <div className="flex-1">
-            <div className="font-medium text-base">{asset.name}</div>
-            <div className="text-xs text-muted-foreground flex items-center gap-1">
-              {label}
-              {asset.institution && <span>• {asset.institution}</span>}
-            </div>
-          </div>
-          <div className="text-right">
-            <div className="font-semibold">{formatCurrency(asset.balance)}</div>
-            <div className="text-xs text-muted-foreground">Available</div>
-          </div>
+      <div className="border rounded-lg p-3 flex items-center gap-3">
+        <div className={cn(
+          "w-10 h-10 rounded-full flex items-center justify-center",
+          getAssetIconBg(asset.type)
+        )}>
+          <AssetIcon className="h-5 w-5 text-white" />
         </div>
-      </motion.div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-baseline justify-between mb-1">
+            <p className="text-sm font-medium truncate">{asset.name}</p>
+            <p className="text-xs text-muted-foreground">{label}</p>
+          </div>
+          <div className="text-sm font-semibold">{formatCurrency(asset.balance)}</div>
+        </div>
+      </div>
     );
   };
   
@@ -467,11 +438,11 @@ export function TransferModal({
           <div className="space-y-2">
             <Label htmlFor="from-asset" className="text-[15px] font-medium">From</Label>
             {renderAssetCombobox(
-              fromAsset?.id || "",
-              (value) => {
-                setFromAsset(validAssets.find(asset => asset.id === value || asset._id === value));
+              fromAsset,
+              (asset) => {
+                setFromAsset(asset);
                 // Reset to asset if it's the same
-                if (value === toAsset?.id || value === toAsset?._id) {
+                if (toAsset && getAssetId(asset) === getAssetId(toAsset)) {
                   setToAsset(undefined);
                 }
                 // Clear error when user fixes selection
@@ -507,9 +478,9 @@ export function TransferModal({
           <div className="space-y-2">
             <Label htmlFor="to-asset" className="text-[15px] font-medium">To</Label>
             {renderAssetCombobox(
-              toAsset?.id || "",
-              (value) => {
-                setToAsset(validAssets.find(asset => asset.id === value || asset._id === value));
+              toAsset,
+              (asset) => {
+                setToAsset(asset);
                 // Clear error when user fixes selection
                 if (error && (error.includes("destination") || error.includes("same"))) {
                   setError("");
@@ -517,9 +488,9 @@ export function TransferModal({
               },
               toOpen,
               setToOpen,
-              destinationAssets.length > 0 ? destinationAssets : validAssets,
+              destinationAssets.length > 0 ? destinationAssets : validAssets.filter(a => a !== fromAsset),
               "Select destination asset",
-              !fromAsset?.id
+              !fromAsset
             )}
           </div>
         </motion.div>
@@ -552,10 +523,11 @@ export function TransferModal({
             <CurrencyInput
               value={formattedAmount}
               onChange={handleAmountChange}
-              placeholder="Enter transfer amount"
-              hasError={!!error && (error.includes("Amount") || error.includes("amount") || error.includes("balance"))}
+              placeholder="0.00"
+              hasError={!!error}
               className="w-full"
-              locale="en-US"
+              locale={currencyLocale}
+              currencySymbol={currencySymbol}
             />
             
             {/* Quick Amount Percentage Buttons */}
@@ -631,11 +603,10 @@ export function TransferModal({
         <AnimatePresence>
           {fromAsset && toAsset && formattedAmount && parseFloat(formattedAmount) > 0 && parseFloat(formattedAmount) <= fromAsset.balance && (
             <motion.div 
-              variants={itemAnimation}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 10 }}
-              className="bg-muted/30 p-4 rounded-lg border border-border mt-2"
+              className="bg-gray-50 dark:bg-gray-800/30 p-4 rounded-lg border border-border mt-4"
             >
               <h4 className="font-medium mb-3 flex items-center">
                 <Info className="h-4 w-4 mr-2 text-primary" />

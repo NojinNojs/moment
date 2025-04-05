@@ -9,6 +9,28 @@ const securityMiddleware = require('../middlewares/securityMiddleware');
 
 /**
  * @swagger
+ * components:
+ *   schemas:
+ *     UserSettings:
+ *       type: object
+ *       properties:
+ *         currency:
+ *           type: string
+ *           example: USD
+ *         language:
+ *           type: string
+ *           example: en
+ *         colorMode:
+ *           type: string
+ *           enum: [light, dark]
+ *           example: light
+ *         notifications:
+ *           type: boolean
+ *           example: true
+ */
+
+/**
+ * @swagger
  * /auth/register:
  *   post:
  *     summary: Register a new user
@@ -64,6 +86,8 @@ const securityMiddleware = require('../middlewares/securityMiddleware');
  *                         email:
  *                           type: string
  *                           example: john@example.com
+ *                         settings:
+ *                           $ref: '#/components/schemas/UserSettings'
  *                         token:
  *                           type: string
  *                           example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
@@ -130,6 +154,8 @@ router.post(
  *                         email:
  *                           type: string
  *                           example: john@example.com
+ *                         settings:
+ *                           $ref: '#/components/schemas/UserSettings'
  *                         token:
  *                           type: string
  *                           example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
@@ -180,6 +206,8 @@ router.post(
  *                         email:
  *                           type: string
  *                           example: john@example.com
+ *                         settings:
+ *                           $ref: '#/components/schemas/UserSettings'
  *                         createdAt:
  *                           type: string
  *                           format: date-time
@@ -197,9 +225,115 @@ router.post(
  */
 router.get('/me', protect, authController.getCurrentUser);
 
-// CSRF token endpoint is handled in app.js
+/**
+ * @swagger
+ * /auth/settings:
+ *   get:
+ *     summary: Get user settings
+ *     description: Retrieves the authenticated user's settings
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: User settings
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *                 - type: object
+ *                   properties:
+ *                     message:
+ *                       example: User settings retrieved successfully
+ *                     data:
+ *                       $ref: '#/components/schemas/UserSettings'
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ *       404:
+ *         $ref: '#/components/responses/NotFoundError'
+ *       500:
+ *         $ref: '#/components/responses/ServerError'
+ */
+router.get('/settings', protect, authController.getUserSettings);
 
-// Logout - primarily used to clear cookies if used
+/**
+ * @swagger
+ * /auth/settings:
+ *   put:
+ *     summary: Update user settings
+ *     description: Updates the authenticated user's settings
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               currency:
+ *                 type: string
+ *                 example: IDR
+ *               language:
+ *                 type: string
+ *                 example: id
+ *               colorMode:
+ *                 type: string
+ *                 enum: [light, dark]
+ *                 example: dark
+ *               notifications:
+ *                 type: boolean
+ *                 example: false
+ *     responses:
+ *       200:
+ *         description: User settings updated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *                 - type: object
+ *                   properties:
+ *                     message:
+ *                       example: User settings updated successfully
+ *                     data:
+ *                       $ref: '#/components/schemas/UserSettings'
+ *       400:
+ *         $ref: '#/components/responses/BadRequestError'
+ *       401:
+ *         $ref: '#/components/responses/UnauthorizedError'
+ *       404:
+ *         $ref: '#/components/responses/NotFoundError'
+ *       500:
+ *         $ref: '#/components/responses/ServerError'
+ */
+router.put('/settings', protect, authController.updateUserSettings);
+
+/**
+ * @swagger
+ * /auth/logout:
+ *   post:
+ *     summary: Logout user
+ *     description: Logs out the current user
+ *     tags: [Auth]
+ *     responses:
+ *       200:
+ *         description: Logout successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/SuccessResponse'
+ *                 - type: object
+ *                   properties:
+ *                     message:
+ *                       example: Logged out successfully
+ *       500:
+ *         $ref: '#/components/responses/ServerError'
+ */
 router.post('/logout', authController.logout);
+
+// CSRF token endpoint is handled in app.js
 
 module.exports = router; 

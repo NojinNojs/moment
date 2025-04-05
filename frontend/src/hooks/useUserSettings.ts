@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
+import { useAuth } from '@/contexts/auth-utils';
+import { detectUserCurrency } from '@/lib/utils';
 
 type ColorMode = 'light' | 'dark';
 
-interface UserSettings {
+export interface UserSettings {
   colorMode: ColorMode;
   notifications: boolean;
   currency: string;
@@ -12,18 +14,27 @@ interface UserSettings {
 const defaultSettings: UserSettings = {
   colorMode: 'light',
   notifications: true,
-  currency: 'USD',
+  currency: typeof window !== 'undefined' ? detectUserCurrency() : 'USD',
   language: 'en',
 };
 
 export function useUserSettings() {
   const [settings, setSettings] = useState<UserSettings | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const { user, updateUserSettings, isAuthenticated } = useAuth();
 
-  // Load settings from localStorage on mount
+  // Load settings from user or localStorage on mount
   useEffect(() => {
     const loadSettings = () => {
       try {
+        // If user is authenticated, use their settings from user object
+        if (isAuthenticated && user?.settings) {
+          setSettings(user.settings);
+          setIsLoading(false);
+          return;
+        }
+        
+        // Otherwise, try to get from localStorage
         const storedSettings = localStorage.getItem('userSettings');
         if (storedSettings) {
           setSettings(JSON.parse(storedSettings));
@@ -39,24 +50,39 @@ export function useUserSettings() {
     };
 
     loadSettings();
-  }, []);
+  }, [isAuthenticated, user]);
 
   // Function to update settings
-  const updateSettings = (newSettings: Partial<UserSettings>) => {
-    setSettings((prev) => {
-      if (!prev) return { ...defaultSettings, ...newSettings };
-      
-      const updatedSettings = { ...prev, ...newSettings };
-      
-      // Save to localStorage
-      try {
-        localStorage.setItem('userSettings', JSON.stringify(updatedSettings));
-      } catch (error) {
-        console.error('Failed to save user settings:', error);
+  const updateSettings = async (newSettings: Partial<UserSettings>) => {
+    try {
+      // If user is authenticated, update settings in backend
+      if (isAuthenticated) {
+        const success = await updateUserSettings(newSettings);
+        if (!success) {
+          console.error('Failed to update user settings in backend');
+        }
       }
       
-      return updatedSettings;
-    });
+      // Update local state
+      setSettings((prev) => {
+        if (!prev) return { ...defaultSettings, ...newSettings };
+        
+        const updatedSettings = { ...prev, ...newSettings };
+        
+        // If not authenticated, save to localStorage
+        if (!isAuthenticated) {
+          try {
+            localStorage.setItem('userSettings', JSON.stringify(updatedSettings));
+          } catch (error) {
+            console.error('Failed to save user settings to localStorage:', error);
+          }
+        }
+        
+        return updatedSettings;
+      });
+    } catch (error) {
+      console.error('Error updating settings:', error);
+    }
   };
 
   return {
