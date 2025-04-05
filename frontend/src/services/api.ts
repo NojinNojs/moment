@@ -8,6 +8,7 @@ import axios, { AxiosInstance, InternalAxiosRequestConfig, AxiosResponse, AxiosE
 import { Asset, AssetTransfer } from '@/types/assets';
 import { Transaction, CreateTransactionDto } from '@/types/transactions';
 import { Category, CategoryType } from '@/types/categories';
+import { EventBus } from '@/lib/utils';
 
 // Define User type inline to avoid dependency on missing module
 interface User {
@@ -77,6 +78,7 @@ class ApiService {
   // Add caching for accounts and categories
   private accountsCache: Record<string, Asset> = {};
   private categoriesCache: Record<string, Category> = {};
+  private cachedResponses: Record<string, ApiResponse<unknown>> = {}; // Cache for API responses
 
   constructor() {
     // Create axios instance with default config
@@ -151,8 +153,8 @@ class ApiService {
     // Add authorization token if available
     const token = localStorage.getItem('auth_token');
     if (token && config.headers instanceof AxiosHeaders) {
-      config.headers.set('Authorization', `Bearer ${token}`);
-    }
+        config.headers.set('Authorization', `Bearer ${token}`);
+      }
 
     // Add API Key from environment variables to all requests
     if (config.headers instanceof AxiosHeaders) {
@@ -286,8 +288,28 @@ class ApiService {
   }
 
   public async delete<T>(url: string): Promise<ApiResponse<T>> {
-    const response = await this.axios.delete<ApiResponse<T>>(url);
-    return response.data;
+    console.log(`🌐 API Request: DELETE ${url}`, { data: undefined, params: undefined, headers: this.axios.defaults.headers });
+    try {
+      const response = await this.axios.delete<ApiResponse<T>>(url);
+      return response.data;
+    } catch (error) {
+      console.error(`Error in delete request to ${url}:`, error);
+      
+      // For permanent deletions, handle 404 as success (entity already gone)
+      // This prevents UI errors when trying to delete something already gone
+      if (url.includes('/permanent')) {
+        const axiosError = error as { response?: { status?: number } };
+        if (axiosError.response?.status === 404) {
+          console.log(`🔵 Resource at ${url} not found - treating as successful deletion`);
+          return {
+            success: true,
+            message: 'Resource successfully removed'
+          } as ApiResponse<T>;
+        }
+      }
+      
+      return this.handleServiceError<T>(`Failed to delete resource at ${url}`, error);
+    }
   }
 
   /**
@@ -525,31 +547,72 @@ class ApiService {
 
   // Update an existing asset
   public async updateAsset(id: string, assetData: Partial<Asset>): Promise<ApiResponse<Asset>> {
-    return this.put<Asset>(`/assets/${id}`, assetData);
-  }
-
-  // Delete an asset (soft delete)
-  public async deleteAsset(id: string): Promise<ApiResponse<void>> {
-    console.log(`Attempting to delete asset with ID: ${id}`);
     try {
-      if (!id) {
-        console.error('deleteAsset called with empty ID');
+      // If balance is being updated to a negative value, reject
+      if (assetData.balance !== undefined && assetData.balance < 0) {
         return {
           success: false,
-          message: 'Invalid asset ID',
+          message: 'Asset balance cannot be negative',
+          errors: {
+            balance: 'Balance cannot be negative'
+          }
         };
       }
       
-      const response = await this.delete<void>(`/assets/${id}`);
-      console.log('Delete asset response:', response);
+      const response = await this.put<Asset>(`/assets/${id}`, assetData as Record<string, unknown>);
+      
+      // Update cache if successful
+      if (response.success && response.data) {
+        this.accountsCache[id] = response.data;
+      }
+      
       return response;
     } catch (error) {
-      console.error('Error in deleteAsset:', error);
-      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
-      return {
-        success: false,
-        message: errorMessage,
-      };
+      return this.handleServiceError<Asset>('Failed to update asset', error);
+    }
+  }
+
+  // Delete asset with transaction impact validation
+  public async deleteAsset(id: string): Promise<ApiResponse<void>> {
+    try {
+      // Check if asset has associated transactions
+      const transactions = await this.getTransactions({
+        resolveReferences: true
+      });
+      
+      if (transactions.success && transactions.data) {
+        const linkedTransactions = transactions.data.filter(t => {
+          if (typeof t.account === 'object' && t.account) {
+            // Use proper type for account object
+            const accountObj = t.account as { _id?: string; id?: string | number };
+            return accountObj._id === id || accountObj.id?.toString() === id;
+          }
+          return t.account === id;
+        });
+        
+        // If there are linked transactions, warn the user but proceed (soft delete)
+        if (linkedTransactions.length > 0) {
+          console.warn(`Deleting asset with ${linkedTransactions.length} linked transactions`);
+        }
+      }
+      
+      // Process deletion request
+      const response = await this.delete<void>(`/assets/${id}`);
+      
+      // Update cache if successful
+      if (response.success) {
+        if (this.accountsCache[id]) {
+          // Mark as deleted in cache
+          this.accountsCache[id] = {
+            ...this.accountsCache[id],
+            isDeleted: true
+          };
+        }
+      }
+      
+      return response;
+    } catch (error) {
+      return this.handleServiceError<void>('Failed to delete asset', error);
     }
   }
   
@@ -617,7 +680,7 @@ class ApiService {
     return this.get<AssetTransfer>(`/assets/transfers/${id}`);
   }
 
-  // Create a new asset transfer
+  // Create an asset transfer with balance validation
   public async createAssetTransfer(transferData: {
     fromAsset: string;
     toAsset: string;
@@ -625,7 +688,79 @@ class ApiService {
     description?: string;
     date?: string;
   }): Promise<ApiResponse<AssetTransfer>> {
-    return this.post<AssetTransfer>('/assets/transfers', transferData);
+    try {
+      // Validate source asset has sufficient balance
+      const fromAssetResponse = await this.getAssetById(transferData.fromAsset);
+      
+      if (!fromAssetResponse.success || !fromAssetResponse.data) {
+        return {
+          success: false,
+          message: 'Source asset not found',
+          errors: {
+            fromAsset: 'Source asset not found or is unavailable'
+          }
+        };
+      }
+      
+      const fromAsset = fromAssetResponse.data;
+      
+      // Check if source asset is deleted
+      if (fromAsset.isDeleted) {
+        return {
+          success: false,
+          message: 'Cannot transfer from a deleted asset',
+          errors: {
+            fromAsset: 'Source asset has been deleted'
+          }
+        };
+      }
+      
+      // Check if transfer amount exceeds source asset balance
+      if (transferData.amount > fromAsset.balance) {
+        return {
+          success: false,
+          message: `Insufficient funds in ${fromAsset.name}. Available balance: ${fromAsset.balance.toFixed(2)}`,
+          errors: {
+            amount: `Transfer amount exceeds available balance of ${fromAsset.balance.toFixed(2)}`
+          }
+        };
+      }
+      
+      // Validate destination asset exists and is not deleted
+      const toAssetResponse = await this.getAssetById(transferData.toAsset);
+      
+      if (!toAssetResponse.success || !toAssetResponse.data) {
+        return {
+          success: false,
+          message: 'Destination asset not found',
+          errors: {
+            toAsset: 'Destination asset not found or is unavailable'
+          }
+        };
+      }
+      
+      if (toAssetResponse.data.isDeleted) {
+        return {
+          success: false,
+          message: 'Cannot transfer to a deleted asset',
+          errors: {
+            toAsset: 'Destination asset has been deleted'
+          }
+        };
+      }
+      
+      // Proceed with creating the transfer if validation passes
+      const response = await this.post<AssetTransfer>('/assets/transfers', transferData as unknown as Record<string, unknown>);
+      
+      // Update local caches if transfer was successful
+      if (response.success) {
+        await this.preloadEntityData();
+      }
+      
+      return response;
+    } catch (error) {
+      return this.handleServiceError<AssetTransfer>('Failed to create asset transfer', error);
+    }
   }
 
   /**
@@ -742,9 +877,43 @@ class ApiService {
     return this.get<Transaction>(`/transactions/${id}`);
   }
   
-  // Create a new transaction
+  // Create a new transaction with balance validation
   public async createTransaction(transactionData: CreateTransactionDto): Promise<ApiResponse<Transaction>> {
-    return this.post<Transaction>('/transactions', transactionData as unknown as Record<string, unknown>);
+    try {
+      // If this is an expense, validate account has sufficient balance
+      if (transactionData.type === 'expense' && transactionData.account) {
+        const accountId = transactionData.account as string;
+        const accountResponse = await this.getAccountById(accountId);
+        
+        if (accountResponse.success && accountResponse.data) {
+          const account = accountResponse.data;
+          const amount = Math.abs(Number(transactionData.amount));
+          
+          // Check if expense is greater than account balance
+          if (amount > account.balance) {
+            return {
+              success: false,
+              message: `Insufficient funds in ${account.name}. Available balance: ${account.balance.toFixed(2)}`,
+              errors: {
+                amount: `Cannot create expense larger than available balance of ${account.balance.toFixed(2)}`
+              }
+            };
+          }
+        }
+      }
+      
+      // Proceed with creating the transaction if validation passes
+      const response = await this.post<Transaction>('/transactions', transactionData as unknown as Record<string, unknown>);
+      
+      // Update local account cache if transaction created successfully
+      if (response.success && response.data) {
+        await this.preloadEntityData();
+      }
+      
+      return response;
+    } catch (error) {
+      return this.handleServiceError<Transaction>('Failed to create transaction', error);
+    }
   }
   
   /**
@@ -752,7 +921,10 @@ class ApiService {
    */
   public async updateTransaction(
     id: string, 
-    data: Partial<Transaction>
+    data: Partial<Transaction> & {
+      originalType?: 'income' | 'expense';
+      originalAmount?: number;
+    }
   ): Promise<ApiResponse<Transaction>> {
     try {
       console.log('Updating transaction with data:', { id, data });
@@ -762,21 +934,21 @@ class ApiService {
       
       // Only include fields that are defined and not null
       Object.entries(data).forEach(([key, value]) => {
-        if (value !== undefined && value !== null) {
-          // Handle account dan category yang bisa berupa object atau string
+        if (value !== undefined && value !== null && key !== 'originalType' && key !== 'originalAmount') {
+          // Handle account and category that could be objects or strings
           if (key === 'account') {
             if (typeof value === 'object' && value !== null) {
               // @ts-expect-error This is fine to use null filters here
               requestData[key] = value._id || value.id;
             } else {
-              requestData[key] = value; // String ID langsung
+              requestData[key] = value; // String ID directly
             }
           } else if (key === 'category') {
             if (typeof value === 'object' && value !== null) {
               // @ts-expect-error This is fine to use null filters here
               requestData[key] = value._id || value.id;
             } else {
-              requestData[key] = value; // String ID langsung
+              requestData[key] = value; // String ID directly
             }
           } else {
             requestData[key] = value;
@@ -789,133 +961,34 @@ class ApiService {
       const response = await this.put<Transaction>(`/transactions/${id}`, requestData);
       console.log('Update transaction response:', response);
       
-      // If update was successful and we need to return the transaction with resolved references
-      if (response.success && response.data) {
-        // Ensure our caches are up-to-date
+      // If update was successful, clear all relevant cached data to ensure fresh state
+      if (response.success) {
+        // Invalidate cached data to ensure we get fresh data on next request
+        delete this.cachedResponses['/transactions'];
+        delete this.cachedResponses['/assets'];
+        
+        // Reload entity data to ensure our caches are up-to-date
         await this.preloadEntityData();
         
+        // Broadcast that a transaction was updated so UI components can refresh
+        EventBus.emit('transaction.updated', {
+          transaction: response.data,
+          typeChanged: data.type !== undefined,
+          originalType: data.originalType,
+          newType: data.type,
+          originalAmount: data.originalAmount,
+          newAmount: data.amount
+        });
+      }
+      
+      // If update was successful and we need to return the transaction with resolved references
+      if (response.success && response.data) {
         const transaction = response.data;
         
         // Create a copy of the transaction to avoid mutating the response directly
-        const enhancedTransaction = { ...transaction } as Transaction; // Use proper typing
+        const enhancedTransaction = { ...transaction } as Transaction;
         
         // Resolve account reference if it's a MongoDB ID
-        if (
-          enhancedTransaction.account && 
-          typeof enhancedTransaction.account === 'string' && 
-          /^[0-9a-f]{24}$/i.test(enhancedTransaction.account) && 
-          this.accountsCache[enhancedTransaction.account]
-        ) {
-          // Use type assertion to fix type error
-          enhancedTransaction.account = this.accountsCache[enhancedTransaction.account] as unknown as string;
-        }
-        
-        // Resolve category reference if it's a MongoDB ID
-        if (
-          enhancedTransaction.category && 
-          typeof enhancedTransaction.category === 'string' && 
-          /^[0-9a-f]{24}$/i.test(enhancedTransaction.category) &&
-          this.categoriesCache[enhancedTransaction.category]
-        ) {
-          // Use type assertion to fix type error
-          enhancedTransaction.category = this.categoriesCache[enhancedTransaction.category] as unknown as string;
-        }
-        
-        // Ensure id is set (for frontend compatibility)
-        if (enhancedTransaction._id && !enhancedTransaction.id) {
-          enhancedTransaction.id = enhancedTransaction._id;
-        }
-        
-        console.log('Enhanced transaction after update:', enhancedTransaction);
-        
-        // Return the enhanced transaction
-        return {
-          ...response,
-          data: enhancedTransaction as Transaction
-        };
-      }
-      
-      return response;
-    } catch (error) {
-      console.error('Error updating transaction:', error);
-      return this.handleServiceError<Transaction>('Failed to update transaction', error);
-    }
-  }
-  
-  // Delete a transaction (soft delete)
-  public async deleteTransaction(id: string): Promise<ApiResponse<void>> {
-    console.log(`Attempting to soft delete transaction with ID: ${id}`);
-    try {
-      if (!id) {
-        console.error('deleteTransaction called with empty ID');
-        return {
-          success: false,
-          message: 'Invalid transaction ID',
-        };
-      }
-      
-      const response = await this.delete<void>(`/transactions/${id}`);
-      console.log('Delete transaction response:', response);
-      return response;
-    } catch (error) {
-      console.error('Error in deleteTransaction:', error);
-      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
-      return {
-        success: false,
-        message: errorMessage,
-      };
-    }
-  }
-  
-  // Permanently delete a transaction (no recovery possible)
-  public async permanentDeleteTransaction(id: string): Promise<ApiResponse<void>> {
-    console.log(`Attempting to permanently delete transaction with ID: ${id}`);
-    try {
-      if (!id) {
-        console.error('permanentDeleteTransaction called with empty ID');
-        return {
-          success: false,
-          message: 'Invalid transaction ID',
-        };
-      }
-      
-      const response = await this.delete<void>(`/transactions/${id}/permanent`);
-      console.log('Permanent delete transaction response:', response);
-      return response;
-    } catch (error) {
-      console.error('Error in permanentDeleteTransaction:', error);
-      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
-      return {
-        success: false,
-        message: errorMessage,
-      };
-    }
-  }
-  
-  // Restore a soft-deleted transaction
-  public async restoreTransaction(id: string): Promise<ApiResponse<Transaction>> {
-    console.log(`Attempting to restore transaction with ID: ${id}`);
-    try {
-      if (!id) {
-        console.error('restoreTransaction called with empty ID');
-        return {
-          success: false,
-          message: 'Invalid transaction ID',
-        };
-      }
-      
-      const response = await this.put<Transaction>(`/transactions/${id}/restore`, {});
-      console.log('Restore transaction response:', response);
-      
-      // If restore was successful, add back to cache if necessary
-      if (response.success && response.data) {
-        // Ensure our caches are up-to-date
-        await this.preloadEntityData();
-        
-        // Create a copy of the transaction to avoid mutating the response directly
-        const enhancedTransaction = { ...response.data } as Transaction;
-        
-        // Resolve account and category references if needed
         if (typeof enhancedTransaction.account === 'string' && 
             /^[0-9a-f]{24}$/i.test(enhancedTransaction.account) && 
             this.accountsCache[enhancedTransaction.account]) {
@@ -923,6 +996,7 @@ class ApiService {
           enhancedTransaction.account = this.accountsCache[enhancedTransaction.account] as unknown as string;
         }
         
+        // Resolve category reference if it's a MongoDB ID
         if (typeof enhancedTransaction.category === 'string' && 
             /^[0-9a-f]{24}$/i.test(enhancedTransaction.category) &&
             this.categoriesCache[enhancedTransaction.category]) {
@@ -943,11 +1017,141 @@ class ApiService {
       
       return response;
     } catch (error) {
-      console.error('Error in restoreTransaction:', error);
+      console.error('Error in updateTransaction:', error);
+      return this.handleServiceError<Transaction>('Failed to update transaction', error);
+    }
+  }
+  
+  // Delete a transaction (soft delete) with account balance update
+  public async deleteTransaction(id: string): Promise<ApiResponse<void>> {
+    console.log(`Attempting to soft delete transaction with ID: ${id}, type: ${typeof id}`);
+    try {
+      if (!id) {
+        console.error('deleteTransaction called with empty ID');
+        return {
+          success: false,
+          message: 'Invalid transaction ID',
+        };
+      }
+      
+      // First get the transaction details to know how to update account balance
+      const transactionResponse = await this.getTransactionById(id);
+      
+      // Log details of the transaction we're trying to delete
+      if (transactionResponse.success && transactionResponse.data) {
+        console.log('Transaction details before deletion:', {
+          id: transactionResponse.data.id,
+          _id: transactionResponse.data._id,
+          title: transactionResponse.data.title
+        });
+      }
+      
+      // Proceed with deletion
+      const response = await this.delete<void>(`/transactions/${id}`);
+      
+      // If deletion was successful, update account caches
+      if (response.success) {
+        await this.preloadEntityData();
+      }
+      
+      console.log('Delete transaction response:', response);
+      return response;
+    } catch (error) {
+      console.error('Error in deleteTransaction:', error);
       const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
       return {
         success: false,
         message: errorMessage,
+      };
+    }
+  }
+  
+  // Permanently delete a transaction (no recovery possible)
+  public async permanentDeleteTransaction(id: string): Promise<ApiResponse<void>> {
+    console.log(`Attempting to permanently delete transaction with ID: ${id}, type: ${typeof id}`);
+    try {
+      if (!id) {
+        console.error('permanentDeleteTransaction called with empty ID');
+        return {
+          success: false,
+          message: 'Invalid transaction ID',
+        };
+      }
+      
+      // Log exactly what ID we're using for the API call
+      console.log(`Sending permanent delete API request to: /transactions/${id}/permanent`);
+      
+      try {
+        const response = await this.delete<void>(`/transactions/${id}/permanent`);
+        
+        if (response.success) {
+          // Clear all cached data to ensure fresh data is loaded
+          await this.preloadEntityData();
+          console.log(`Transaction permanently deleted: ${id}`);
+        } else {
+          console.error(`Failed to permanently delete transaction: ${id}`, response.message);
+        }
+        
+        return response;
+      } catch (error: unknown) {
+        // Special handling for 404 errors - treat as success for UI purposes
+        // The transaction is already gone, which was the end goal
+        const axiosError = error as { response?: { status?: number } };
+        const errorWithMessage = error as { message?: string };
+        
+        if (axiosError.response?.status === 404 || 
+            (errorWithMessage.message && errorWithMessage.message.includes('not found'))) {
+          console.log(`Transaction ${id} not found during permanent delete - treating as success`);
+          return {
+            success: true,
+            message: 'Transaction successfully removed',
+          };
+        }
+        
+        // Re-throw other errors
+        throw error;
+      }
+    } catch (error) {
+      console.error('Error in permanentDeleteTransaction:', error);
+      const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
+      return {
+        success: false,
+        message: errorMessage,
+      };
+    }
+  }
+  
+  // Restore a soft-deleted transaction
+  public async restoreTransaction(id: string): Promise<ApiResponse<Transaction>> {
+    if (!id) {
+      console.error("Invalid transaction ID for restoration");
+      return {
+        success: false,
+        message: "Invalid transaction ID"
+      };
+    }
+
+    console.log(`Attempting to restore transaction: ${id}, type: ${typeof id}`);
+    // Show ID format for debugging
+    if (id && typeof id === 'string') {
+      console.log(`ID format check - numeric?: ${!isNaN(Number(id))}, length: ${id.length}, hex?: ${/^[0-9a-f]{24}$/i.test(id)}`);
+    }
+    
+    try {
+      const response = await this.put<Transaction>(`/transactions/${id}/restore`, {});
+      
+      if (response.success) {
+        // Clear all cached data to ensure fresh data is loaded
+        await this.preloadEntityData();
+        console.log(`Transaction restored: ${id}`);
+      }
+      
+      return response;
+    } catch (error) {
+      console.error(`Error restoring transaction: ${id}`, error);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : "Failed to restore transaction"
       };
     }
   }

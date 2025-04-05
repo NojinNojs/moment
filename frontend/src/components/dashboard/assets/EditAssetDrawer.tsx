@@ -27,6 +27,7 @@ import { toast } from "sonner";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
+import { CurrencyInput } from "@/components/dashboard/transactions/forms/CurrencyInput";
 
 interface EditAssetDrawerProps {
   asset: Asset;
@@ -236,29 +237,31 @@ export function EditAssetDrawer({
                 <FormField
                   control={form.control}
                   name="balance"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-base">Current Balance</FormLabel>
-                      <FormControl>
-                        <div className="relative">
-                          <div className="absolute left-0 top-0 bottom-0 flex items-center justify-center w-11 rounded-l-md border-r bg-muted/50 text-muted-foreground">
-                            <span className="text-sm">$</span>
-                          </div>
-                          <Input
-                            className="pl-12 h-11 font-medium"
-                            placeholder="0.00"
-                            type="number"
-                            step="0.01"
-                            {...field}
-                            onChange={(e) => {
-                              field.onChange(e.target.value === '' ? '' : parseFloat(e.target.value));
+                  render={({ field }) => {
+                    // Select the locale for formatting (default to en-US)
+                    const locale = 'en-US';
+                    
+                    return (
+                      <FormItem>
+                        <FormLabel className="text-base">Current Balance</FormLabel>
+                        <FormControl>
+                          <CurrencyInput
+                            value={field.value.toString()}
+                            onChange={(value) => {
+                              const valueForParsing = locale === ('id-ID' as 'en-US' | 'id-ID')
+                                ? value.replace(/\./g, '').replace(/,/g, '.')
+                                : value.replace(/,/g, '');
+                              field.onChange(parseFloat(valueForParsing) || 0);
                             }}
+                            placeholder="0.00"
+                            className="w-full"
+                            locale="en-US"
                           />
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    );
+                  }}
                 />
                 
                 {/* Institution (conditional) */}

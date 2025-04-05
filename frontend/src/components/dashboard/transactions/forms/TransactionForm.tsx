@@ -1,61 +1,55 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from "react";
-import { format } from "date-fns";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { motion } from "framer-motion";
 import Fuse from "fuse.js";
 import { cn } from "@/lib/utils";
 import apiService from "@/services/api";
 import { Asset } from "@/types/assets";
-import { Category } from "@/types/categories";
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+  Input
+} from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { Calendar } from "@/components/ui/calendar";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { CurrencyInput } from "./CurrencyInput";
 import {
-  CreditCard,
-  DollarSign,
-  Check,
-  Tags,
-  ChevronsUpDown,
-  X,
-  Car,
-  Search,
-  Info,
-  Home,
-  Briefcase,
-  Heart,
-  Utensils,
-  GraduationCap,
-  Plane,
-  ShoppingCart,
-  Gift,
-  Zap,
-  Laptop,
-  Landmark,
-  Calendar as CalendarIcon
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Textarea } from "@/components/ui/textarea";
+import { format } from "date-fns";
+import {
+  Search, X, Check, Calendar as CalendarIcon,
+  ChevronsUpDown, Info, CreditCard, 
+  Briefcase, DollarSign, Gift, Zap, Home,
+  Utensils, ShoppingCart, Car, Heart, GraduationCap,
+  Plane, Landmark, Laptop, AlertCircle, Tags
 } from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
 
-// Define types for Fuse.js
-interface CategoryOption {
-  value: string;
+// Define interfaces for types
+interface FuseCategoryOption {
+  value: string | number;
   label: string;
   icon?: string;
   color?: string;
   type?: string;
   lowerLabel: string;
   normalizedLabel: string;
+}
+
+// Define Category interface
+interface Category {
+  _id?: string;
+  id?: string | number;
+  name: string;
+  type?: string;
+  color?: string;
+  icon?: string;
 }
 
 interface TransactionFormProps {
@@ -156,6 +150,173 @@ const selectionFeedbackCss = `
 // Add the selection feedback css to the component
 const combinedStyles = `${globalStyles}\n${selectionFeedbackCss}`;
 
+// Mock CurrencyInput component if not available
+const CurrencyInput = ({ value, onChange, ...props }: { 
+  value: string; 
+  onChange: (value: string) => void;
+  hasError?: boolean;
+  placeholder?: string;
+  locale?: 'en-US' | 'id-ID';
+  className?: string;
+  [key: string]: unknown;
+}) => {
+  const [isFocused, setIsFocused] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+  const [displayValue, setDisplayValue] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [cursorPosition, setCursorPosition] = useState(0);
+  
+  // Select the locale for formatting (default to en-US)
+  const locale = 'en-US' as const; // Change to 'id-ID' for Indonesian format
+  
+  // Get the decimal separator based on locale
+  const decimalSeparator = locale === ('id-ID' as 'en-US' | 'id-ID') ? ',' : '.';
+  const thousandSeparator = locale === ('id-ID' as 'en-US' | 'id-ID') ? '.' : ',';
+  
+  // Wrap formatDisplayValue in useCallback to ensure stable reference
+  const formatDisplayValue = useCallback((value: string): string => {
+    if (!value) return value;
+    
+    // If the value ends with a decimal point, preserve it
+    const endsWithDecimal = value.endsWith(decimalSeparator);
+    
+    // Split the number by decimal point
+    const parts = value.split(decimalSeparator);
+    
+    // Format the integer part with thousand separators
+    const formattedInteger = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, thousandSeparator);
+    
+    // Return the formatted value with the appropriate decimal separator
+    if (parts.length > 1) {
+      return `${formattedInteger}${decimalSeparator}${parts[1]}`;
+    }
+    
+    return endsWithDecimal ? `${formattedInteger}${decimalSeparator}` : formattedInteger;
+  }, [decimalSeparator, thousandSeparator]);
+
+  // Update the useEffect dependency array
+  useEffect(() => {
+    setDisplayValue(formatDisplayValue(value));
+  }, [value, formatDisplayValue]);
+  
+  // Count separators before a specific position in the formatted string
+  const countSeparatorsBeforePosition = (formattedValue: string, position: number, separator: string): number => {
+    let count = 0;
+    for (let i = 0; i < Math.min(position, formattedValue.length); i++) {
+      if (formattedValue[i] === separator) count++;
+    }
+    return count;
+  };
+  
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Save current cursor position and selection
+    const cursorPos = e.target.selectionStart || 0;
+    const inputValue = e.target.value;
+    
+    // Check if empty
+    if (!inputValue) {
+      onChange("");
+      setDisplayValue("");
+      return;
+    }
+    
+    // Create a regex that allows only digits and the decimal separator
+    const validPattern = new RegExp(`[^0-9${decimalSeparator}]`, 'g');
+    const strippedValue = inputValue.replace(validPattern, '');
+    
+    // Handle multiple decimal points
+    const parts = strippedValue.split(decimalSeparator);
+    const numericValue = parts.length > 1 
+      ? parts[0] + decimalSeparator + parts.slice(1).join('')
+      : strippedValue;
+    
+    // Count how many separators were before the cursor in the previous formatted value
+    const prevFormattedValue = displayValue;
+    const prevSeparatorsBeforeCursor = countSeparatorsBeforePosition(prevFormattedValue, cursorPos, thousandSeparator);
+    
+    // Update the parent component with the raw numeric value
+    onChange(numericValue);
+    
+    // Calculate the new cursor position
+    // We need to adjust for any separators that were added or removed
+    const newFormattedValue = formatDisplayValue(numericValue);
+    const newSeparatorsBeforeCursor = countSeparatorsBeforePosition(newFormattedValue, cursorPos, thousandSeparator);
+    
+    // Adjust cursor position based on added/removed separators
+    const separatorDifference = newSeparatorsBeforeCursor - prevSeparatorsBeforeCursor;
+    const newCursorPos = cursorPos + separatorDifference;
+    
+    // Store the new cursor position to be applied after render
+    setCursorPosition(newCursorPos);
+  };
+  
+  // Apply cursor position after the display value updates
+  useEffect(() => {
+    if (isFocused && inputRef.current) {
+      inputRef.current.setSelectionRange(cursorPosition, cursorPosition);
+    }
+  }, [displayValue, isFocused, cursorPosition]);
+
+  return (
+    <div 
+      className={cn(
+        "relative flex group rounded-md transition-all duration-200",
+        props.hasError ? 'has-error' : '',
+        isFocused ? 'is-focused ring-1 ring-primary/40' : '',
+        isHovered && !isFocused ? 'hover-state' : ''
+      )}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      <div className={cn(
+        "flex items-center justify-center w-12 border rounded-l-md transition-all duration-200",
+        "bg-muted/60 text-muted-foreground backdrop-blur-sm",
+        isFocused ? "border-primary border-r-primary/20" : "border-input",
+        props.hasError ? "border-red-500" : "",
+        isHovered && !isFocused ? "border-input/80 bg-muted/80" : "",
+        "h-10"
+      )}>
+        <div className={cn(
+          "flex items-center justify-center",
+          isFocused ? "text-primary" : "text-muted-foreground"
+        )}>
+          <DollarSign className="h-4 w-4" />
+        </div>
+      </div>
+      
+      <div className="relative flex-1" data-field="input-field">
+        <Input
+          ref={inputRef}
+          type="text"
+          inputMode="decimal"
+          className={cn(
+            "rounded-l-none h-10 pl-3 font-medium transition-all duration-200 border-l-0",
+            props.hasError 
+              ? 'border-red-500 focus-visible:ring-red-500' 
+              : isFocused 
+                ? 'border-primary' 
+                : isHovered ? 'border-input/80' : 'border-input'
+          )}
+          style={{ 
+            borderTopLeftRadius: 0, 
+            borderBottomLeftRadius: 0 
+          }}
+          placeholder="Enter amount"
+          value={displayValue}
+          onChange={handleChange}
+          onFocus={() => setIsFocused(true)}
+          onBlur={() => setIsFocused(false)}
+          {...props}
+        />
+      </div>
+      
+      {Boolean(props.hasError) && (
+        <div className="absolute right-0 top-0 bottom-0 w-1.5 bg-red-500 rounded-r-md"></div>
+      )}
+    </div>
+  );
+};
+
 /**
  * TransactionForm - A reusable form component for income and expense transactions
  * Features:
@@ -203,12 +364,14 @@ export const TransactionForm = ({
   // State for adding categories and search
   const [categoryComboboxOpen, setCategoryComboboxOpen] = useState(false);
   const [categorySearchQuery, setCategorySearchQuery] = useState("");
-  const [fuse, setFuseInstance] = useState<Fuse<CategoryOption> | null>(null);
+  const [fuse, setFuseInstance] = useState<Fuse<FuseCategoryOption> | null>(null);
   
-  // Utility function to detect MongoDB ObjectIDs
-  const isMongoId = (str: string): boolean => {
-    return /^[0-9a-f]{24}$/i.test(str);
-  };
+  // Helper function to check if a string is a MongoDB ObjectID
+  const isMongoId = useCallback((str: string): boolean => {
+    if (!str) return false;
+    // MongoDB ObjectID: 24 hex characters
+    return /^[0-9a-fA-F]{24}$/.test(str);
+  }, []);
 
   // Add debug log for the transactionCategory value
   console.log("TransactionForm received transactionCategory:", transactionCategory, 
@@ -242,7 +405,7 @@ export const TransactionForm = ({
   }, []);
 
   // Update onCategoryChange to handle MongoDB IDs
-  const handleCategoryChange = (categoryId: string) => {
+  const handleCategoryChange = useCallback((categoryId: string) => {
     console.log("Handling category change to:", categoryId);
     
     // If the ID is a MongoDB ObjectID, check if we have it in our categories list
@@ -262,10 +425,10 @@ export const TransactionForm = ({
       // Just pass the value as is
       onCategoryChange(categoryId);
     }
-  };
+  }, [categories, onCategoryChange, isMongoId]);
 
   // Similar handler for account changes
-  const handleAccountChange = (accountId: string) => {
+  const handleAccountChange = useCallback((accountId: string) => {
     console.log("Handling account change to:", accountId);
     
     // If the ID is a MongoDB ObjectID, check if we have it in our accounts list
@@ -285,7 +448,7 @@ export const TransactionForm = ({
       // Just pass the value as is
       onAccountChange(accountId);
     }
-  };
+  }, [accounts, onAccountChange, isMongoId]);
 
   // Process categories once we have them
   useEffect(() => {
@@ -302,7 +465,7 @@ export const TransactionForm = ({
     
     console.log("CATEGORIES AFTER FILTERING:", typeMatchingCategories, "for type:", type);
 
-    const processedOptions: CategoryOption[] = typeMatchingCategories.map(category => ({
+    const processedOptions: FuseCategoryOption[] = typeMatchingCategories.map(category => ({
       value: category._id || category.id || '',
       label: category.name,
       icon: category.icon || '',
@@ -347,61 +510,16 @@ export const TransactionForm = ({
         console.log("No matching category found for ID:", transactionCategory);
       }
     }
-  }, [categories, type, transactionCategory]);
+  }, [categories, type, transactionCategory, isMongoId]);
 
   // State for processed category options
-  const [categoryOptions, setCategoryOptions] = useState<CategoryOption[]>([]);
+  const [categoryOptions, setCategoryOptions] = useState<FuseCategoryOption[]>([]);
 
-  // Parse the date string to a Date object for the Calendar component
-  // Make sure we don't automatically select a date
-  const selectedDate = useMemo(() => {
-    if (!transactionDate || transactionDate.trim() === "") return undefined;
-    
-    try {
-      // Check if date is in YYYY-MM-DD format
-      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-      if (dateRegex.test(transactionDate)) {
-        return new Date(transactionDate);
-      }
-      
-      // If date is not in YYYY-MM-DD format, try parsing it
-      const parsedDate = new Date(transactionDate);
-      if (!isNaN(parsedDate.getTime())) {
-        return parsedDate;
-      }
-      
-      // If we get here, date is invalid
-      console.warn("Invalid date format:", transactionDate);
-      return undefined;
-    } catch (error) {
-      console.error("Error parsing date:", error);
-      return undefined;
-    }
-  }, [transactionDate]);
-
-  // Handle date selection from the Calendar
-  const handleDateSelect = (date: Date | undefined) => {
-    if (date) {
-      try {
-      // Format the date to YYYY-MM-DD format for input value
-      const formattedDate = format(date, "yyyy-MM-dd");
-        console.log("Selected date formatted:", formattedDate);
-      onDateChange(formattedDate);
-      } catch (error) {
-        console.error("Error formatting selected date:", error, date);
-        // In case of error, try a fallback method
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        const fallbackFormat = `${year}-${month}-${day}`;
-        console.log("Using fallback date format:", fallbackFormat);
-        onDateChange(fallbackFormat);
-      }
-    } else {
-      // If date is undefined, clear the date
-      onDateChange("");
-    }
-  };
+  // State for calendar
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(
+    transactionDate ? new Date(transactionDate) : undefined
+  );
 
   // Staggered animation for form fields
   const containerAnimation = {
@@ -701,7 +819,7 @@ export const TransactionForm = ({
   };
 
   // Improved category search function to more reliably find all matches
-  const categoryMatchesSearch = (category: CategoryOption, query: string) => {
+  const categoryMatchesSearch = (category: FuseCategoryOption, query: string) => {
     // Always return true for empty queries
     if (!query || !query.trim()) return true;
     
@@ -754,40 +872,182 @@ export const TransactionForm = ({
     return category.normalizedLabel.includes(q.replace(/\s+/g, ''));
   };
 
-  // Add a function to score category matches for better sorting
-  const getCategoryMatchScore = (category: { label: string; value: string }, query: string) => {
-    if (!query.trim()) return 0; // All equal when no query
+  // Function to compare categories by matching score - higher score = better match
+  const getCategoryMatchScore = (category: { label: string; value: string | number }, query: string) => {
+    if (!query || !query.trim()) return 0;
     
-    const q = query.trim().toLowerCase();
-    const name = category.label.toLowerCase();
+    const label = category.label.toLowerCase();
+    query = query.toLowerCase();
     
-    // Exact match gets highest score
-    if (name === q) return 100;
+    // Exact match has highest priority
+    if (label === query) return 100;
     
-    // Starting with the query is very relevant
-    if (name.startsWith(q)) return 90;
+    // Starting with query is second highest priority
+    if (label.startsWith(query)) return 90 - label.length;
     
-    // Check if any word starts exactly with the query
-    if (name.split(/\s+/).some(word => word === q)) return 80;
+    // Contains query is third highest priority
+    if (label.includes(query)) return 70 - label.length;
     
-    // Check if any word starts with the query
-    if (name.split(/\s+/).some(word => word.startsWith(q))) return 70;
+    // Otherwise, use Levenshtein distance (simple implementation)
+    const distance = (a: string, b: string) => {
+      if (a.length === 0) return b.length;
+      if (b.length === 0) return a.length;
+      
+      const matrix = [];
+      
+      // Initialize
+      for (let i = 0; i <= b.length; i++) {
+        matrix[i] = [i];
+      }
+      
+      for (let j = 0; j <= a.length; j++) {
+        matrix[0][j] = j;
+      }
+      
+      // Fill matrix
+      for (let i = 1; i <= b.length; i++) {
+        for (let j = 1; j <= a.length; j++) {
+          if (b.charAt(i - 1) === a.charAt(j - 1)) {
+            matrix[i][j] = matrix[i - 1][j - 1];
+          } else {
+            matrix[i][j] = Math.min(
+              matrix[i - 1][j - 1] + 1, // substitution
+              matrix[i][j - 1] + 1,     // insertion
+              matrix[i - 1][j] + 1      // deletion
+            );
+          }
+        }
+      }
+      
+      return matrix[b.length][a.length];
+    };
     
-    // Contains the query as a substring
-    if (name.includes(q)) return 60;
-    
-    // Fuzzy matches get lower scores
-    if (q.length > 2 && name.includes(q.substring(0, q.length - 1))) return 30;
-    if (q.length > 2 && name.includes(q.substring(1))) return 20;
-    
-    // Default low score for other matches
-    return 10;
+    // Calculate Levenshtein distance and return inverse score (lower distance = higher score)
+    const dist = distance(label, query);
+    // Max score of 50 for fuzzy matches
+    return Math.max(0, 50 - dist * 10);
   };
 
   useEffect(() => {
     // Log whenever categorySearchQuery changes to debug immediate search issues
     console.log("Search query changed:", categorySearchQuery);
   }, [categorySearchQuery]);
+
+  // Add state to track the selected account's balance
+  const [selectedAccountBalance, setSelectedAccountBalance] = useState<number>(0);
+  
+  // Update selected account balance when account changes
+  useEffect(() => {
+    if (accounts && transactionAccount) {
+      const account = accounts.find(a => 
+        a._id === transactionAccount || 
+        a.id === transactionAccount
+      );
+      
+      if (account) {
+        setSelectedAccountBalance(account.balance || 0);
+      }
+    }
+  }, [accounts, transactionAccount]);
+  
+  // Parse the amount for validation
+  const currentAmount = parseFloat(transactionAmount || '0');
+
+  // Add a balance warning component
+  const BalanceWarning = ({ currentBalance, proposedAmount, type }: { 
+    currentBalance: number; 
+    proposedAmount: number; 
+    type: 'income' | 'expense';
+  }) => {
+    // Only show warning for expenses
+    if (type !== 'expense') return null;
+    
+    // Check if expense is greater than balance
+    if (proposedAmount > currentBalance) {
+      return (
+        <div className="text-destructive text-sm mt-1 flex items-center">
+          <AlertCircle className="h-4 w-4 mr-1" />
+          Warning: This expense exceeds your current balance of {formatCurrency(currentBalance)}
+        </div>
+      );
+    }
+    
+    // If it's a large expense (>75% of balance), show a caution
+    if (proposedAmount > currentBalance * 0.75) {
+      return (
+        <div className="text-orange-500 dark:text-orange-400 text-sm mt-1 flex items-center">
+          <AlertCircle className="h-4 w-4 mr-1" />
+          Caution: This expense uses {Math.round((proposedAmount / currentBalance) * 100)}% of your available balance
+        </div>
+      );
+    }
+    
+    return null;
+  };
+
+  // Update the filteredCategoryOptions sorting comparison
+  const filteredCategoryOptions = categoryOptions.filter(category => 
+    !categorySearchQuery.trim() || categoryMatchesSearch(category, categorySearchQuery)
+  );
+
+  // Update the onCategoryClick handler
+  const onCategoryClick = useCallback((category: FuseCategoryOption) => {
+    try {
+      // Reset the combobox state
+      setCategoryComboboxOpen(false);
+      setCategorySearchQuery('');
+      
+      // Set clicked state for animation
+      setClickedItemId(category.value.toString());
+      
+      // Actually change the category
+      handleCategoryChange(category.value.toString());
+      
+      // Clear clicked state after animation plays
+      setTimeout(() => {
+        setClickedItemId(null);
+      }, 300);
+    } catch (error) {
+      console.error("Error clicking category:", error);
+    }
+  }, [handleCategoryChange]);
+
+  // Function to format date for display
+  const formatDate = (dateString: string): string => {
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        return "Select date";
+      }
+      
+      // Format: Jan 1, 2023
+      return date.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      });
+    } catch (error) {
+      console.error("Error formatting date:", error);
+      return "Select date";
+    }
+  };
+  
+  // Handle calendar open state
+  const handleCalendarOpenChange = (open: boolean) => {
+    setIsCalendarOpen(open);
+  };
+
+  // Effect to update formatted date when selectedDate changes
+  useEffect(() => {
+    if (selectedDate) {
+      try {
+        const formattedDate = format(selectedDate, "yyyy-MM-dd");
+        onDateChange(formattedDate);
+      } catch (error) {
+        console.error("Error formatting date:", error);
+      }
+    }
+  }, [selectedDate, onDateChange]);
 
   return (
     <motion.div
@@ -809,7 +1069,7 @@ export const TransactionForm = ({
                 <Info className="h-4 w-4 text-muted-foreground cursor-help opacity-70 hover:opacity-100 transition-opacity" />
               </TooltipTrigger>
               <TooltipContent side="top" className="max-w-[220px]">
-                <p>Enter a clear title (5-20 characters)</p>
+                <p>Enter a clear title (3-30 characters)</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -822,8 +1082,8 @@ export const TransactionForm = ({
             }
             value={transactionTitle}
             onChange={(e) => {
-              // Limit to 20 characters
-              if (e.target.value.length <= 20) {
+              // Limit to 30 characters
+              if (e.target.value.length <= 30) {
                 onTitleChange(e.target.value);
               }
             }}
@@ -835,7 +1095,7 @@ export const TransactionForm = ({
             )}
           />
           <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-xs text-muted-foreground">
-            {transactionTitle.length}/20
+            {transactionTitle.length}/30
           </div>
         </div>
         {formErrors.title && (
@@ -871,7 +1131,10 @@ export const TransactionForm = ({
           id="amount"
           value={transactionAmount}
           onChange={onAmountChange}
-          className="text-[16px] h-10"
+          className={cn(
+            "bg-background",
+            formErrors.amount ? "border-destructive ring-destructive/30" : ""
+          )}
           hasError={!!formErrors.amount}
         />
         {formErrors.amount && (
@@ -1333,9 +1596,7 @@ export const TransactionForm = ({
                 {/* Filtered categories */}
                 {(() => {
                   // Pre-filter categories
-                  const filteredCategories = categoryOptions.filter(category => 
-                    !categorySearchQuery.trim() || categoryMatchesSearch(category, categorySearchQuery)
-                  );
+                  const filteredCategories = filteredCategoryOptions;
 
                   // Show filtered items or empty state
                   if (filteredCategories.length === 0) {
@@ -1355,10 +1616,7 @@ export const TransactionForm = ({
                   // Return the category items
                   return filteredCategories
                     .sort((a, b) => {
-                      if (categorySearchQuery.trim()) {
-                        return getCategoryMatchScore(b, categorySearchQuery) - getCategoryMatchScore(a, categorySearchQuery);
-                      }
-                      return a.label.localeCompare(b.label);
+                      return getCategoryMatchScore(b, categorySearchQuery) - getCategoryMatchScore(a, categorySearchQuery);
                     })
                     .map((category) => (
                       <div
@@ -1370,13 +1628,7 @@ export const TransactionForm = ({
                           "hover:bg-accent/80"
                         )}
                         onClick={() => {
-                          setClickedItemId(category.value);
-                          console.log("Category selected:", category.value, category.label);
-                          handleCategoryChange(category.value);
-                          setTimeout(() => {
-                            setCategoryComboboxOpen(false);
-                            setClickedItemId(null);
-                          }, 150);
+                          onCategoryClick(category);
                         }}
                         data-value={category.value}
                       >
@@ -1479,31 +1731,29 @@ export const TransactionForm = ({
             </Tooltip>
           </TooltipProvider>
         </div>
-        <Popover>
+        <Popover open={isCalendarOpen} onOpenChange={handleCalendarOpenChange}>
           <PopoverTrigger asChild>
             <Button
               id="date"
               variant="outline"
               className={cn(
-                "w-full h-10 pl-3 text-left font-normal text-[16px]",
-                !selectedDate && "text-muted-foreground"
+                "w-full justify-start text-left font-normal",
+                !transactionDate && "text-muted-foreground",
+                formErrors.date && "border-destructive"
               )}
             >
-              {selectedDate ? (
-                format(selectedDate, "PPP")
-              ) : (
-                <span>Pick a date</span>
-              )}
-              <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+              <CalendarIcon className="mr-2 h-4 w-4" />
+              {transactionDate ? formatDate(transactionDate) : "Select date"}
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-auto p-0 z-[5000]" align="start">
+          <PopoverContent className="w-auto p-0" align="start">
             <Calendar
               mode="single"
               selected={selectedDate}
-              onSelect={handleDateSelect}
-              disabled={(date) =>
-                date > today || date < new Date("1900-01-01")
+              onSelect={setSelectedDate}
+              disabled={(date: Date) =>
+                date > new Date() || // Can't select future dates
+                date < new Date("1900-01-01") // Can't select dates before 1900
               }
               initialFocus
             />
@@ -1518,6 +1768,15 @@ export const TransactionForm = ({
           </p>
         )}
       </motion.div>
+
+      {/* Show balance warning if needed */}
+      {transactionAccount && !isNaN(currentAmount) && (
+        <BalanceWarning 
+          currentBalance={selectedAccountBalance} 
+          proposedAmount={currentAmount} 
+          type={type}
+        />
+      )}
     </motion.div>
   );
 };

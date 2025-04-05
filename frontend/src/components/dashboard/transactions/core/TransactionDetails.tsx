@@ -360,7 +360,7 @@ export const TransactionDetails = ({
     try {
       if (onDelete) {
         onDelete(transaction.id);
-        handleClose();
+        handleClose();  // Close the dialog immediately after triggering delete
       }
     } catch (error) {
       console.error("Error deleting transaction:", error);

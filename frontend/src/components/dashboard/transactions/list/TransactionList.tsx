@@ -23,7 +23,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
-import TransactionItem, { Transaction } from "./TransactionItem";
+import { TransactionItem, Transaction } from "./TransactionItem";
 
 interface TransactionListProps {
   transactions: Transaction[];
@@ -127,8 +127,13 @@ export const TransactionList = ({
 
   // Memoize filteredAndSortedTransactions to prevent recalculations on every render
   const filteredAndSortedTransactions = useMemo(() => {
-    // Hanya filter transaksi yang benar-benar tidak memiliki ID sama sekali
+    // First filter out deleted transactions
     let result = transactions.filter(transaction => 
+      transaction && !transaction.isDeleted
+    );
+    
+    // Then filter transactions that don't have ID
+    result = result.filter(transaction => 
       transaction && transaction.id !== undefined
     );
     

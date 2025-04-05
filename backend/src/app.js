@@ -13,6 +13,7 @@ const errorMiddleware = require('./middlewares/errorMiddleware');
 const { swaggerUi, swaggerDocs, customCss } = require('./utils/swagger');
 const assetRoutes = require('./routes/assetRoutes');
 const csrf = require('csurf'); // Directly import csrf here
+const restoreTransactionRoute = require('./routes/restoreTransactionRoute');
 
 // Security middleware
 const securityMiddleware = require('./middlewares/securityMiddleware');
@@ -192,6 +193,7 @@ app.use(`${API_BASE_PATH}/auth`, authRoutes);
 app.use(`${API_BASE_PATH}/transactions`, apiKeyMiddleware.validateApiKey, transactionRoutes);
 app.use(`${API_BASE_PATH}/categories`, apiKeyMiddleware.validateApiKey, categoryRoutes);
 app.use(`${API_BASE_PATH}/assets`, apiKeyMiddleware.validateApiKey, assetRoutes);
+app.use(`${API_BASE_PATH}/transactions`, apiKeyMiddleware.validateApiKey, restoreTransactionRoute);
 
 // Error handling middleware
 app.use(errorMiddleware.notFound);

@@ -136,3 +136,50 @@ export function debounce<T extends (...args: unknown[]) => unknown>(fn: T, delay
 export function deepClone<T>(obj: T): T {
   return JSON.parse(JSON.stringify(obj));
 }
+
+/**
+ * Format a number with commas as thousand separators and a decimal separator
+ * @param value The number or string to format
+ * @param locale The locale to use for formatting (default: en-US)
+ * @returns Formatted number string
+ */
+export function formatAmountWithCommas(value: string | number, locale: 'en-US' | 'id-ID' = 'en-US'): string {
+  if (!value && value !== 0) return '';
+  
+  // Convert to string if it's a number
+  const stringValue = typeof value === 'number' ? value.toString() : value;
+  
+  // If the string is empty, return empty
+  if (!stringValue) return '';
+  
+  // Determine separators based on locale
+  const thousandSeparator = locale === 'en-US' ? ',' : '.';
+  const decimalSeparator = locale === 'en-US' ? '.' : ',';
+  
+  // Check if the input ends with a decimal separator
+  const endsWithDecimal = stringValue.endsWith('.') || stringValue.endsWith(',');
+  
+  // Normalize the input by replacing commas with periods for processing
+  const normalizedValue = stringValue.replace(/,/g, '.');
+  
+  // Special case: if the value is just a decimal point
+  if (normalizedValue === '.') {
+    return `0${decimalSeparator}`;
+  }
+  
+  // Split by decimal point
+  const parts = normalizedValue.split('.');
+  const integerPart = parts[0];
+  const hasDecimal = parts.length > 1;
+  const decimalPart = hasDecimal ? parts[1] : '';
+  
+  // Format the integer part with commas
+  const formattedInteger = integerPart.replace(/\B(?=(\d{3})+(?!\d))/g, thousandSeparator);
+  
+  // If there's a decimal part or the input ended with a decimal, include it
+  if (hasDecimal || endsWithDecimal) {
+    return `${formattedInteger}${decimalSeparator}${decimalPart}`;
+  }
+  
+  return formattedInteger;
+}

@@ -257,11 +257,10 @@ export function TransactionHistory({
 
   // Filter the transactions based on the search query and filters
   const filteredTransactions = useMemo(() => {
-    // Start with all transactions
     let filtered = [...transactions];
     
-    // Filter out soft-deleted transactions
-    filtered = filtered.filter(t => !t.isDeleted);
+    // Filter out deleted transactions
+    filtered = filtered.filter(transaction => !transaction.isDeleted);
     
     // Apply search query filter
     if (searchQuery) {

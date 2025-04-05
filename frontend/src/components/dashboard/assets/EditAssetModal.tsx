@@ -4,8 +4,12 @@ import { motion } from "framer-motion";
 import { 
   Edit, 
   X,
-  PiggyBank,
   Wallet,
+  CreditCard,
+  Landmark,
+  Coins,
+  Loader2,
+  Save,
 } from "lucide-react";
 import {
   Dialog,
@@ -22,14 +26,23 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { toast } from "sonner";
+import { CurrencyInput } from "@/components/dashboard/transactions/forms/CurrencyInput";
+
+// Define valid asset types to match the drawer
+type ValidAssetType = "cash" | "bank" | "e-wallet" | "emergency";
+const ASSET_TYPES = [
+  { value: "cash", label: "Cash Account", icon: Wallet },
+  { value: "emergency", label: "Emergency Fund", icon: Coins },
+  { value: "bank", label: "Bank Account", icon: Landmark },
+  { value: "e-wallet", label: "E-Wallet", icon: CreditCard },
+];
 
 // Define props
 interface EditAssetModalProps {
   asset: Asset;
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
-  onUpdateAsset: (asset: Asset, setIsLoading?: (loading: boolean) => void) => void;
+  onUpdateAsset: (asset: Asset, setIsLoading: React.Dispatch<React.SetStateAction<boolean>>) => void;
 }
 
 export function EditAssetModal({
@@ -38,60 +51,14 @@ export function EditAssetModal({
   onOpenChange,
   onUpdateAsset,
 }: EditAssetModalProps) {
-  const [formData, setFormData] = useState<Asset>(asset);
   const [loading, setLoading] = useState(false);
-
-  // Update form data when selected asset changes or when modal opens
-  useEffect(() => {
-    if (asset && asset.id && isOpen) {
-      setFormData(asset);
-    }
-  }, [asset, isOpen]);
-
-  // If we don't have valid asset data, don't render the form content
-  const hasValidAsset = formData && formData.id;
-
-  const handleInputChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) => {
-    const { name, value } = e.target;
-    setFormData((prev) => {
-      if (!prev) return prev;
-      return {
-        ...prev,
-        [name]: name === "balance" ? parseFloat(value) || 0 : value,
-      };
-    });
-  };
-
-  const handleTypeChange = (type: AssetType) => {
-    setFormData((prev) => ({
-      ...prev,
-      type,
-    }));
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-    
-    try {
-      await onUpdateAsset(formData, setLoading);
-      onOpenChange(false);
-    } catch {
-      setLoading(false);
-      toast.error("Failed to update asset", {
-        description: "An error occurred. Please try again later."
-      });
-    }
-  };
-
-  // Reset loading state when modal closes
-  useEffect(() => {
-    if (!isOpen) {
-      setLoading(false);
-    }
-  }, [isOpen]);
+  const [form, setForm] = useState({
+    name: asset?.name || "",
+    type: (asset?.type as ValidAssetType) || "cash",
+    balance: asset?.balance?.toString() || "0",
+    institution: asset?.institution || "",
+    description: asset?.description || "",
+  });
 
   // Animation variants
   const iconAnimation = {
@@ -102,6 +69,64 @@ export function EditAssetModal({
   const contentAnimation = {
     initial: { opacity: 0, y: 10 },
     animate: { opacity: 1, y: 0, transition: { delay: 0.2, duration: 0.4 } }
+  };
+
+  // Reset form when asset changes
+  useEffect(() => {
+    if (isOpen && asset) {
+      setForm({
+        name: asset.name || "",
+        type: (asset.type as ValidAssetType) || "cash",
+        balance: asset.balance?.toString() || "0",
+        institution: asset.institution || "",
+        description: asset.description || "",
+      });
+    }
+  }, [isOpen, asset]);
+
+  // Get the current selected asset type
+  const selectedType = form.type;
+
+  // Conditionally show fields based on asset type
+  const showInstitutionField = ["bank", "e-wallet"].includes(selectedType);
+
+  const handleSubmit = () => {
+    if (!form.name) return;
+    
+    setLoading(true);
+    
+    // Normalize and parse the balance value correctly
+    let parsedBalance = 0;
+    
+    if (form.balance) {
+      let parseableValue = form.balance;
+      
+      // Handle Indonesian format (1.234,56)
+      if (typeof form.balance === 'string' && form.balance.includes(',')) {
+        parseableValue = form.balance.replace(/\./g, '').replace(/,/g, '.');
+      } 
+      // Handle US format (1,234.56)
+      else if (typeof form.balance === 'string') {
+        parseableValue = form.balance.replace(/,/g, '');
+      }
+      
+      parsedBalance = parseFloat(parseableValue) || 0;
+    }
+    
+    const updatedAsset: Asset = {
+      id: asset.id,
+      _id: asset._id,
+      name: form.name,
+      type: form.type as AssetType,
+      balance: parsedBalance,
+      institution: form.institution,
+      description: form.description,
+      createdAt: asset.createdAt,
+      updatedAt: new Date().toISOString(),
+      isDeleted: asset.isDeleted || false
+    };
+
+    onUpdateAsset(updatedAsset, setLoading);
   };
 
   return (
@@ -122,168 +147,143 @@ export function EditAssetModal({
             <Edit className="h-8 w-8 text-primary-foreground" />
           </motion.div>
           
-          <DialogTitle className="text-xl font-semibold text-center">Edit Asset</DialogTitle>
+          <DialogTitle className="text-xl font-semibold text-center">
+            Edit Asset
+          </DialogTitle>
           <DialogDescription className="opacity-80 mt-1 text-center">
-            {hasValidAsset ? `Update your ${formData?.type} asset details` : 'Loading asset details...'}
+            Update your {selectedType} asset details
           </DialogDescription>
         </DialogHeader>
         
-        {hasValidAsset ? (
-          <ScrollArea className="flex-1 px-6 py-4 overflow-auto">
-            <motion.form 
-              onSubmit={handleSubmit}
-              className="pr-4 space-y-5"
-              initial="initial"
-              animate="animate"
-              variants={contentAnimation}
-            >
+        <ScrollArea className="flex-1 px-6 py-4 overflow-auto">
+          <motion.div
+            className="pr-2 space-y-5"
+            initial="initial"
+            animate="animate"
+            variants={contentAnimation}
+          >
+            <div className="space-y-5">
               {/* Asset Type */}
-              <div className="space-y-2">
-                <Label htmlFor="type" className="text-sm font-medium">
-                  Asset Type
-                </Label>
+              <div>
+                <Label htmlFor="asset-type" className="text-base">Asset Type</Label>
                 <Select
-                  value={formData?.type}
-                  onValueChange={(value) => handleTypeChange(value as AssetType)}
+                  value={form.type}
+                  onValueChange={(value) => setForm({...form, type: value as ValidAssetType})}
                 >
-                  <SelectTrigger className="h-10">
+                  <SelectTrigger id="asset-type" className="h-11">
                     <SelectValue placeholder="Select asset type" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="cash">
-                      <div className="flex items-center gap-2">
-                        <Wallet className="h-4 w-4 text-muted-foreground" />
-                        <span>Cash</span>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="bank">
-                      <div className="flex items-center gap-2">
-                        <PiggyBank className="h-4 w-4 text-muted-foreground" />
-                        <span>Bank Account</span>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="e-wallet">
-                      <div className="flex items-center gap-2">
-                        <PiggyBank className="h-4 w-4 text-muted-foreground" />
-                        <span>E-Wallet</span>
-                      </div>
-                    </SelectItem>
-                    <SelectItem value="emergency">
-                      <div className="flex items-center gap-2">
-                        <PiggyBank className="h-4 w-4 text-muted-foreground" />
-                        <span>Emergency Fund</span>
-                      </div>
-                    </SelectItem>
+                    {ASSET_TYPES.map((type) => {
+                      const Icon = type.icon;
+                      return (
+                        <SelectItem
+                          key={type.value}
+                          value={type.value}
+                          className="cursor-pointer h-10"
+                        >
+                          <span className="flex items-center gap-2">
+                            <span className="flex items-center justify-center bg-muted/50 rounded-full w-7 h-7">
+                              <Icon className="h-4 w-4" />
+                            </span>
+                            <span>{type.label}</span>
+                          </span>
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
               </div>
-              
+
               {/* Asset Name */}
-              <div className="space-y-2">
-                <Label htmlFor="name" className="text-sm font-medium">
-                  Asset Name
-                </Label>
+              <div>
+                <Label htmlFor="name" className="text-base">Asset Name</Label>
                 <Input
                   id="name"
-                  name="name"
-                  className="h-10"
                   placeholder="Enter asset name"
-                  value={formData?.name || ""}
-                  onChange={handleInputChange}
-                  required
+                  value={form.name}
+                  onChange={(e) => setForm({...form, name: e.target.value})}
+                  className="h-11 text-[16px]"
                 />
               </div>
-              
-              {/* Asset Balance */}
-              <div className="space-y-2">
-                <Label htmlFor="balance" className="text-sm font-medium">
-                  Current Balance
-                </Label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">$</span>
-                  <Input
-                    id="balance"
-                    name="balance"
-                    className="h-10 pl-7"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    placeholder="0.00"
-                    value={formData?.balance || 0}
-                    onChange={handleInputChange}
-                    required
-                  />
-                </div>
+
+              {/* Balance */}
+              <div>
+                <Label htmlFor="current-balance" className="text-base">Current Balance</Label>
+                <CurrencyInput
+                  id="current-balance"
+                  value={form.balance}
+                  onChange={(value) => {
+                    // Handle empty input
+                    if (value === "") {
+                      setForm({...form, balance: "0"});
+                      return;
+                    }
+                    
+                    // Normalize the value for parseFloat during submission
+                    // For now, just store the raw input string
+                    setForm({...form, balance: value});
+                  }}
+                  placeholder="0.00"
+                  className="w-full"
+                  locale="en-US" // Use US format by default, can be made configurable
+                />
               </div>
-              
-              {/* Institution - Show conditionally based on type */}
-              {(formData?.type === 'bank' || formData?.type === 'e-wallet') && (
-                <div className="space-y-2">
-                  <Label htmlFor="institution" className="text-sm font-medium">
-                    Institution
+
+              {/* Institution (conditional) */}
+              {showInstitutionField && (
+                <div>
+                  <Label htmlFor="institution" className="text-base">
+                    {selectedType === "bank" ? "Bank Name" : "Provider"}
                   </Label>
                   <Input
                     id="institution"
-                    name="institution"
-                    className="h-10"
-                    placeholder="E.g., Bank name, wallet provider"
-                    value={formData?.institution || ""}
-                    onChange={handleInputChange}
+                    placeholder={
+                      selectedType === "bank"
+                        ? "e.g., BCA, Mandiri"
+                        : "e.g., GoPay, OVO, DANA"
+                    }
+                    value={form.institution}
+                    onChange={(e) => setForm({...form, institution: e.target.value})}
+                    className="h-11 text-[16px]"
                   />
                 </div>
               )}
-              
+
               {/* Description */}
-              <div className="space-y-2">
-                <Label htmlFor="description" className="text-sm font-medium">
-                  Description (Optional)
+              <div>
+                <Label htmlFor="description" className="text-base">
+                  Description{" "}
+                  <span className="text-muted-foreground font-normal">
+                    (Optional)
+                  </span>
                 </Label>
                 <Textarea
                   id="description"
-                  name="description"
-                  className="min-h-[80px] resize-none"
-                  placeholder="Add notes about this asset"
-                  value={formData?.description || ""}
-                  onChange={handleInputChange}
+                  placeholder="Add notes or details about this asset"
+                  value={form.description}
+                  onChange={(e) => setForm({...form, description: e.target.value})}
+                  className="h-24 resize-none text-[16px]"
                 />
               </div>
-              
-              {/* Extra space at the bottom for comfortable scrolling */}
-              <div className="h-4"></div>
-            </motion.form>
-          </ScrollArea>
-        ) : (
-          <div className="flex-1 flex items-center justify-center">
-            <div className="text-center p-6">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-              <p className="text-muted-foreground">Loading asset details...</p>
             </div>
-          </div>
-        )}
-        
-        <DialogFooter className="px-6 py-4 bg-muted/30 border-t mt-auto flex-shrink-0 z-20">
-          {hasValidAsset && (
-            <Button
-              type="button" 
-              onClick={(e) => {
-                handleSubmit(e);
-              }}
-              disabled={loading || !formData}
-              className="flex items-center justify-center gap-2 h-10 min-w-36"
-            >
-              {loading ? (
-                <>
-                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-primary-foreground border-t-transparent" />
-                  <span>Updating...</span>
-                </>
-              ) : (
-                <>
-                  <Edit className="h-4 w-4" />
-                  Update Asset
-                </>
-              )}
-            </Button>
-          )}
+          </motion.div>
+        </ScrollArea>
+
+        <DialogFooter className="px-6 py-4 bg-muted/30 border-t border-border mt-auto flex-shrink-0 z-20">
+          <Button
+            onClick={handleSubmit}
+            size="lg"
+            className="bg-primary hover:bg-primary/90 text-white shadow-md hover:shadow-lg transition-all font-medium h-11 w-full"
+            disabled={loading}
+          >
+            {loading ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="mr-2 h-4 w-4" />
+            )}
+            Save Changes
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -1,7 +1,6 @@
 import { useEffect } from "react";
 import {
   PlusCircle,
-  DollarSign,
   Wallet,
   Landmark,
   CreditCard,
@@ -40,10 +39,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
+import { CurrencyInput } from "@/components/dashboard/transactions/forms/CurrencyInput";
 
 interface AddAssetDialogProps {
   isOpen: boolean;
@@ -61,7 +60,7 @@ const assetSchema = z.object({
   type: z.enum(["cash", "bank", "e-wallet", "emergency"], {
     required_error: "Please select an asset type",
   }),
-  balance: z.coerce.number().min(0, "Balance cannot be negative"),
+  balance: z.number().default(0),
   institution: z.string().optional(),
   description: z.string().optional(),
 });
@@ -72,6 +71,9 @@ export function AddAssetDialog({
   onAddAsset,
   initialAssetType,
 }: AddAssetDialogProps) {
+  // Define locale
+  const locale = 'en-US'; // Default locale
+  
   // Setup form with validation
   const form = useForm<z.infer<typeof assetSchema>>({
     resolver: zodResolver(assetSchema),
@@ -289,41 +291,19 @@ export function AddAssetDialog({
                           Current Balance
                         </FormLabel>
                         <FormControl>
-                          <div className="relative">
-                            <div
-                              className={cn(
-                                "absolute left-0 top-0 bottom-0 flex items-center justify-center w-11 rounded-l-md border-r",
-                                "bg-muted/50 text-muted-foreground"
-                              )}
-                            >
-                              <DollarSign className="h-4 w-4" />
-                            </div>
-                            <Input
-                              inputMode="decimal"
-                              placeholder="0.00"
-                              className="pl-12 h-11 font-medium text-[16px]"
-                              {...field}
-                              value={field.value === 0 ? "" : field.value}
-                              onChange={(e) => {
-                                // Accept only numeric input with at most one decimal point
-                                const value = e.target.value;
-                                if (value === "" || /^\d*\.?\d*$/.test(value)) {
-                                  // Handle special cases
-                                  if (value === "") {
-                                    field.onChange(0);
-                                  } else if (value === ".") {
-                                    field.onChange(0);
-                                  } else {
-                                    field.onChange(parseFloat(value));
-                                  }
-                                }
-                              }}
-                            />
-                          </div>
+                          <CurrencyInput
+                            value={field.value.toString()}
+                            onChange={(value) => {
+                              const valueForParsing = locale === ('id-ID' as 'en-US' | 'id-ID')
+                                ? value.replace(/\./g, '').replace(/,/g, '.')
+                                : value.replace(/,/g, '');
+                              field.onChange(parseFloat(valueForParsing) || 0);
+                            }}
+                            placeholder="0.00"
+                            className="w-full"
+                            locale="en-US" // Use US format by default, can be made configurable
+                          />
                         </FormControl>
-                        <FormDescription className="text-xs">
-                          Enter the current balance of this asset
-                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}

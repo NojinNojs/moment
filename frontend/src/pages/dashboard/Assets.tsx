@@ -160,6 +160,14 @@ export default function Assets() {
         return;
       }
 
+      // Validate description length
+      if (description && description.length > 200) {
+        toast.error("Description Too Long", {
+          description: "Transfer description cannot exceed 200 characters.",
+        });
+        return;
+      }
+
       // Get the correct asset IDs
       const fromAssetId = fromAsset.id || fromAsset._id;
       const toAssetId = toAsset.id || toAsset._id;
@@ -206,12 +214,42 @@ export default function Assets() {
         setShowTransferModal(false);
         setShowTransferDrawer(false);
       } else {
+        // Extract more user-friendly error message
+        let errorMessage = response.message || 'An error occurred during the transfer';
+        
+        // Check for common validation errors and provide more user-friendly messages
+        if (errorMessage.includes("Description cannot exceed 200 characters")) {
+          errorMessage = "Transfer description cannot exceed 200 characters. Please shorten your description.";
+        } else if (errorMessage.includes("Insufficient funds")) {
+          errorMessage = `${fromAsset.name} has insufficient funds for this transfer.`;
+        } else if (errorMessage.includes("validation failed")) {
+          // Extract the specific validation error if possible
+          const validationMatch = errorMessage.match(/validation failed: ([^:]+): ([^,]+)/);
+          if (validationMatch && validationMatch.length >= 3) {
+            const [, field, fieldError] = validationMatch;
+            errorMessage = `${field}: ${fieldError}`;
+          }
+        }
+        
         toast.error("Transfer Failed", {
-          description: response.message || 'An error occurred during the transfer',
+          description: errorMessage,
         });
       }
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred';
+      // Extract meaningful error message from error object
+      let errorMessage = 'An unexpected error occurred';
+      
+      if (err instanceof Error) {
+        errorMessage = err.message;
+      } else if (err && typeof err === 'object' && 'message' in err) {
+        errorMessage = String((err as Error).message);
+      }
+      
+      // Friendly error formatting
+      if (errorMessage.includes("Description cannot exceed 200 characters")) {
+        errorMessage = "Transfer description cannot exceed 200 characters. Please shorten your description.";
+      }
+      
       toast.error("Error", {
         description: errorMessage,
       });

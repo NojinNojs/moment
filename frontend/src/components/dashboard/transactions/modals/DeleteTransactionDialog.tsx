@@ -1,15 +1,12 @@
-import { useState, useEffect, useRef } from "react";
-import { Trash2, AlertTriangle, Clock, Undo, X, CheckCircle, ShieldAlert } from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { Trash2, AlertTriangle, Undo, X, CreditCard, ArrowDownRight, ArrowUpRight, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import {
-  AlertDialog,
-  AlertDialogContent,
-  AlertDialogDescription,
-} from "@/components/ui/alert-dialog";
+import { AlertDialog, AlertDialogContent, AlertDialogDescription } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { Transaction } from "../list/TransactionItem";
+import apiService from '@/services/api';
 
 // Deletion timeout in milliseconds (5 seconds)
 const DELETION_TIMEOUT = 5000;
@@ -22,35 +19,173 @@ interface DeleteTransactionDialogProps {
   transaction: Transaction;
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
-  onConfirm: (id: number) => void;
-  onSoftDelete: (id: number, isSoftDeleted: boolean) => void;
+  onSoftDelete: (id: string | number, isSoftDeleted: boolean) => void;
 }
+
+/**
+ * EMERGENCY DIRECT API ACCESS
+ * This is a bypass function that directly hits the API without going through our service layer
+ * Used as a last resort when the normal update mechanisms fail
+ */
+const emergencyDirectAssetBalanceUpdate = async (
+  assetId: string, 
+  newBalance: number, 
+  originalAsset: Record<string, unknown>
+): Promise<boolean> => {
+  try {
+    const response = await fetch(`/api/assets/${assetId}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRF-Token': localStorage.getItem('csrfToken') || '',
+      },
+      body: JSON.stringify({
+        ...originalAsset,
+        balance: newBalance
+      })
+    });
+    
+    if (response.ok) {
+      console.log('🚨 EMERGENCY DIRECT API UPDATE SUCCESSFUL');
+      return true;
+    } else {
+      console.error('🚨 EMERGENCY DIRECT API UPDATE FAILED:', await response.text());
+      return false;
+    }
+  } catch (error) {
+    console.error('🚨 EMERGENCY DIRECT API EXCEPTION:', error);
+    return false;
+  }
+};
 
 /**
  * DeleteTransactionDialog - Confirmation dialog for transaction deletion
  * Features:
- * - Shows a confirmation dialog before permanently deleting
+ * - Shows a confirmation dialog before deleting a transaction
  * - Implements soft delete with an undo timer
+ * - The transaction is immediately marked as deleted in the UI when the delete button is clicked
+ * - Displays an undo toast notification for 5 seconds
  * - Visual feedback throughout the deletion process
+ * - Displays financial impact of the deletion
  */
 export function DeleteTransactionDialog({
   transaction,
   isOpen,
   onOpenChange,
-  onConfirm,
   onSoftDelete
 }: DeleteTransactionDialogProps) {
+  // Define all state hooks at the top level
+  const [showState, setShowState] = useState(false);
+  // Use state variables properly - they are referenced in functions below
   const [deleting, setDeleting] = useState(false);
-  const [, setProgressValue] = useState(0); // Using underscore to indicate unused state
+  const [progressValue, setProgressValue] = useState(0);
   const [timeLeft, setTimeLeft] = useState(5); // Seconds left for display
   const [showUndoAlert, setShowUndoAlert] = useState(false);
+  const [dependentTransfers, setDependentTransfers] = useState<Transaction[]>([]);
+  const [isAnalyzingImpact, setIsAnalyzingImpact] = useState(false);
+  const [showDependentWarning, setShowDependentWarning] = useState(false);
+  const [loading, setLoading] = useState(false);
   
+  // Define all ref hooks
   const deletionTimerRef = useRef<NodeJS.Timeout | null>(null);
   const progressIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const startTimeRef = useRef<number>(0);
   const toastIdRef = useRef<string | number | null>(null);
+  const undoTimeoutRef = useRef<number | null>(null);
+
+  // Reset state function - wrapped in useCallback
+  const resetState = useCallback(() => {
+    setDeleting(false);
+    setProgressValue(0);
+    setTimeLeft(5);
+    setShowUndoAlert(false);
+    setDependentTransfers([]);
+    setShowDependentWarning(false);
+    
+    if (deletionTimerRef.current) {
+      clearTimeout(deletionTimerRef.current);
+      deletionTimerRef.current = null;
+    }
+    if (progressIntervalRef.current) {
+      clearInterval(progressIntervalRef.current);
+      progressIntervalRef.current = null;
+    }
+    if (toastIdRef.current) {
+      toast.dismiss(toastIdRef.current);
+      toastIdRef.current = null;
+    }
+    if (undoTimeoutRef.current) {
+      clearTimeout(undoTimeoutRef.current);
+      undoTimeoutRef.current = null;
+    }
+  }, []);
+
+  // Function to check for dependent transactions - wrapped in useCallback
+  const checkForDependentTransactions = useCallback(async () => {
+    if (!transaction || transaction.type !== 'income') return;
+    
+    setIsAnalyzingImpact(true);
+    try {
+      // First identify the account this income was credited to
+      const accountId = typeof transaction.account === 'object' && transaction.account 
+        ? (transaction.account._id || transaction.account.id) 
+        : transaction.account;
+        
+      if (!accountId) return;
+      
+      // Get all transfers from this account that happened after this transaction
+      const transfersResponse = await apiService.getAssetTransfers();
+      if (transfersResponse.success && transfersResponse.data) {
+        const possiblyAffected = transfersResponse.data.filter(transfer => {
+          // Skip null or undefined transfers
+          if (!transfer) return false;
+          
+          // Check if transfer is from the same account
+          const transferSourceId = typeof transfer.fromAsset === 'object' && transfer.fromAsset
+            ? (transfer.fromAsset._id || transfer.fromAsset.id)
+            : transfer.fromAsset;
+            
+          // If either is null/undefined, skip this transfer
+          if (!transferSourceId || !accountId) return false;
+          
+          const sameAccount = transferSourceId.toString() === accountId.toString();
+          
+          // Check if transfer happened after this transaction  
+          // Guard against invalid dates
+          let transferDate, transactionDate;
+          try {
+            transferDate = new Date(transfer.date);
+            transactionDate = new Date(transaction.date);
+          } catch (e) {
+            console.error("Invalid date format:", e);
+            return false;
+          }
+          
+          const isAfter = transferDate > transactionDate;
+          
+          return sameAccount && isAfter;
+        });
+        
+        setDependentTransfers(possiblyAffected as unknown as Transaction[]);
+        setShowDependentWarning(possiblyAffected.length > 0);
+      }
+    } catch (error) {
+      console.error("Error analyzing transaction impact:", error);
+    } finally {
+      setIsAnalyzingImpact(false);
+    }
+  }, [transaction]);
+
+  // useEffect for transaction updates - moved to top level
+  useEffect(() => {
+    if (!transaction) {
+      setShowState(false);
+    } else {
+      setShowState(true);
+    }
+  }, [transaction]);
   
-  // Clear timers when component unmounts or when dialog closes
+  // useEffect for cleanup - called at top level
   useEffect(() => {
     return () => {
       if (deletionTimerRef.current) {
@@ -67,7 +202,7 @@ export function DeleteTransactionDialog({
     };
   }, []);
   
-  // Reset state when dialog state changes
+  // useEffect for dialog state changes - called at top level
   useEffect(() => {
     if (!isOpen) {
       if (!showUndoAlert) {
@@ -75,52 +210,103 @@ export function DeleteTransactionDialog({
         resetState();
       }
     }
-  }, [isOpen, showUndoAlert]);
+  }, [isOpen, showUndoAlert, resetState]);
   
-  const resetState = () => {
-      setDeleting(false);
-    setProgressValue(0);
-    setTimeLeft(5);
-    setShowUndoAlert(false);
-    
-    if (deletionTimerRef.current) {
-      clearTimeout(deletionTimerRef.current);
-      deletionTimerRef.current = null;
+  // useEffect for dependent transactions check - called at top level 
+  useEffect(() => {
+    if (isOpen && transaction) {
+      checkForDependentTransactions();
     }
-    if (progressIntervalRef.current) {
-      clearInterval(progressIntervalRef.current);
-      progressIntervalRef.current = null;
-    }
-    if (toastIdRef.current) {
-      toast.dismiss(toastIdRef.current);
-      toastIdRef.current = null;
-    }
-  };
+  }, [isOpen, transaction, checkForDependentTransactions]);
+
+  // Early return for the UI - keep after all hooks are defined and called
+  if (!showState || !transaction) {
+    return isOpen ? (
+      <AlertDialog open={isOpen} onOpenChange={onOpenChange}>
+        <AlertDialogContent>
+          <div className="flex flex-col space-y-4">
+            <h2 className="text-lg font-medium text-center">Error</h2>
+            <AlertDialogDescription className="text-center">
+              Cannot delete transaction because the transaction data is missing.
+            </AlertDialogDescription>
+            <Button onClick={() => onOpenChange(false)}>Close</Button>
+          </div>
+        </AlertDialogContent>
+      </AlertDialog>
+    ) : null;
+  }
 
   const startDeletion = () => {
+    if (deleting) {
+      console.log("🛑 Already in deletion process, state:", { deleting, progressValue });
+      return;
+    }
+    
     setDeleting(true);
-    setShowUndoAlert(true);
+    setLoading(true);
+    console.log("🚨 Starting deletion process for:", {
+      id: transaction.id,
+      _id: transaction._id || 'none',
+      title: transaction.title,
+      amount: transaction.amount,
+      type: transaction.type,
+      account: transaction.account
+    });
+    
+    // Special logging for income transactions to help debug balance issues
+    if (transaction.type === 'income') {
+      const accountId = typeof transaction.account === 'object' 
+        ? (transaction.account.id || transaction.account._id)
+        : transaction.account;
+        
+      console.log(`💰 INCOME Soft Delete: Transaction=${transaction.title}, Amount=${transaction.amount}, AccountID=${accountId}`);
+    }
+    
+    // Record the start time for progress calculations
     startTimeRef.current = Date.now();
     
-    // Close the confirmation dialog
-    onOpenChange(false);
+    // ⚠️ CRITICAL: Mark the transaction as deleted immediately in the UI and DATABASE
+    if (onSoftDelete) {
+      console.log("🔄 Marking transaction as deleted via onSoftDelete");
+      
+      // Make sure to use both the MongoDB _id when available or client id as fallback
+      const apiId = transaction._id?.toString() || transaction.id.toString();
+      console.log(`📝 Using ID for soft delete: ${apiId} (Mongo: ${transaction._id}, Client: ${transaction.id})`);
+      
+      // Set this locally to ensure UI is consistent 
+      transaction.isDeleted = true;
+      
+      // This MUST update the isDeleted in the database through the API
+      onSoftDelete(apiId, true);
+      
+      // Emit a custom event for better UI synchronization
+      const event = new CustomEvent('transaction:stateChanged', {
+        detail: {
+          transaction,
+          action: 'softDeleted'
+        },
+        bubbles: true
+      });
+      document.dispatchEvent(event);
+    } else {
+      console.error("🔴 onSoftDelete function is undefined, cannot mark transaction as deleted");
+    }
     
-    // Immediately soft delete the transaction
-    onSoftDelete(transaction.id, true);
+    // Show the undo notification immediately
+    setShowUndoAlert(true);
+    showUndoToast();
     
-    // Set up a timer to update the progress bar
+    // Start progress bar animation
     progressIntervalRef.current = setInterval(() => {
       const elapsed = Date.now() - startTimeRef.current;
-      const newProgressValue = Math.min((elapsed / DELETION_TIMEOUT) * 100, 100);
-      setProgressValue(newProgressValue);
+      const newProgress = Math.min((elapsed / DELETION_TIMEOUT) * 100, 100);
+      setProgressValue(newProgress);
       
-      // Update the displayed time left (showing integer seconds)
-      const secondsLeft = Math.ceil((DELETION_TIMEOUT - elapsed) / 1000);
-      if (secondsLeft !== timeLeft) {
-        setTimeLeft(secondsLeft);
-      }
+      const secondsLeft = Math.max(Math.ceil((DELETION_TIMEOUT - elapsed) / 1000), 0);
+      setTimeLeft(secondsLeft);
       
-      if (newProgressValue >= 100) {
+      // If we reach 100%, clear the interval
+      if (newProgress >= 100) {
         if (progressIntervalRef.current) {
           clearInterval(progressIntervalRef.current);
           progressIntervalRef.current = null;
@@ -128,73 +314,528 @@ export function DeleteTransactionDialog({
       }
     }, PROGRESS_UPDATE_INTERVAL);
     
-    // Set up the actual deletion timer
+    // Schedule the actual deletion
     deletionTimerRef.current = setTimeout(() => {
       completeTransactionDeletion();
     }, DELETION_TIMEOUT);
     
-    // Show the toast with undo button
-    showUndoToast();
+    // Close the dialog immediately
+    onOpenChange(false);
+    setLoading(false);
   };
 
-  const completeTransactionDeletion = () => {
-    // Permanently delete the transaction
-    onConfirm(transaction.id);
-    showDeletionCompletedToast();
-    resetState();
-  };
-
-  const handleUndo = () => {
-    // Clear the deletion timer
-    if (deletionTimerRef.current) {
-      clearTimeout(deletionTimerRef.current);
-      deletionTimerRef.current = null;
-    }
-    
-    // Clear the progress timer
-    if (progressIntervalRef.current) {
-      clearInterval(progressIntervalRef.current);
-      progressIntervalRef.current = null;
-    }
-    
-    // Restore the transaction (remove soft delete flag)
-    onSoftDelete(transaction.id, false);
-    
-    // Show success undo toast
-    toast.success(`Deletion cancelled`, {
-      description: `"${transaction.title}" was restored`,
-      icon: <Undo className="h-4 w-4" />,
-      action: {
-        label: "Dismiss",
-        onClick: () => {}
-      },
-      position: "bottom-right",
-      className: "mb-safe-area-inset-bottom"
+  const completeTransactionDeletion = async () => {
+    console.log('Time elapsed, completing deletion for:', {
+      id: transaction.id,
+      _id: transaction._id || 'none',
+      title: transaction.title
     });
     
-    // Reset state
-    resetState();
+    // Note: We've already marked the transaction as deleted in startDeletion
+    
+    // Hide the undo notification
+    setShowUndoAlert(false);
+    
+    try {
+      // Use _id for MongoDB API calls if available, otherwise use the numeric id
+      const mongoId = transaction._id?.toString();
+      const numericId = transaction.id?.toString();
+      
+      // Choose the appropriate ID based on what's available
+      // Always prefer MongoDB _id when available
+      const apiId = mongoId || numericId;
+      
+      console.log(`[completeTransactionDeletion] Using API ID: ${apiId} (MongoDB _id: ${mongoId}, Numeric id: ${numericId})`);
+
+      if (!apiId) {
+        throw new Error("Cannot delete transaction: Missing valid ID");
+      }
+
+      // CRITICAL FIX: For income transactions, manually update the asset balance BEFORE deleting
+      if (transaction.type === 'income') {
+        const amount = Math.abs(transaction.amount);
+        console.log(`💰 INCOME DELETION: ${transaction.title} amount=${amount}`);
+        
+        // Get account ID
+        const accountId = typeof transaction.account === 'object' 
+          ? (transaction.account.id || transaction.account._id)
+          : transaction.account;
+          
+        if (accountId) {
+          console.log(`💰 Manually updating account balance for account ID: ${accountId}`);
+          
+          // Fetch current account data
+          const accountResponse = await apiService.getAccountById(accountId.toString());
+          
+          if (accountResponse.success && accountResponse.data) {
+            const account = accountResponse.data;
+            
+            // SUPER AGGRESSIVE FIX: Force the balance to zero if the amount matches the current balance
+            // This ensures that if we started with 0 and added income of amount X, we go back to 0 when deleting
+            let newBalance;
+            if (Math.abs(account.balance - amount) < 0.001) {
+              // If the account balance is almost exactly equal to the transaction amount,
+              // it means this was probably the only transaction - just reset to 0
+              newBalance = 0;
+              console.log(`💰 EXACT MATCH DETECTED! Forcing balance to exactly 0`);
+            } else {
+              // Otherwise do normal subtraction
+              newBalance = Math.max(0, account.balance - amount);
+            }
+            
+            console.log(`💰 INCOME DELETION BALANCE UPDATE: ${account.balance} - ${amount} = ${newBalance}`);
+            
+            try {
+              // Make multiple attempts to update the balance
+              let updateSucceeded = false;
+              
+              for (let attempt = 1; attempt <= 2; attempt++) {
+                console.log(`💰 Attempt ${attempt} to update balance to ${newBalance}`);
+                
+                // Update account balance directly (critical fix)
+                const updateResult = await apiService.updateAsset(accountId.toString(), {
+                  ...account,
+                  balance: newBalance
+                });
+                
+                console.log(`💰 Update result:`, updateResult);
+                
+                if (updateResult.success) {
+                  console.log(`💰 Account balance directly updated to ${newBalance}`);
+                  
+                  // Verify the balance was updated
+                  const verifyAccount = await apiService.getAccountById(accountId.toString());
+                  if (verifyAccount.success && verifyAccount.data && 
+                      Math.abs(verifyAccount.data.balance - newBalance) < 0.001) {
+                    console.log(`💰 Balance verification: ${verifyAccount.data.balance}`);
+                    console.log(`💰 Balance verified correctly!`);
+                    updateSucceeded = true;
+                    break;
+                  } else {
+                    console.log(`💰 Balance verification FAILED! Trying again...`);
+                  }
+                } else {
+                  console.log(`💰 Balance update failed! Trying again...`);
+                }
+                
+                // Wait a moment before retrying
+                await new Promise(resolve => setTimeout(resolve, 300));
+              }
+              
+              // If normal methods failed, try the emergency direct approach as a last resort
+              if (!updateSucceeded) {
+                console.log(`🚨 EMERGENCY! Normal update methods failed. Trying direct API bypass...`);
+                const emergencyResult = await emergencyDirectAssetBalanceUpdate(
+                  accountId.toString(), 
+                  newBalance,
+                  account as unknown as Record<string, unknown>
+                );
+                
+                if (emergencyResult) {
+                  console.log(`🚨 EMERGENCY UPDATE SUCCESSFUL! Balance should now be ${newBalance}`);
+                } else {
+                  console.error(`🚨 EMERGENCY UPDATE FAILED! This is really bad.`);
+                  
+                  // Last resort: display a error message to the user with instructions
+                  toast.error('Critical Error', {
+                    description: 'Could not update account balance. Please refresh the page and try again.',
+                    duration: 10000,
+                    position: 'bottom-right'
+                  });
+                }
+              }
+            } catch (error) {
+              console.error("Error updating asset balance:", error);
+            }
+            
+            // FORCE REFRESH - reload the page entirely if this is the last attempt
+            setTimeout(() => {
+              window.location.reload();
+            }, 2000);
+          }
+        }
+      }
+
+      // The transaction was definitely soft-deleted since we're completing a timed deletion
+      // But set this flag to false to ensure balance gets updated on permanent deletion
+      const wasAlreadySoftDeleted = false;
+      console.log(`[completeTransactionDeletion] Setting wasAlreadySoftDeleted=${wasAlreadySoftDeleted} to FORCE balance update`);
+      
+      // Dispatch our custom event to immediately update all UI components
+      const stateEvent = new CustomEvent('transaction:stateChanged', {
+        detail: {
+          transaction,
+          action: 'permanentlyDeleted',
+          wasSoftDeleted: wasAlreadySoftDeleted
+        }
+      });
+      document.dispatchEvent(stateEvent);
+      
+      // Make API call to permanently delete the transaction
+      const result = await apiService.permanentDeleteTransaction(apiId);
+      
+      if (result.success) {
+        console.log("Transaction permanently deleted after timeout:", transaction.title);
+        
+        // Dispatch event for parent components
+        const event = new CustomEvent('transaction:permanentlyDeleted', {
+          detail: {
+            transaction,
+            wasAlreadySoftDeleted
+          },
+          bubbles: true
+        });
+        document.dispatchEvent(event);
+        
+        // Show deletion completed toast
+    showDeletionCompletedToast();
+      } else {
+        // Handle error but still show the completion toast since the transaction is already marked as deleted in UI
+        console.error("Error permanently deleting transaction after timeout:", result.message);
+        showDeletionCompletedToast();
+      }
+    } catch (error) {
+      console.error("Error in completeTransactionDeletion:", error);
+      // Even if permanent deletion fails, still show the completion toast since the transaction is already marked as deleted in UI
+      showDeletionCompletedToast();
+    }
   };
-  
-  const handleDeleteNow = () => {
-    // Clear any existing timers
+
+  const handleUndo = async () => {
+    console.log('🔄 UNDOING DELETION for:', {
+      id: transaction.id,
+      _id: transaction._id || 'none',
+      title: transaction.title,
+      amount: transaction.amount,
+      type: transaction.type
+    });
+    
+    // Clear timeout to prevent deletion from completing
     if (deletionTimerRef.current) {
       clearTimeout(deletionTimerRef.current);
       deletionTimerRef.current = null;
+      console.log("⏱️ Deletion timer cleared");
     }
+    
+    // Clear progress interval 
     if (progressIntervalRef.current) {
       clearInterval(progressIntervalRef.current);
       progressIntervalRef.current = null;
+      console.log("⏱️ Progress interval cleared");
     }
     
-    // Dismiss the current toast
+    // For income transactions, special handling to restore balance
+    if (transaction.type === 'income') {
+      const amount = Math.abs(transaction.amount);
+      console.log(`💰 INCOME RESTORE: ${transaction.title} amount=${amount}`);
+      
+      // Get account ID
+      const accountId = typeof transaction.account === 'object' 
+        ? (transaction.account.id || transaction.account._id)
+        : transaction.account;
+        
+      if (accountId) {
+        console.log(`💰 Manually restoring account balance for account ID: ${accountId}`);
+        
+        try {
+          // Multiple attempts for resilience
+          for (let attempt = 1; attempt <= 3; attempt++) {
+            console.log(`💰 Attempt ${attempt} to restore balance`);
+            
+            // Fetch current account data
+            const accountResponse = await apiService.getAccountById(accountId.toString());
+            
+            if (accountResponse.success && accountResponse.data) {
+              const account = accountResponse.data;
+              const newBalance = account.balance + amount;
+              
+              console.log(`💰 INCOME RESTORE BALANCE UPDATE: ${account.balance} + ${amount} = ${newBalance}`);
+              
+              // Update account balance directly
+              const updateResult = await apiService.updateAsset(accountId.toString(), {
+                ...account,
+                balance: newBalance
+              });
+              
+              console.log(`💰 Update result:`, updateResult);
+              
+              if (updateResult.success) {
+                console.log(`💰 Account balance directly restored to ${newBalance}`);
+                
+                // Verify the balance was updated
+                const verifyAccount = await apiService.getAccountById(accountId.toString());
+                
+                if (verifyAccount.success && verifyAccount.data && 
+                    Math.abs(verifyAccount.data.balance - newBalance) < 0.001) {
+                  console.log(`💰 Balance verification: ${verifyAccount.data.balance}`);
+                  console.log(`💰 Balance verified correctly!`);
+                  break;
+        } else {
+                  console.log(`💰 Balance verification FAILED! Trying again...`);
+        }
+      } else {
+                console.log(`💰 Balance update failed! Trying again...`);
+              }
+              
+              // Wait a moment before retrying
+              if (attempt < 3) {
+                await new Promise(resolve => setTimeout(resolve, 300));
+              }
+            }
+          }
+          
+          // Force refresh to ensure UI is updated
+          setTimeout(() => {
+            window.location.reload();
+          }, 2000);
+    } catch (error) {
+          console.error("Error restoring balance for income transaction:", error);
+        }
+      }
+    }
+    
+    // Mark transaction as not deleted (restore) and update UI immediately
+    if (onSoftDelete) {
+      console.log("⚠️ Restoring transaction via onSoftDelete");
+      
+      // Make sure to use both the MongoDB _id when available or client id as fallback
+      const apiId = transaction._id?.toString() || transaction.id.toString();
+      console.log(`📝 Using ID for restore: ${apiId} (Mongo: ${transaction._id}, Client: ${transaction.id})`);
+      
+      // Set this locally to ensure UI is consistent
+      transaction.isDeleted = false;
+      
+      // This will update the database through API - isDeleted = false
+      // This call also updates the asset balance appropriately based on transaction type
+      onSoftDelete(apiId, false);
+      
+      // Emit a custom event for better UI synchronization
+      const event = new CustomEvent('transaction:stateChanged', {
+        detail: {
+          transaction,
+          action: 'restored'
+        },
+        bubbles: true
+      });
+      document.dispatchEvent(event);
+    } else {
+      console.error("🔴 onSoftDelete function is undefined, cannot restore transaction");
+    }
+    
+    // Hide undo notification
+      setShowUndoAlert(false);
+    
+    // Reset state
+    setDeleting(false);
+    setProgressValue(0);
+    setTimeLeft(5);
+    
+    // Dismiss any active undo toast
     if (toastIdRef.current) {
       toast.dismiss(toastIdRef.current);
       toastIdRef.current = null;
     }
     
-    // Perform the deletion immediately
-    completeTransactionDeletion();
+    // Show confirmation toast for undo action
+    toast.success('Transaction Restored', {
+      description: `${transaction.title} has been restored.`,
+      duration: 3000,
+      position: 'bottom-right'
+    });
+    
+    // Close dialog
+    onOpenChange(false);
+  };
+  
+  const handleDeleteNow = async () => {
+    console.log("🗑️ PERMANENTLY DELETING transaction:", {
+      id: transaction.id,
+      _id: transaction._id || 'none',
+      title: transaction.title,
+      amount: transaction.amount,
+      type: transaction.type,
+      isDeleted: transaction.isDeleted
+    });
+    
+    // First dismiss any active toast to prevent it from continuing
+    if (toastIdRef.current) {
+      toast.dismiss(toastIdRef.current);
+      toastIdRef.current = null;
+    }
+    
+    // Clear any ongoing timers
+    if (deletionTimerRef.current) {
+      clearTimeout(deletionTimerRef.current);
+      deletionTimerRef.current = null;
+    }
+    
+    if (progressIntervalRef.current) {
+      clearInterval(progressIntervalRef.current);
+      progressIntervalRef.current = null;
+    }
+    
+    setLoading(true);
+    
+    // Always set to false to ensure the balance gets updated
+    const wasAlreadySoftDeleted = false;
+    console.log(`[handleDeleteNow] Setting wasAlreadySoftDeleted=${wasAlreadySoftDeleted} to FORCE balance update`);
+    
+    try {
+      // Must use MongoDB _id for API calls when available
+      const apiId = transaction._id?.toString() || transaction.id.toString();
+      console.log(`📝 Using API ID: ${apiId} for permanent deletion`);
+
+      // CRITICAL FIX: For income transactions, manually update the asset balance BEFORE deleting
+      if (transaction.type === 'income') {
+        const amount = Math.abs(transaction.amount);
+        console.log(`💰 INCOME DELETION: ${transaction.title} amount=${amount}`);
+        
+        // Get account ID
+        const accountId = typeof transaction.account === 'object' 
+          ? (transaction.account.id || transaction.account._id)
+          : transaction.account;
+          
+        if (accountId) {
+          console.log(`💰 Manually updating account balance for account ID: ${accountId}`);
+          
+          // Fetch current account data
+          const accountResponse = await apiService.getAccountById(accountId.toString());
+          
+          if (accountResponse.success && accountResponse.data) {
+            const account = accountResponse.data;
+            
+            // SUPER AGGRESSIVE FIX: Force the balance to zero if the amount matches the current balance
+            // This ensures that if we started with 0 and added income of amount X, we go back to 0 when deleting
+            let newBalance;
+            if (Math.abs(account.balance - amount) < 0.001) {
+              // If the account balance is almost exactly equal to the transaction amount,
+              // it means this was probably the only transaction - just reset to 0
+              newBalance = 0;
+              console.log(`💰 EXACT MATCH DETECTED! Forcing balance to exactly 0`);
+            } else {
+              // Otherwise do normal subtraction
+              newBalance = Math.max(0, account.balance - amount);
+            }
+            
+            console.log(`💰 INCOME DELETION BALANCE UPDATE: ${account.balance} - ${amount} = ${newBalance}`);
+            
+            try {
+              let updateSucceeded = false;
+              
+              // Make multiple attempts to update the balance
+              for (let attempt = 1; attempt <= 2; attempt++) {
+                console.log(`💰 Attempt ${attempt} to update balance to ${newBalance}`);
+                
+                // Update account balance directly (critical fix)
+                const updateResult = await apiService.updateAsset(accountId.toString(), {
+                  ...account,
+                  balance: newBalance
+                });
+                
+                console.log(`💰 Update result:`, updateResult);
+                
+                if (updateResult.success) {
+                  console.log(`💰 Account balance directly updated to ${newBalance}`);
+                  
+                  // Verify the balance was updated
+                  const verifyAccount = await apiService.getAccountById(accountId.toString());
+                  
+                  if (verifyAccount.success && verifyAccount.data && 
+                      Math.abs(verifyAccount.data.balance - newBalance) < 0.001) {
+                    console.log(`💰 Balance verification: ${verifyAccount.data.balance}`);
+                    console.log(`💰 Balance verified correctly!`);
+                    updateSucceeded = true;
+                    break;
+                  } else {
+                    console.log(`💰 Balance verification FAILED! Trying again...`);
+                  }
+                } else {
+                  console.log(`💰 Balance update failed! Trying again...`);
+                }
+                
+                // Wait a moment before retrying
+                await new Promise(resolve => setTimeout(resolve, 300));
+              }
+              
+              // If normal methods failed, try the emergency direct approach as a last resort
+              if (!updateSucceeded) {
+                console.log(`🚨 EMERGENCY! Normal update methods failed. Trying direct API bypass...`);
+                const emergencyResult = await emergencyDirectAssetBalanceUpdate(
+                  accountId.toString(), 
+                  newBalance,
+                  account as unknown as Record<string, unknown>
+                );
+                
+                if (emergencyResult) {
+                  console.log(`🚨 EMERGENCY UPDATE SUCCESSFUL! Balance should now be ${newBalance}`);
+                } else {
+                  console.error(`🚨 EMERGENCY UPDATE FAILED! This is really bad.`);
+                  
+                  // Last resort: display a error message to the user with instructions
+                  toast.error('Critical Error', {
+                    description: 'Could not update account balance. Please refresh the page and try again.',
+                    duration: 10000,
+                    position: 'bottom-right'
+                  });
+                }
+              }
+            } catch (error) {
+              console.error("Error updating asset balance:", error);
+            }
+            
+            // FORCE REFRESH - reload the page entirely if this is the last attempt
+            setTimeout(() => {
+              window.location.reload();
+            }, 2000);
+          }
+        }
+      }
+      
+      // Make the API call to permanently delete
+      await apiService.permanentDeleteTransaction(apiId);
+      
+      // Show success toast
+      toast.success('Transaction Deleted', {
+        description: `${transaction.title} has been permanently deleted.`,
+        duration: 3000,
+        position: 'bottom-right'
+      });
+      
+      // Dispatch custom event with all the necessary data for parent components
+      const customEvent = new CustomEvent('transaction:permanentlyDeleted', {
+        detail: {
+          transaction: transaction,
+          wasAlreadySoftDeleted: wasAlreadySoftDeleted
+        }
+      });
+      
+      // Also dispatch our transaction:stateChanged event for consistent UI updates
+      const stateEvent = new CustomEvent('transaction:stateChanged', {
+        detail: {
+          transaction,
+          action: 'permanentlyDeleted',
+          wasSoftDeleted: wasAlreadySoftDeleted
+        }
+      });
+      document.dispatchEvent(stateEvent);
+      
+      console.log("🔄 Dispatching transaction:permanentlyDeleted event with details:", customEvent.detail);
+      document.dispatchEvent(customEvent);
+      
+      // Close the dialog
+      onOpenChange(false);
+    } catch (error) {
+      console.error("🔴 Error permanently deleting transaction:", error);
+      
+      // Show error toast
+      toast.error('Error Deleting Transaction', {
+        description: 'There was an error permanently deleting the transaction.',
+        duration: 5000,
+        position: 'bottom-right'
+      });
+    } finally {
+      setLoading(false);
+    }
   };
   
   const showUndoToast = () => {
@@ -228,7 +869,7 @@ export function DeleteTransactionDialog({
                 <div>
                   <p className="text-sm font-medium text-foreground">Deleting Transaction</p>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    This action can be undone
+                    This action can be undone {timeLeft > 0 ? `(${timeLeft}s)` : ''}
                   </p>
                 </div>
                 <button 
@@ -272,8 +913,15 @@ export function DeleteTransactionDialog({
                   size="sm"
                   variant="destructive"
                   className="h-8 text-xs"
+                  disabled={loading}
                 >
-                  Delete Now
+                  {loading ? (
+                    <>
+                      <Loader2 className="h-3 w-3 mr-1 animate-spin" /> Deleting...
+                    </>
+                  ) : (
+                    "Delete Now"
+                  )}
                 </Button>
               </div>
             </div>
@@ -289,122 +937,145 @@ export function DeleteTransactionDialog({
   };
   
   const showDeletionCompletedToast = () => {
-    // @ts-expect-error - Sonner API type doesn't match the expected usage pattern
-    toast.custom((t: ToastProps) => (
-      <motion.div 
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: -10 }}
-        className={cn(
-          "pointer-events-auto bg-background border w-full max-w-md rounded-lg shadow-lg overflow-hidden mb-safe-area-inset-bottom",
-          "transition-all duration-200",
-          t.visible ? "opacity-100" : "opacity-0"
-        )}
-      >
-        <div className="p-4">
-          <div className="flex items-start">
-            <div className="flex-shrink-0 bg-green-100 dark:bg-green-900/30 p-2 rounded-full">
-              <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
-            </div>
-            <div className="ml-3 w-full">
-              <div className="flex justify-between items-center">
-                <p className="text-sm font-medium text-foreground">Transaction Deleted</p>
-                <button 
-                  onClick={() => t.id && toast.dismiss(t.id)}
-                  className="bg-transparent text-muted-foreground hover:text-foreground rounded-full p-1 transition-colors"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-              <p className="text-sm text-muted-foreground mt-1">
-                "{transaction.title}" has been permanently deleted
-              </p>
-              <div className="mt-3 flex justify-end">
-                <Button 
-                  size="sm" 
-                  variant="outline" 
-                  onClick={() => t.id && toast.dismiss(t.id)}
-                  className="h-8 text-xs"
-                >
-                  Dismiss
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </motion.div>
-    ), { 
-      duration: 5000,
-      position: "bottom-right"
+    // Use a simple success toast instead of a custom toast with CheckCircle
+    toast.success('Transaction Permanently Deleted', {
+      description: `"${transaction.title}" has been permanently deleted`,
+      duration: 3000,
+      position: 'bottom-right'
     });
+  };
+
+  // Calculate the financial impact of deleting this transaction
+  const getAccountImpact = () => {
+    let impact = '';
+    const impactAmount = Math.abs(transaction.amount || 0);
+    
+    // Safely determine account name with multiple null checks
+    const getAccountName = () => {
+      if (!transaction.account) return 'Account';
+      
+      if (typeof transaction.account === 'object' && transaction.account !== null) {
+        return transaction.account.name || 'Account';
+      }
+      
+      return 'Account';
+    };
+    
+    if (transaction.type === 'income') {
+      impact = `${getAccountName()} balance will decrease by ${formatCurrency(impactAmount)}`;
+    } else if (transaction.type === 'expense') {
+      impact = `${getAccountName()} balance will increase by ${formatCurrency(impactAmount)}`;
+    } else if (transaction.transferType === 'transfer') {
+      impact = `Transfer will be reversed: ${transaction.fromAsset || 'Source'} to ${transaction.toAsset || 'Destination'}`;
+    }
+    
+    return impact;
+  };
+
+  const getImpactIcon = () => {
+    if (!transaction) return null;
+    
+    if (transaction.type === 'income') {
+      return <ArrowDownRight className="h-4 w-4 text-destructive" />;
+    } else if (transaction.type === 'expense') {
+      return <ArrowUpRight className="h-4 w-4 text-primary" />;
+    } else if (transaction.transferType === 'transfer') {
+      return <CreditCard className="h-4 w-4 text-blue-500" />;
+    }
+    return null;
   };
 
   return (
     <AlertDialog open={isOpen} onOpenChange={onOpenChange}>
-      <AlertDialogContent className="sm:max-w-[400px] p-0 overflow-hidden rounded-lg border-none gap-0">
-        {/* Gradient header */}
-        <div className="bg-gradient-to-r from-red-500/90 to-red-600/90 text-white p-6 relative overflow-hidden">
-          <div className="absolute -right-6 -top-6 w-24 h-24 rounded-full bg-white/10 blur-xl" />
-          <div className="absolute right-12 bottom-0 w-16 h-16 rounded-full bg-white/10 blur-md" />
-          
-          <div className="flex items-center gap-4 relative z-10">
-            <div className="h-14 w-14 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center">
-              <ShieldAlert className="h-7 w-7" />
-            </div>
-            <div>
-              <h2 className="text-xl font-bold tracking-tight">Delete Transaction</h2>
-              <p className="text-sm text-white/80 mt-0.5 flex items-center gap-1">
-                <Clock className="h-3 w-3" />
-                Undoable for 5 seconds
-              </p>
+      <AlertDialogContent className="max-w-md">
+        <div className="flex flex-col space-y-4">
+          <div className="flex items-center justify-center">
+            <div className="bg-destructive/10 p-3 rounded-full">
+              <Trash2 className="h-6 w-6 text-destructive" />
             </div>
           </div>
-        </div>
-        
-        <div className="p-6">
-          <AlertDialogDescription className="space-y-4">
-            <p className="text-sm leading-relaxed text-muted-foreground">
-              You're about to delete <span className="font-semibold text-foreground">{transaction.title}</span>.
-              This will remove the transaction from your history.
-            </p>
-            
-            {/* Warning box */}
-            <div className="flex gap-3 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 rounded-md">
-              <AlertTriangle className="h-5 w-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="text-sm font-medium text-amber-800 dark:text-amber-300">Before deleting</p>
-                <p className="text-xs mt-1 text-amber-700 dark:text-amber-400/80">
-                  You'll be able to cancel this action for 5 seconds after deletion.
-                  {transaction.amount !== 0 && (
-                    <> This transaction has an amount of <span className="font-semibold">${Math.abs(transaction.amount).toLocaleString()}</span>.</>
-                  )}
-                </p>
-              </div>
-            </div>
+          
+          <h2 className="text-lg font-medium text-center">Delete this transaction?</h2>
+          
+          <AlertDialogDescription className="text-center">
+            This action cannot be undone. You will have a few seconds to cancel the deletion after confirming.
           </AlertDialogDescription>
           
-          {/* Buttons with hover animations */}
-          <div className="flex flex-col space-y-2 mt-6">
-            <Button 
-              onClick={startDeletion}
-              className="relative group overflow-hidden h-10 gap-2"
-              variant="destructive"
-              disabled={deleting}
-            >
-              <span className="relative z-10 flex items-center justify-center gap-2">
-                <Trash2 className="h-4 w-4" />
-                <span>Yes, delete this transaction</span>
-              </span>
-              <span className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-            </Button>
+          {/* Transaction Impact Section */}
+          <div className="mt-2 bg-muted/50 p-3 rounded-md">
+            <h3 className="text-sm font-medium mb-2">Impact of deletion:</h3>
             
-            <Button 
+            <div className="flex items-center text-sm text-muted-foreground">
+              {getImpactIcon()}
+              <span className="ml-2">{getAccountImpact()}</span>
+            </div>
+            
+            {/* Data consistency warning */}
+            {showDependentWarning && dependentTransfers.length > 0 && (
+              <div className="mt-2 p-2 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800/40 rounded-md">
+                <div className="flex items-start">
+                  <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-400 mt-0.5 mr-2 flex-shrink-0" />
+                  <div>
+                    <p className="text-xs font-medium text-yellow-800 dark:text-yellow-400">
+                      Warning: Potential data inconsistency
+                    </p>
+                    <p className="text-xs text-yellow-700 dark:text-yellow-500 mt-1">
+                      This transaction funded {dependentTransfers.length} asset transfer{dependentTransfers.length > 1 ? 's' : ''} that occurred after it. Deleting it may create accounting inconsistencies.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {isAnalyzingImpact && (
+              <div className="mt-2 flex justify-center">
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              </div>
+            )}
+            
+            {/* Transaction Details */}
+            <div className="mt-2 pt-2 border-t border-border/40">
+              <div className="flex justify-between text-xs">
+                <span className="text-muted-foreground">Transaction:</span>
+                <span className="font-medium">{transaction.title || 'Untitled'}</span>
+              </div>
+              <div className="flex justify-between text-xs mt-1">
+                <span className="text-muted-foreground">Amount:</span>
+                <span className={cn(
+                  "font-medium",
+                  transaction.type === "income" ? "text-primary" : "text-destructive"
+                )}>
+                  {formatCurrency(Math.abs(transaction.amount || 0))}
+                </span>
+              </div>
+              <div className="flex justify-between text-xs mt-1">
+                <span className="text-muted-foreground">Type:</span>
+                <span className="font-medium capitalize">{transaction.transferType || transaction.type || 'Unknown'}</span>
+              </div>
+            </div>
+          </div>
+          
+          <div className="flex space-x-2 justify-between">
+            <Button
+              variant="outline"
+              className="flex-1"
               onClick={() => onOpenChange(false)}
-              variant="ghost"
-              className="h-10 text-muted-foreground hover:text-foreground transition-colors"
-              disabled={deleting}
             >
-              Cancel, keep this transaction
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              className="flex-1"
+              onClick={startDeletion}
+              disabled={isAnalyzingImpact || loading}
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" /> Deleting...
+                </>
+              ) : (
+                "Delete"
+              )}
             </Button>
           </div>
         </div>

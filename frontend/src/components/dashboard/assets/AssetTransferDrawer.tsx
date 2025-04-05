@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { AlertCircle, ArrowDown, ArrowLeftRight, DollarSign, Info, PiggyBank, Check, ChevronsUpDown } from "lucide-react";
+import { AlertCircle, ArrowDown, ArrowLeftRight, Info, PiggyBank, Check, ChevronsUpDown } from "lucide-react";
 import { useEffect, useRef, useState, useMemo } from "react";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -12,10 +12,12 @@ import {
   DrawerFooter,
   DrawerHeader,
   DrawerTitle,
-  DrawerDescription,
+  DrawerDescription
 } from "@/components/ui/drawer";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn, formatCurrency } from "@/lib/utils";
+import { CurrencyInput } from "@/components/dashboard/transactions/forms/CurrencyInput";
+import { FormControl } from "@/components/ui/form";
 
 interface AssetTransferDrawerProps {
   assets: Asset[];
@@ -34,19 +36,21 @@ export function AssetTransferDrawer({
   onTransfer,
   onAddAsset
 }: AssetTransferDrawerProps) {
-  // State variables
-  const [fromAssetId, setFromAssetId] = useState<string>("");
-  const [toAssetId, setToAssetId] = useState<string>("");
-  const [amount, setAmount] = useState<string>("");
-  const [description, setDescription] = useState<string>("");
+  // Define locale
+  const locale = 'en-US' as const;
+
+  // State for tracking selected assets, amount and description
+  const [fromAsset, setFromAsset] = useState<Asset | undefined>(sourceAsset);
+  const [toAsset, setToAsset] = useState<Asset | undefined>(undefined);
+  const [amount, setAmount] = useState<number>(0);
+  const [formattedAmount, setFormattedAmount] = useState<string>("0");
+  const [description, setDescription] = useState("");
   const [error, setError] = useState<string>("");
   const [fromOpen, setFromOpen] = useState(false);
   const [toOpen, setToOpen] = useState(false);
-  const initializedRef = useRef(false);
-  
+
   // Refs for uncontrolled inputs
-  const amountInputRef = useRef<HTMLInputElement>(null);
-  const descriptionInputRef = useRef<HTMLTextAreaElement>(null);
+  const descriptionRef = useRef<HTMLTextAreaElement>(null);
   
   // Derived state
   const validAssets = useMemo(() => {
@@ -71,24 +75,30 @@ export function AssetTransferDrawer({
       return assets.filter(asset => {
         if (!asset) return false;
         const assetId = asset.id || asset._id || '';
-        return assetId !== fromAssetId;
+        return assetId !== fromAsset?.id && assetId !== fromAsset?._id;
       });
     } catch (error) {
       console.error("Error filtering destination assets:", error);
       return [];
     }
-  }, [assets, fromAssetId]);
+  }, [assets, fromAsset]);
   
   // Fetch asset transfers when drawer opens
   useEffect(() => {
     if (!open) {
       // Reset initialization flag when drawer closes
-      initializedRef.current = false;
+      setFromAsset(sourceAsset);
+      setToAsset(undefined);
+      setAmount(0);
+      setDescription("");
+      setError("");
+      setFromOpen(false);
+      setToOpen(false);
       return;
     }
     
     // Reset form fields
-    setAmount("");
+    setAmount(0);
     setDescription("");
     setError("");
     
@@ -111,32 +121,29 @@ export function AssetTransferDrawer({
         if (otherAsset) {
           toId = otherAsset.id || otherAsset._id || "";
         }
-      } else if (!initializedRef.current) {
+      } else if (!fromAsset) {
         // No source asset provided, use the first two assets
         fromId = validAssets[0]?.id || validAssets[0]?._id || "";
         toId = validAssets[1]?.id || validAssets[1]?._id || "";
       }
       
       // Only update state if we have valid IDs to prevent unnecessary rerenders
-      if (fromId) setFromAssetId(fromId);
-      if (toId) setToAssetId(toId);
+      if (fromId) setFromAsset(validAssets.find(asset => asset.id === fromId || asset._id === fromId));
+      if (toId) setToAsset(validAssets.find(asset => asset.id === toId || asset._id === toId));
     } else if (sourceAsset) {
       // For multiple assets case, just set the source asset if provided
-      setFromAssetId(sourceAsset.id || sourceAsset._id || "");
-      setToAssetId("");
+      setFromAsset(sourceAsset);
+      setToAsset(undefined);
     } else {
       // Reset both if no source asset
-      setFromAssetId("");
-      setToAssetId("");
+      setFromAsset(undefined);
+      setToAsset(undefined);
     }
-    
-    // Mark as initialized to prevent repeated initialization
-    initializedRef.current = true;
-  }, [open, sourceAsset, hasExactlyTwoAssets, validAssets]);
+  }, [open, sourceAsset, hasExactlyTwoAssets, validAssets, fromAsset]);
   
   // Get the selected assets immediately when IDs change
-  const fromAsset = validAssets.find(asset => asset.id === fromAssetId || asset._id === fromAssetId);
-  const toAsset = validAssets.find(asset => asset.id === toAssetId || asset._id === toAssetId);
+  const fromAssetId = fromAsset?.id || fromAsset?._id || '';
+  const toAssetId = toAsset?.id || toAsset?._id || '';
   
   // Animation variants
   const containerAnimation = {
@@ -164,12 +171,12 @@ export function AssetTransferDrawer({
   const handleSwapAssets = () => {
     if (fromAsset && toAsset) {
       // Animation-friendly swap with small delay
-      setFromAssetId("");
-      setToAssetId("");
+      setFromAsset(undefined);
+      setToAsset(undefined);
       
       setTimeout(() => {
-      setFromAssetId(toAsset.id || toAsset._id || "");
-      setToAssetId(fromAsset.id || fromAsset._id || "");
+      setFromAsset(toAsset);
+      setToAsset(fromAsset);
         
       // Clear error if it's related to asset selection
       if (error && (error.includes("source") || error.includes("destination") || error.includes("same"))) {
@@ -179,26 +186,42 @@ export function AssetTransferDrawer({
     }
   };
   
-  // Handle amount input change
-  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
+  // Handle amount changes with proper typing
+  const handleAmountChange = (value: string) => {
+    setFormattedAmount(value);
     
-    // Only allow valid numeric input with at most one decimal point
-    if (value === '' || /^\d*\.?\d*$/.test(value)) {
-      setAmount(value);
+    // If empty, set to 0
+    if (!value) {
+      setAmount(0);
+      return;
     }
+    
+    // Parse the value with locale-specific formatting
+    const valueForParsing = locale === ('id-ID' as 'en-US' | 'id-ID')
+      ? value.replace(/\./g, '').replace(/,/g, '.')
+      : value.replace(/,/g, '');
+    
+    setAmount(parseFloat(valueForParsing) || 0);
   };
   
   // Handle description change
   const handleDescriptionChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setDescription(e.target.value);
+    const value = e.target.value;
+    // Limit description to 200 characters
+    if (value.length <= 200) {
+      setDescription(value);
+    }
+    // Clear error if user is fixing a description length issue
+    if (error && error.includes("Description cannot exceed")) {
+      setError("");
+    }
   };
   
   // Quick amount buttons
   const setQuickAmount = (percentage: number) => {
     if (fromAsset) {
       const quickAmount = (fromAsset.balance * percentage).toFixed(2);
-      setAmount(quickAmount);
+      setFormattedAmount(quickAmount);
     }
   };
   
@@ -223,12 +246,18 @@ export function AssetTransferDrawer({
         return;
       }
       
-      if (!currentAmount || parseFloat(currentAmount) <= 0) {
+      if (!currentAmount || currentAmount <= 0) {
         setError("Please enter a valid amount greater than zero");
         return;
       }
       
-      const transferAmount = parseFloat(currentAmount);
+      // Check description length
+      if (currentDescription.length > 200) {
+        setError("Description cannot exceed 200 characters");
+        return;
+      }
+      
+      const transferAmount = currentAmount;
       
       // Check if source asset has enough funds
       if (sourceAsset.balance < transferAmount) {
@@ -241,7 +270,7 @@ export function AssetTransferDrawer({
         onTransfer(sourceAsset, destinationAsset, transferAmount, currentDescription);
         
         // Reset form
-        setAmount("");
+        setFormattedAmount("");
         setDescription("");
         
         // Close drawer
@@ -262,8 +291,14 @@ export function AssetTransferDrawer({
       return;
     }
     
-      if (!currentAmount || parseFloat(currentAmount) <= 0) {
+      if (!currentAmount || currentAmount <= 0) {
       setError("Please enter a valid amount greater than zero");
+      return;
+    }
+    
+      // Check description length
+      if (currentDescription.length > 200) {
+        setError("Description cannot exceed 200 characters");
       return;
     }
     
@@ -276,7 +311,7 @@ export function AssetTransferDrawer({
       return;
     }
     
-      const transferAmount = parseFloat(currentAmount);
+      const transferAmount = currentAmount;
     
     // Check if source asset has enough funds
     if (fromAsset.balance < transferAmount) {
@@ -289,7 +324,7 @@ export function AssetTransferDrawer({
         onTransfer(fromAsset, toAsset, transferAmount, currentDescription);
         
         // Reset input fields
-        setAmount("");
+        setFormattedAmount("");
         setDescription("");
       
       // Close drawer
@@ -497,10 +532,10 @@ export function AssetTransferDrawer({
           {renderAssetCombobox(
             fromAssetId,
             (value) => {
-              setFromAssetId(value);
+              setFromAsset(validAssets.find(asset => asset.id === value || asset._id === value));
               // Reset to asset if it's the same
               if (value === toAssetId) {
-                setToAssetId("");
+                setToAsset(undefined);
               }
               // Clear error when user fixes selection
               if (error && (error.includes("source") || error.includes("same"))) {
@@ -537,7 +572,7 @@ export function AssetTransferDrawer({
           {renderAssetCombobox(
             toAssetId,
             (value) => {
-              setToAssetId(value);
+              setToAsset(validAssets.find(asset => asset.id === value || asset._id === value));
               // Clear error when user fixes selection
               if (error && (error.includes("destination") || error.includes("same"))) {
                 setError("");
@@ -573,96 +608,79 @@ export function AssetTransferDrawer({
         )}
       </AnimatePresence>
       
-      {/* Amount */}
-      <motion.div variants={itemAnimation} className="space-y-2">
-        <Label htmlFor="amount" className="text-[15px] font-medium">Amount</Label>
-        <div className="relative">
-          <div className={cn(
-            "absolute left-0 top-0 bottom-0 flex items-center justify-center w-11 rounded-l-md border-r",
-            "bg-muted/50 text-muted-foreground"
-          )}>
-            <DollarSign className="h-4 w-4" />
-          </div>
-          <input
-            id="amount"
-            name="amount"
-            type="text"
-            inputMode="decimal"
-            placeholder="0.00"
-            className="w-full pl-12 h-11 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary font-medium text-[16px]"
-            value={amount}
-            onChange={handleAmountChange}
-            ref={amountInputRef}
-          />
+      {/* Transfer Amount */}
+      <div className="space-y-2">
+        <Label className="text-[15px] font-medium">Transfer Amount</Label>
+        <div className="space-y-2.5">
+          <FormControl>
+            <CurrencyInput
+              value={formattedAmount}
+              onChange={handleAmountChange}
+              placeholder="0.00"
+              hasError={!!error}
+              className="w-full"
+              locale={locale}
+            />
+          </FormControl>
+          
+          {/* Quick percentage buttons - improved layout and styling */}
+          {fromAsset && (
+            <div className="grid grid-cols-4 gap-1.5 mt-2">
+              {[
+                { label: "25%", value: 0.25 },
+                { label: "50%", value: 0.5 },
+                { label: "75%", value: 0.75 },
+                { label: "Max", value: 1 }
+              ].map((item) => (
+                <Button 
+                  key={item.label}
+                  type="button" 
+                  size="sm" 
+                  variant="outline" 
+                  onClick={() => setQuickAmount(item.value)}
+                  className={cn(
+                    "h-9 font-medium rounded-lg px-2.5 transition-all",
+                    "bg-muted/30 hover:bg-primary/10 border-muted-foreground/20",
+                    "hover:border-primary/30 hover:text-primary hover:scale-105",
+                    "flex items-center justify-center",
+                    "active:scale-95 active:bg-primary/15"
+                  )}
+                >
+                  <span className="text-sm">{item.label}</span>
+                </Button>
+              ))}
+            </div>
+          )}
         </div>
-        
-        {/* Quick buttons */}
-        {fromAsset && (
-        <div className="flex gap-2 mt-2">
-          <Button 
-            type="button" 
-            size="sm" 
-            variant="outline" 
-              className="flex-1 h-9 hover:bg-primary/10 hover:text-primary"
-            onClick={() => setQuickAmount(0.25)}
-              disabled={!fromAssetId || !toAssetId}
-          >
-            25%
-          </Button>
-          <Button 
-            type="button" 
-            size="sm" 
-            variant="outline" 
-              className="flex-1 h-9 hover:bg-primary/10 hover:text-primary"
-            onClick={() => setQuickAmount(0.5)}
-              disabled={!fromAssetId || !toAssetId}
-          >
-            50%
-          </Button>
-          <Button 
-            type="button" 
-            size="sm" 
-            variant="outline" 
-              className="flex-1 h-9 hover:bg-primary/10 hover:text-primary"
-            onClick={() => setQuickAmount(0.75)}
-              disabled={!fromAssetId || !toAssetId}
-          >
-            75%
-          </Button>
-          <Button 
-            type="button" 
-            size="sm" 
-            variant="outline" 
-              className="flex-1 h-9 hover:bg-primary/10 hover:text-primary"
-            onClick={() => setQuickAmount(1)}
-              disabled={!fromAssetId || !toAssetId}
-          >
-              Max
-          </Button>
-        </div>
-        )}
         
         {/* Available balance indicator */}
         {fromAsset && (
-          <div className="text-sm text-muted-foreground text-right">
-            Available: <span className="font-medium">{formatCurrency(fromAsset.balance)}</span>
-        </div>
+          <div className="text-sm text-muted-foreground flex items-center justify-end">
+            <span className="mr-1">Available:</span>
+            <span className="font-medium text-foreground">{formatCurrency(fromAsset.balance)}</span>
+          </div>
         )}
-      </motion.div>
+      </div>
       
       {/* Description */}
       <motion.div variants={itemAnimation} className="space-y-2">
-        <Label htmlFor="description" className="text-[15px] font-medium">
-          Description <span className="text-muted-foreground font-normal">(Optional)</span>
+        <Label htmlFor="description" className="text-[15px] font-medium flex justify-between">
+          <span>
+            Description <span className="text-muted-foreground font-normal">(Optional)</span>
+          </span>
+          <span className={`text-xs ${description.length > 180 ? "text-amber-500" : "text-muted-foreground"} ${description.length >= 200 ? "text-destructive font-medium" : ""}`}>
+            {description.length}/200
+          </span>
         </Label>
         <textarea
           id="description"
           name="description"
-          placeholder="Add a note for this transfer"
-          className="w-full min-h-[80px] rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary resize-none h-20 text-[16px]"
+          placeholder="Add a note for this transfer (max 200 characters)"
+          className="w-full min-h-[80px] rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary resize-none h-24 text-[16px]"
           value={description}
           onChange={handleDescriptionChange}
-          ref={descriptionInputRef}
+          ref={descriptionRef}
+          maxLength={200}
         />
       </motion.div>
       
@@ -684,7 +702,7 @@ export function AssetTransferDrawer({
 
       {/* Preview transfer effect */}
       <AnimatePresence>
-        {fromAsset && toAsset && amount && parseFloat(amount) > 0 && parseFloat(amount) <= fromAsset.balance && (
+        {fromAsset && toAsset && formattedAmount && parseFloat(formattedAmount) > 0 && parseFloat(formattedAmount) <= fromAsset.balance && (
           <motion.div 
             variants={itemAnimation}
             initial={{ opacity: 0, y: 10 }}
@@ -698,13 +716,13 @@ export function AssetTransferDrawer({
             </h4>
             <div className="grid grid-cols-2 gap-y-3 text-sm">
               <span className="text-muted-foreground">Amount:</span>
-              <span className="font-medium text-right">{formatCurrency(parseFloat(amount))}</span>
+              <span className="font-medium text-right">{formatCurrency(parseFloat(formattedAmount))}</span>
               
               <span className="text-muted-foreground">New source balance:</span>
-              <span className="font-medium text-right">{formatCurrency(fromAsset.balance - parseFloat(amount))}</span>
+              <span className="font-medium text-right">{formatCurrency(fromAsset.balance - parseFloat(formattedAmount))}</span>
               
               <span className="text-muted-foreground">New destination balance:</span>
-              <span className="font-medium text-right">{formatCurrency(toAsset.balance + parseFloat(amount))}</span>
+              <span className="font-medium text-right">{formatCurrency(toAsset.balance + parseFloat(formattedAmount))}</span>
             </div>
           </motion.div>
         )}
@@ -758,15 +776,15 @@ export function AssetTransferDrawer({
                 disabled={
                   hasExactlyTwoAssets ? 
                     // For exactly two assets case, just check the amount
-                    (!amount || parseFloat(amount) <= 0 || 
-                     (fromAsset && parseFloat(amount) > fromAsset.balance) ||
-                     (validAssets[0] && !fromAsset && parseFloat(amount) > validAssets[0].balance)) :
+                    (!formattedAmount || parseFloat(formattedAmount) <= 0 || 
+                     (fromAsset && parseFloat(formattedAmount) > fromAsset.balance) ||
+                     (validAssets[0] && !fromAsset && parseFloat(formattedAmount) > validAssets[0].balance)) :
                     // For more than two assets, check asset selection too
                     (!fromAssetId || 
                   !toAssetId || 
-                  !amount || 
-                  parseFloat(amount) <= 0 || 
-                     (fromAsset && parseFloat(amount) > fromAsset.balance))
+                  !formattedAmount || 
+                  parseFloat(formattedAmount) <= 0 || 
+                     (fromAsset && parseFloat(formattedAmount) > fromAsset.balance))
                 }
                 className="h-12 font-medium focus:ring-2 focus:ring-offset-2 focus:ring-primary bg-primary hover:bg-primary/90 text-white shadow-md hover:shadow-lg transition-all"
               >

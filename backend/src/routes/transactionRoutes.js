@@ -8,11 +8,11 @@ const {
   getTransactionById,
   updateTransaction,
   deleteTransaction,
-  permanentDeleteTransaction,
-  restoreTransaction
+  permanentDeleteTransaction
 } = require('../controllers/transactionController');
 const { protect } = require('../middlewares/authMiddleware');
 const { validate } = require('../middlewares/validationMiddleware');
+const { apiKeyValidation } = require('../middlewares/apiKeyMiddleware');
 
 /**
  * @swagger
@@ -447,60 +447,5 @@ router.delete('/:id', protect, deleteTransaction);
  *         description: Server error
  */
 router.delete('/:id/permanent', protect, permanentDeleteTransaction);
-
-/**
- * @swagger
- * /transactions/{id}/restore:
- *   put:
- *     summary: Restore a soft-deleted transaction
- *     description: Restores a previously soft-deleted transaction
- *     tags: [Transactions]
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *         description: Transaction ID
- *     responses:
- *       200:
- *         description: Transaction restored successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 message:
- *                   type: string
- *                   example: Transaction restored successfully
- *                 data:
- *                   type: object
- *                   properties:
- *                     id:
- *                       type: string
- *                     title:
- *                       type: string
- *                     amount:
- *                       type: number
- *                     type:
- *                       type: string
- *                     category:
- *                       type: string
- *                     date:
- *                       type: string
- *                       format: date-time
- *       404:
- *         description: Transaction not found
- *       401:
- *         description: Unauthorized
- *       500:
- *         description: Server error
- */
-router.put('/:id/restore', protect, restoreTransaction);
 
 module.exports = router; 

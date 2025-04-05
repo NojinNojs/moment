@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect } from "react";
+import React, { useState, useCallback, useMemo, useEffect } from "react";
 import { motion } from "framer-motion";
 import { 
   Tag,
@@ -34,9 +34,9 @@ import {
 } from "@/components/ui/tooltip";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { cn, formatCurrency } from "@/lib/utils";
-import { TransactionDetails } from "../core/TransactionDetails";
+import { cn } from "@/lib/utils";
 import apiService from "@/services/api";
+import { TransactionDetails } from "@/components/dashboard/transactions/core/TransactionDetails";
 
 // Define type for Category object if it's not already defined
 interface CategoryObject {
@@ -54,6 +54,7 @@ interface AccountObject {
   name: string;
   type: string;
   balance?: number;
+  isDeleted?: boolean;
 }
 
 // Export the Transaction interface
@@ -88,14 +89,6 @@ interface TransactionItemProps {
 }
 
 // Function to limit description to maximum 3 words
-const limitWords = (text: string, maxWords: number): string => {
-  if (!text) return "";
-  const words = text.split(' ');
-  if (words.length <= maxWords) return text;
-  return words.slice(0, maxWords).join(' ') + (words.length > maxWords ? '...' : '');
-};
-
-// Update the helper function for getting category display name to handle MongoDB IDs better
 const getCategoryDisplayName = (category: CategoryObject | string | null | undefined): string => {
   if (typeof category === 'object' && category !== null) {
     return category.name || 'Uncategorized';
@@ -113,8 +106,29 @@ const getCategoryDisplayName = (category: CategoryObject | string | null | undef
   }
 };
 
+// Update getAccountDisplay to handle deleted accounts
+const getAccountDisplay = (account: AccountObject | string | null | undefined): React.ReactNode => {
+  if (!account) {
+    return <span className="text-muted-foreground">No account</span>;
+  }
+  
+  if (typeof account === 'object') {
+    if (account.isDeleted) {
+      return (
+        <span className="flex items-center">
+          <span className="text-muted-foreground/70 line-through mr-1">{account.name}</span>
+          <Badge variant="outline" className="text-[10px] h-4 px-1 ml-1 py-0 bg-destructive/10 text-destructive border-destructive/20">Deleted</Badge>
+        </span>
+      );
+    }
+    return account.name;
+  }
+  
+  return account;
+};
+
 // Export the TransactionItem component as a named export
-export const TransactionItem = ({
+const TransactionItem = ({
   transaction,
   onEditTransaction,
   onDeleteTransaction,
@@ -307,7 +321,7 @@ export const TransactionItem = ({
   
   // Limit description to 3 words max as requested - memoize
   const limitedDescription = useMemo(() => 
-    limitWords(transaction.title, 3),
+    limitWordsText(transaction.title, 3),
     [transaction.title]
   );
   
@@ -356,6 +370,22 @@ export const TransactionItem = ({
     }
   };
   
+  const formattedAmount = useMemo(() => {
+    let amount = Math.abs(transaction.amount);
+    
+    if (typeof amount !== 'number' || isNaN(amount)) {
+      amount = 0;
+    }
+    
+    // Format with currency symbol
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(amount);
+  }, [transaction.amount]);
+  
   return (
     <>
       <motion.div
@@ -402,9 +432,7 @@ export const TransactionItem = ({
                     <div className="flex items-center text-xs text-muted-foreground">
                       {getAccountIcon(effectiveAccount)}
                       <span className="truncate max-w-[80px]">
-                        {typeof effectiveAccount === 'object' && effectiveAccount !== null
-                          ? effectiveAccount.name || 'Unknown Account'
-                          : effectiveAccount}
+                        {getAccountDisplay(effectiveAccount)}
                       </span>
                     </div>
                   )}
@@ -455,7 +483,7 @@ export const TransactionItem = ({
                 "font-semibold text-sm tabular-nums",
                 getAmountColor()
               )}>
-                {isTransfer ? '↔ ' : isIncome ? '+ ' : '- '}{formatCurrency(Math.abs(transaction.amount))}
+                {isTransfer ? '↔ ' : isIncome ? '+ ' : '- '}{formattedAmount}
               </span>
               <span className={cn(
                 "text-[10px] mt-1 px-1.5 py-0.5 rounded-sm",
@@ -471,9 +499,9 @@ export const TransactionItem = ({
       {/* Transaction Details Modal - Only render when open to prevent unnecessary updates */}
       {detailsOpen && (
         <TransactionDetails
-          transaction={transaction}
           isOpen={detailsOpen}
           onClose={handleCloseDetails}
+          transaction={transaction}
           onEdit={onEditTransaction}
           onDelete={onDeleteTransaction}
         />
@@ -482,4 +510,13 @@ export const TransactionItem = ({
   );
 };
 
-export default TransactionItem; 
+// Define limitWords utility locally
+const limitWordsText = (text: string, limit: number): string => {
+  if (!text) return '';
+  const words = text.split(' ');
+  if (words.length <= limit) return text;
+  return words.slice(0, limit).join(' ') + '...';
+};
+
+// Only export TransactionItem once 
+export { TransactionItem }; 

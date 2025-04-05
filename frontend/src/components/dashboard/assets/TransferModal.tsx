@@ -15,20 +15,21 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { formatCurrency } from "@/lib/utils";
 import { 
   ArrowLeftRight, 
-  DollarSign, 
   AlertCircle,
   X,
   Info,
   PiggyBank,
   ArrowDown,
   Check,
-  ChevronsUpDown
+  ChevronsUpDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { getAssetIcon, getAssetIconBg } from "@/lib/asset-utils";
+import { Textarea } from "@/components/ui/textarea";
+import { CurrencyInput } from "@/components/dashboard/transactions/forms/CurrencyInput";
 
 // Define props
 interface TransferModalProps {
@@ -49,17 +50,20 @@ export function TransferModal({
   onAddAsset
 }: TransferModalProps) {
   // State variables
-  const [fromAssetId, setFromAssetId] = useState<string>("");
-  const [toAssetId, setToAssetId] = useState<string>("");
-  const [amount, setAmount] = useState<string>("");
-  const [description, setDescription] = useState<string>("");
+  const [fromAsset, setFromAsset] = useState<Asset | undefined>(sourceAsset);
+  const [toAsset, setToAsset] = useState<Asset | undefined>(undefined);
+  const [amount, setAmount] = useState<number>(0);
+  const [formattedAmount, setFormattedAmount] = useState<string>("0");
+  const [description, setDescription] = useState("");
   const [error, setError] = useState<string>("");
   const [fromOpen, setFromOpen] = useState(false);
   const [toOpen, setToOpen] = useState(false);
   
+  // Define locale
+  const locale = 'en-US' as const;
+  
   // Refs for handling direct input
-  const amountInputRef = useRef<HTMLInputElement>(null);
-  const descriptionInputRef = useRef<HTMLTextAreaElement>(null);
+  const descriptionRef = useRef<HTMLTextAreaElement>(null);
   
   // Animation variants
   const containerAnimation = {
@@ -98,57 +102,34 @@ export function TransferModal({
   
   // Reset form when modal opens and set default from asset
   useEffect(() => {
-    if (isOpen) {
-      // Clear previous selection state
-      setError("");
-      setAmount("");
-      setDescription("");
-      
-      // Set the source asset
-      if (sourceAsset) {
-        const sourceId = sourceAsset.id || sourceAsset._id || "";
-        setFromAssetId(sourceId);
+    if (!isOpen) return;
+    
+    setError("");
+    
+    // If source asset is provided, use it
+    if (sourceAsset) {
+      console.log("Source asset provided:", sourceAsset.name);
+      setFromAsset(sourceAsset);
       
       // If exactly two assets, auto-select the other one
-      if (hasExactlyTwoAssets) {
-          const otherAsset = validAssets.find(asset => {
-            const assetId = asset.id || asset._id || "";
-            const sourceId = sourceAsset.id || sourceAsset._id || "";
-            return assetId !== sourceId;
-          });
-          
+      if (validAssets.length === 2) {
+        const otherAsset = validAssets.find(a => 
+          a.id !== sourceAsset.id && a._id !== sourceAsset._id
+        );
+        
         if (otherAsset) {
-            const otherId = otherAsset.id || otherAsset._id || "";
-            setToAssetId(otherId);
-          } else {
-            setToAssetId("");
-          }
+          setToAsset(otherAsset);
         } else {
-          setToAssetId("");
+          setToAsset(undefined);
         }
       } else {
-        setFromAssetId("");
-        setToAssetId("");
+        setToAsset(undefined);
       }
+    } else {
+      setFromAsset(undefined);
+      setToAsset(undefined);
     }
   }, [isOpen, sourceAsset, validAssets, hasExactlyTwoAssets]);
-  
-  // Get the selected assets with improved logging
-  const fromAsset = useMemo(() => {
-    const asset = validAssets.find(asset => {
-      const assetId = asset.id || asset._id || "";
-      return assetId === fromAssetId;
-    });
-    return asset;
-  }, [validAssets, fromAssetId]);
-
-  const toAsset = useMemo(() => {
-    const asset = validAssets.find(asset => {
-      const assetId = asset.id || asset._id || "";
-      return assetId === toAssetId;
-    });
-    return asset;
-  }, [validAssets, toAssetId]);
   
   // Calculate destination assets (all assets except the currently selected source asset)
   const destinationAssets = useMemo(() => {
@@ -173,12 +154,12 @@ export function TransferModal({
     if (!fromAsset || !toAsset) return;
     
     // Animation-friendly swap with small delay
-    setFromAssetId("");
-    setToAssetId("");
+    setFromAsset(undefined);
+    setToAsset(undefined);
     
     setTimeout(() => {
-      setFromAssetId(toAssetId);
-      setToAssetId(fromAssetId);
+      setFromAsset(toAsset);
+      setToAsset(fromAsset);
       
       // Clear any asset-related error messages
       if (error && (error.includes("source") || error.includes("destination") || error.includes("same"))) {
@@ -187,19 +168,35 @@ export function TransferModal({
     }, 50);
   };
   
-  // Handle amount change
-  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
+  // Handle amount changes with proper typing
+  const handleAmountChange = (value: string) => {
+    setFormattedAmount(value);
     
-    // Accept only numeric input with at most one decimal point
-    if (value === '' || /^\d*\.?\d*$/.test(value)) {
-      setAmount(value);
+    // If empty, set to 0
+    if (!value) {
+      setAmount(0);
+      return;
     }
+    
+    // Parse the value with locale-specific formatting
+    const valueForParsing = locale === ('id-ID' as 'en-US' | 'id-ID')
+      ? value.replace(/\./g, '').replace(/,/g, '.')
+      : value.replace(/,/g, '');
+    
+    setAmount(parseFloat(valueForParsing) || 0);
   };
   
   // Handle description change
   const handleDescriptionChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setDescription(e.target.value);
+    const value = e.target.value;
+    // Limit description to 200 characters
+    if (value.length <= 200) {
+      setDescription(value);
+    }
+    // Clear error if user is fixing a description length issue
+    if (error && error.includes("Description cannot exceed")) {
+      setError("");
+    }
   };
   
   // When submitting, grab the current values from state
@@ -223,6 +220,12 @@ export function TransferModal({
       return;
     }
     
+    // Check description length
+    if (currentDescription.length > 200) {
+      setError("Description cannot exceed 200 characters");
+      return;
+    }
+    
     // Convert IDs to strings for safe comparison
     const fromAssetId = String(fromAsset.id || fromAsset._id || '');
     const toAssetId = String(toAsset.id || toAsset._id || '');
@@ -233,7 +236,7 @@ export function TransferModal({
       return;
     }
     
-    const numericAmount = parseFloat(currentAmount);
+    const numericAmount = parseFloat(currentAmount.toString());
     
     if (numericAmount > fromAsset.balance) {
       setError(`Amount exceeds available balance of ${formatCurrency(fromAsset.balance)}`);
@@ -245,9 +248,9 @@ export function TransferModal({
       onTransfer(fromAsset, toAsset, numericAmount, currentDescription);
       
       // Reset form
-      setAmount("");
+      setFormattedAmount("0");
       setDescription("");
-      setToAssetId("");
+      setToAsset(undefined);
       setError("");
       
       // Close modal
@@ -264,7 +267,7 @@ export function TransferModal({
   const setQuickAmount = (percentage: number) => {
     if (fromAsset) {
       const quickAmount = (fromAsset.balance * percentage).toFixed(2);
-      setAmount(quickAmount);
+      setFormattedAmount(quickAmount);
     }
   };
   
@@ -464,12 +467,12 @@ export function TransferModal({
           <div className="space-y-2">
             <Label htmlFor="from-asset" className="text-[15px] font-medium">From</Label>
             {renderAssetCombobox(
-              fromAssetId,
+              fromAsset?.id || "",
               (value) => {
-                setFromAssetId(value);
+                setFromAsset(validAssets.find(asset => asset.id === value || asset._id === value));
                 // Reset to asset if it's the same
-                if (value === toAssetId) {
-                  setToAssetId("");
+                if (value === toAsset?.id || value === toAsset?._id) {
+                  setToAsset(undefined);
                 }
                 // Clear error when user fixes selection
                 if (error && (error.includes("source") || error.includes("same"))) {
@@ -504,9 +507,9 @@ export function TransferModal({
           <div className="space-y-2">
             <Label htmlFor="to-asset" className="text-[15px] font-medium">To</Label>
             {renderAssetCombobox(
-              toAssetId,
+              toAsset?.id || "",
               (value) => {
-                setToAssetId(value);
+                setToAsset(validAssets.find(asset => asset.id === value || asset._id === value));
                 // Clear error when user fixes selection
                 if (error && (error.includes("destination") || error.includes("same"))) {
                   setError("");
@@ -516,7 +519,7 @@ export function TransferModal({
               setToOpen,
               destinationAssets.length > 0 ? destinationAssets : validAssets,
               "Select destination asset",
-              !fromAssetId
+              !fromAsset?.id
             )}
           </div>
         </motion.div>
@@ -542,92 +545,69 @@ export function TransferModal({
           )}
         </AnimatePresence>
         
-        {/* Amount */}
-        <motion.div variants={itemAnimation} className="space-y-2">
-          <Label htmlFor="amount" className="text-[15px] font-medium">Amount</Label>
-          <div className="relative">
-            <div className={cn(
-              "absolute left-0 top-0 bottom-0 flex items-center justify-center w-11 rounded-l-md border-r",
-              "bg-muted/50 text-muted-foreground"
-            )}>
-              <DollarSign className="h-4 w-4" />
-            </div>
-            <input
-              id="amount"
-              name="amount"
-              type="text"
-              inputMode="decimal"
-              placeholder="0.00"
-              className="w-full pl-12 h-11 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary font-medium text-[16px]"
-              value={amount}
+        {/* Amount Input */}
+        <div className="space-y-2">
+          <Label className="text-[15px] font-medium">Transfer Amount</Label>
+          <div className="space-y-2.5">
+            <CurrencyInput
+              value={formattedAmount}
               onChange={handleAmountChange}
-              ref={amountInputRef}
+              placeholder="Enter transfer amount"
+              hasError={!!error && (error.includes("Amount") || error.includes("amount") || error.includes("balance"))}
+              className="w-full"
+              locale="en-US"
             />
+            
+            {/* Quick Amount Percentage Buttons */}
+            <div className="grid grid-cols-4 gap-2 mt-2">
+              {[25, 50, 75, 100].map((percentage) => (
+                <Button
+                  key={percentage}
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setQuickAmount(percentage / 100)}
+                  disabled={!fromAsset}
+                  className={cn(
+                    "h-9 text-sm font-medium",
+                    "border-input hover:border-primary/30 hover:bg-primary/5",
+                    "transition-all duration-200"
+                  )}
+                >
+                  {percentage === 100 ? "Max" : `${percentage}%`}
+                </Button>
+              ))}
+            </div>
+            
+            {/* Available Balance Indicator */}
+            {fromAsset && (
+              <div className="text-xs text-muted-foreground flex items-center justify-between">
+                <span>Available:</span>
+                <span className="font-medium">{formatCurrency(fromAsset.balance)}</span>
+              </div>
+            )}
           </div>
-          
-          {/* Quick buttons */}
-          {fromAsset && (
-          <div className="flex gap-2 mt-2">
-            <Button 
-              type="button" 
-              size="sm" 
-              variant="outline" 
-                className="flex-1 h-9 hover:bg-primary/10 hover:text-primary"
-              onClick={() => setQuickAmount(0.25)}
-            >
-              25%
-            </Button>
-            <Button 
-              type="button" 
-              size="sm" 
-              variant="outline" 
-                className="flex-1 h-9 hover:bg-primary/10 hover:text-primary"
-              onClick={() => setQuickAmount(0.5)}
-            >
-              50%
-            </Button>
-            <Button 
-              type="button" 
-              size="sm" 
-              variant="outline" 
-                className="flex-1 h-9 hover:bg-primary/10 hover:text-primary"
-              onClick={() => setQuickAmount(0.75)}
-            >
-              75%
-            </Button>
-            <Button 
-              type="button" 
-              size="sm" 
-              variant="outline" 
-                className="flex-1 h-9 hover:bg-primary/10 hover:text-primary"
-              onClick={() => setQuickAmount(1)}
-            >
-                Max
-            </Button>
-          </div>
-          )}
-          
-          {/* Available balance indicator */}
-          {fromAsset && (
-            <div className="text-sm text-muted-foreground text-right">
-            Available: <span className="font-medium">{formatCurrency(fromAsset.balance)}</span>
-          </div>
-          )}
-        </motion.div>
+        </div>
         
         {/* Description */}
         <motion.div variants={itemAnimation} className="space-y-2">
-          <Label htmlFor="description" className="text-[15px] font-medium">
+          <Label htmlFor="description" className="text-[15px] font-medium flex justify-between">
+            <span>
             Description <span className="text-muted-foreground font-normal">(Optional)</span>
+            </span>
+            <span className={`text-xs ${description.length > 180 ? "text-amber-500" : "text-muted-foreground"} ${description.length >= 200 ? "text-destructive font-medium" : ""}`}>
+              {description.length}/200
+            </span>
           </Label>
-          <textarea
+          <Textarea
             id="description"
             name="description"
-            placeholder="Add a note for this transfer"
+            placeholder="Add a note for this transfer (max 200 characters)"
             className="w-full min-h-[80px] rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-primary resize-none h-24 text-[16px]"
             value={description}
             onChange={handleDescriptionChange}
-            ref={descriptionInputRef}
+            ref={descriptionRef}
+            maxLength={200}
           />
         </motion.div>
         
@@ -649,7 +629,7 @@ export function TransferModal({
 
         {/* Preview transfer effect */}
         <AnimatePresence>
-          {fromAsset && toAsset && amount && parseFloat(amount) > 0 && parseFloat(amount) <= fromAsset.balance && (
+          {fromAsset && toAsset && formattedAmount && parseFloat(formattedAmount) > 0 && parseFloat(formattedAmount) <= fromAsset.balance && (
             <motion.div 
               variants={itemAnimation}
               initial={{ opacity: 0, y: 10 }}
@@ -663,13 +643,13 @@ export function TransferModal({
               </h4>
               <div className="grid grid-cols-2 gap-y-3 text-sm">
                 <span className="text-muted-foreground">Amount:</span>
-                <span className="font-medium text-right">{formatCurrency(parseFloat(amount))}</span>
+                <span className="font-medium text-right">{formatCurrency(parseFloat(formattedAmount))}</span>
                 
                 <span className="text-muted-foreground">New source balance:</span>
-                <span className="font-medium text-right">{formatCurrency(fromAsset.balance - parseFloat(amount))}</span>
+                <span className="font-medium text-right">{formatCurrency(fromAsset.balance - parseFloat(formattedAmount))}</span>
                 
                 <span className="text-muted-foreground">New destination balance:</span>
-                <span className="font-medium text-right">{formatCurrency(toAsset.balance + parseFloat(amount))}</span>
+                <span className="font-medium text-right">{formatCurrency(toAsset.balance + parseFloat(formattedAmount))}</span>
               </div>
             </motion.div>
           )}
@@ -721,9 +701,9 @@ export function TransferModal({
                 disabled={
                   !fromAsset || 
                   !toAsset || 
-                  !amount || 
-                  parseFloat(amount) <= 0 || 
-                  (fromAsset && parseFloat(amount) > fromAsset.balance)
+                  !formattedAmount || 
+                  parseFloat(formattedAmount) <= 0 || 
+                  (fromAsset && parseFloat(formattedAmount) > fromAsset.balance)
                 }
                 className="bg-primary hover:bg-primary/90 text-white shadow-md hover:shadow-lg transition-all font-medium h-11 w-full"
               >
