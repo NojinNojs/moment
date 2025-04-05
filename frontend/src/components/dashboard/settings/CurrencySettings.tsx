@@ -25,11 +25,8 @@ import {
 } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { currencies } from "@/lib/currencies";
-
-// Mock useAuth hook until the real one is available
-const useAuth = () => ({
-  isAuthenticated: false,
-});
+import useUserSettings from "@/hooks/useUserSettings";
+import { toast } from "sonner";
 
 // Animation variants for staggered animations
 const fadeIn = {
@@ -45,32 +42,35 @@ const fadeIn = {
   })
 };
 
-interface CurrencySettingsProps {
-  defaultCurrency?: string;
-}
-
-export function CurrencySettings({ defaultCurrency }: CurrencySettingsProps) {
-  const { isAuthenticated } = useAuth();
-  const [selectedCurrency, setSelectedCurrency] = useState<string>('');
+export function CurrencySettings() {
+  const { settings, updateSettings, isLoading } = useUserSettings();
+  const [selectedCurrency, setSelectedCurrency] = useState<string>('USD');
   const [isChanged, setIsChanged] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   
   // Initialize currency when settings are loaded
   useEffect(() => {
-    if (defaultCurrency) {
-      setSelectedCurrency(defaultCurrency);
+    if (settings?.currency) {
+      setSelectedCurrency(settings.currency);
     }
-  }, [defaultCurrency]);
+  }, [settings?.currency]);
   
   const handleCurrencyChange = (value: string) => {
     setSelectedCurrency(value);
-    setIsChanged(value !== defaultCurrency);
+    setIsChanged(value !== settings?.currency);
   };
   
   const handleSaveCurrency = async () => {
     setIsSaving(true);
     try {
-      // Implementation of handleSaveCurrency
+      await updateSettings({ currency: selectedCurrency });
+      toast.success("Currency updated successfully");
+      setIsChanged(false);
+    } catch (error) {
+      console.error("Failed to update currency:", error);
+      toast.error("Failed to update currency", {
+        description: "Please try again later"
+      });
     } finally {
       setIsSaving(false);
     }
@@ -106,7 +106,7 @@ export function CurrencySettings({ defaultCurrency }: CurrencySettingsProps) {
     return isNegative ? `-${formattedAmount}` : formattedAmount;
   };
   
-  if (!selectedCurrency) {
+  if (isLoading) {
     return <div className="p-4 text-center">Loading currency settings...</div>;
   }
   
@@ -142,7 +142,7 @@ export function CurrencySettings({ defaultCurrency }: CurrencySettingsProps) {
                   <Button
                     variant="outline"
                     role="combobox"
-                    aria-expanded={true}
+                    aria-expanded={false}
                     className="w-full justify-between"
                   >
                     {currencies.find(c => c.value === selectedCurrency)?.label || "Select a currency..."}
@@ -176,11 +176,6 @@ export function CurrencySettings({ defaultCurrency }: CurrencySettingsProps) {
               <p className="text-sm text-muted-foreground mt-2">
                 This will change how currency amounts are displayed throughout the application.
               </p>
-              {isAuthenticated && (
-                <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
-                  Your currency preference will be saved to your account and synced across all devices.
-                </p>
-              )}
             </div>
             
             <div>
