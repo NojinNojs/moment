@@ -1506,7 +1506,7 @@ export const TransactionForm = ({
         )}
       </motion.div>
 
-      <motion.div className="space-y-2" variants={itemAnimation}>
+      <motion.div className="space-y-2 w-full max-w-full" variants={itemAnimation}>
         <div className="flex items-center justify-between gap-2">
           <Label htmlFor="description" className="text-[15px]">
             Description <span className="text-red-500">*</span>
@@ -1522,18 +1522,27 @@ export const TransactionForm = ({
             </Tooltip>
           </TooltipProvider>
         </div>
-        <Textarea
-          id="description"
-          placeholder="Transaction details"
-          value={transactionDescription}
-          onChange={(e) => onDescriptionChange(e.target.value)}
-          className={cn(
-            "resize-none text-[16px] min-h-[80px] h-24",
-            formErrors.description
-              ? "border-red-500 focus-visible:ring-red-500"
-              : ""
-          )}
-        />
+        <div className="w-full max-w-full overflow-hidden">
+          <Textarea
+            id="description"
+            placeholder="Transaction details"
+            value={transactionDescription}
+            onChange={(e) => onDescriptionChange(e.target.value)}
+            className={cn(
+              "resize-none text-[16px] min-h-[80px] h-24 w-full max-w-full break-words whitespace-pre-wrap overflow-hidden",
+              formErrors.description
+                ? "border-red-500 focus-visible:ring-red-500"
+                : ""
+            )}
+            style={{ 
+              maxWidth: "100%", 
+              overflowWrap: "break-word", 
+              wordWrap: "break-word", 
+              wordBreak: "break-word",
+              hyphens: "auto"
+            }}
+          />
+        </div>
         {formErrors.description && (
           <p className="text-xs text-red-500 mt-1 flex items-center gap-1.5">
             <span className="h-3.5 w-3.5 rounded-full bg-red-100 dark:bg-red-900/50 border border-red-200 dark:border-red-800 flex items-center justify-center flex-shrink-0">

@@ -116,7 +116,7 @@ export function AddTransactionDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[450px] bg-background border border-border p-0 overflow-hidden max-h-[90vh] h-[90vh] flex flex-col text-center">
+      <DialogContent className="sm:max-w-[450px] w-[90vw] bg-background border border-border p-0 overflow-hidden max-h-[90vh] h-[90vh] flex flex-col text-center">
         <DialogHeader className="sticky top-0 bg-background pt-6 pb-4 z-10 border-b px-6 flex flex-col items-center text-center flex-shrink-0">
           <DialogClose className="absolute right-4 top-4 rounded-full opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
             <X className="h-4 w-4" />
@@ -132,16 +132,17 @@ export function AddTransactionDialog({
             {icon}
           </motion.div>
           
-          <DialogTitle className="text-xl font-semibold text-center">{title}</DialogTitle>
-          <p className="opacity-80 mt-1 text-center">{description}</p>
+          <DialogTitle className="text-xl font-semibold text-center break-words w-full max-w-full">{title}</DialogTitle>
+          <p className="opacity-80 mt-1 text-center break-words w-full max-w-full">{description}</p>
         </DialogHeader>
         
         <ScrollArea className="flex-1 px-6 py-4 overflow-auto">
           <motion.div
-            className="pr-4 space-y-5"
+            className="pr-4 space-y-5 w-full max-w-full"
             initial="initial"
             animate="animate"
             variants={contentAnimation}
+            style={{ maxWidth: "100%", width: "100%" }}
           >
             <TransactionForm {...formProps} accounts={accounts} />
             

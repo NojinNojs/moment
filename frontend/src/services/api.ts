@@ -909,7 +909,50 @@ class ApiService {
       
       // Update local account cache if transaction created successfully
       if (response.success && response.data) {
+        // First, preload all entity data to update the service cache
         await this.preloadEntityData();
+        
+        // But ALSO update localStorage directly for immediate access by TransactionItem
+        // Get fresh data from cache for accounts and categories
+        try {
+          // Get all assets and store in localStorage
+          const accountsResponse = await this.getAssets();
+          if (accountsResponse.success && accountsResponse.data) {
+            localStorage.setItem('user_assets', JSON.stringify(accountsResponse.data));
+            console.log(`[API] Updated user_assets in localStorage with ${accountsResponse.data.length} items`);
+          }
+          
+          // Get all categories and store in localStorage
+          const categoriesResponse = await this.getCategories();
+          if (categoriesResponse.success && categoriesResponse.data) {
+            localStorage.setItem('user_categories', JSON.stringify(categoriesResponse.data));
+            console.log(`[API] Updated user_categories in localStorage with ${categoriesResponse.data.length} items`);
+          }
+          
+          // If the transaction has a category ID, also store specifically for that ID
+          if (transactionData.category && typeof transactionData.category === 'string') {
+            const categoryId = transactionData.category;
+            const categoryResponse = await this.getCategoryById(categoryId);
+            
+            if (categoryResponse.success && categoryResponse.data) {
+              localStorage.setItem(`category_${categoryId}`, JSON.stringify(categoryResponse.data));
+              console.log(`[API] Cached specific category in localStorage: ${categoryResponse.data.name}`);
+            }
+          }
+          
+          // If the transaction has an account ID, also store specifically for that ID
+          if (transactionData.account && typeof transactionData.account === 'string') {
+            const accountId = transactionData.account;
+            const accountResponse = await this.getAccountById(accountId);
+            
+            if (accountResponse.success && accountResponse.data) {
+              localStorage.setItem(`account_${accountId}`, JSON.stringify(accountResponse.data));
+              console.log(`[API] Cached specific account in localStorage: ${accountResponse.data.name}`);
+            }
+          }
+        } catch (error) {
+          console.error('[API] Error updating localStorage with fresh entity data:', error);
+        }
       }
       
       return response;
@@ -971,6 +1014,55 @@ class ApiService {
         
         // Reload entity data to ensure our caches are up-to-date
         await this.preloadEntityData();
+        
+        // ALSO UPDATE LOCALSTORAGE for immediate access by TransactionItem component
+        try {
+          // Get all assets and store in localStorage
+          const accountsResponse = await this.getAssets();
+          if (accountsResponse.success && accountsResponse.data) {
+            localStorage.setItem('user_assets', JSON.stringify(accountsResponse.data));
+            console.log(`[API] Updated user_assets in localStorage with ${accountsResponse.data.length} items`);
+          }
+          
+          // Get all categories and store in localStorage
+          const categoriesResponse = await this.getCategories();
+          if (categoriesResponse.success && categoriesResponse.data) {
+            localStorage.setItem('user_categories', JSON.stringify(categoriesResponse.data));
+            console.log(`[API] Updated user_categories in localStorage with ${categoriesResponse.data.length} items`);
+          }
+          
+          // If the transaction update included a category, cache it specifically
+          if (data.category) {
+            const categoryId = typeof data.category === 'object' && data.category !== null
+              ? ((data.category as { _id?: string; id?: string | number })._id || (data.category as { _id?: string; id?: string | number }).id) 
+              : data.category;
+              
+            if (categoryId && typeof categoryId === 'string') {
+              const categoryResponse = await this.getCategoryById(categoryId);
+              if (categoryResponse.success && categoryResponse.data) {
+                localStorage.setItem(`category_${categoryId}`, JSON.stringify(categoryResponse.data));
+                console.log(`[API] Cached updated category in localStorage: ${categoryResponse.data.name}`);
+              }
+            }
+          }
+          
+          // If the transaction update included an account, cache it specifically
+          if (data.account) {
+            const accountId = typeof data.account === 'object' && data.account !== null
+              ? ((data.account as { _id?: string; id?: string | number })._id || (data.account as { _id?: string; id?: string | number }).id) 
+              : data.account;
+              
+            if (accountId && typeof accountId === 'string') {
+              const accountResponse = await this.getAccountById(accountId);
+              if (accountResponse.success && accountResponse.data) {
+                localStorage.setItem(`account_${accountId}`, JSON.stringify(accountResponse.data));
+                console.log(`[API] Cached updated account in localStorage: ${accountResponse.data.name}`);
+              }
+            }
+          }
+        } catch (error) {
+          console.error('[API] Error updating localStorage with fresh entity data:', error);
+        }
         
         // Broadcast that a transaction was updated so UI components can refresh
         EventBus.emit('transaction.updated', {

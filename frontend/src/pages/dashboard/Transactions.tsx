@@ -1103,26 +1103,56 @@ export default function Transactions() {
   // Handle submitting transaction
   const handleSubmitTransaction = useCallback(async () => {
     if (!validateForm()) {
-      console.error("Form validation failed:", formErrors);
       return;
     }
 
-    try {
-    // Get the transaction type and convert amount
     const type = currentTransactionType;
-    const amount = parseFloat(formData.amount);
+    
+    // Parse amount from form data
+    let amount = 0;
+    try {
+      // Remove any currency symbols or formatting and parse as a float
+      amount = parseFloat(formData.amount.replace(/[^\d.-]/g, ''));
+    } catch (error) {
+      console.error("Error parsing amount:", error);
+      setFormErrors(prev => ({ ...prev, amount: "Invalid amount format" }));
+      return;
+    }
 
-      // Ensure date is properly formatted
+    // If amount is not a valid number, show error
+    if (isNaN(amount) || amount <= 0) {
+      setFormErrors(prev => ({ ...prev, amount: "Amount must be a positive number" }));
+      return;
+    }
+    
+    try {
+      setShowTransactionModal(false);
+      
+      // Format date for API
       let formattedDate = formData.date;
+      
       try {
-        if (formData.date) {
-          const dateObj = new Date(formData.date);
-          if (!isNaN(dateObj.getTime())) {
-            formattedDate = dateObj.toISOString().split('T')[0]; // YYYY-MM-DD format
-          }
+        // Try to parse and format the date if needed
+        const parsedDate = new Date(formData.date);
+        if (!isNaN(parsedDate.getTime())) {
+          formattedDate = parsedDate.toISOString().split('T')[0]; // YYYY-MM-DD format
         }
       } catch (error) {
-        console.error("Error formatting date for submit:", error);
+        console.error("Error formatting date:", error);
+      }
+      
+      // Store categories and accounts data in localStorage for TransactionItem to use
+      try {
+        // Store categories data
+        const allCategories = await apiService.getCategories();
+        if (allCategories && allCategories.data && Array.isArray(allCategories.data) && allCategories.data.length > 0) {
+          localStorage.setItem('user_categories', JSON.stringify(allCategories.data));
+        }
+        
+        // Store accounts/assets data
+        localStorage.setItem('user_assets', JSON.stringify(accounts));
+      } catch (error) {
+        console.error("Error caching entity data:", error);
       }
 
     if (currentTransactionMode === 'add') {
@@ -1291,7 +1321,7 @@ export default function Transactions() {
       
       console.log(`🔄 [handleTransactionStateChanged] Action: ${action}`, {
         transaction: transaction.title,
-        id: transaction.id,
+      id: transaction.id,
         _id: transaction._id || 'none',
         isDeleted: transaction.isDeleted,
         type: transaction.type,

@@ -239,19 +239,19 @@ export function CurrencyInput({
   const handleInputChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       // Save cursor position
-      const cursorPos = e.target.selectionStart || 0;
+    const cursorPos = e.target.selectionStart || 0;
       cursorPositionRef.current = cursorPos;
       
       // Check if cursor was at the end
       wasAtEndRef.current = cursorPos === e.target.value.length;
 
-      const inputValue = e.target.value;
-
+    const inputValue = e.target.value;
+    
       // Allow empty input
       if (inputValue === "") {
         // Check if onChange is a function before calling it
         if (typeof onChange === "function") {
-          onChange("");
+      onChange("");
         }
         return;
       }
@@ -370,9 +370,9 @@ export function CurrencyInput({
             if (decimalPos !== -1) {
               inputRef.current?.setSelectionRange(decimalPos + 1, decimalPos + 1);
             }
-            return;
-          }
-
+      return;
+    }
+    
           // Get cursor position
           const cursorPos = e.currentTarget.selectionStart || 0;
           
@@ -404,9 +404,9 @@ export function CurrencyInput({
                 }
               }
             }, 10);
-            return;
-          }
-
+      return;
+    }
+    
           // For decimal in the middle, count digits up to cursor
           let digitCount = 0;
           for (let i = 0; i < displayValue.length && i < cursorPos; i++) {
@@ -442,7 +442,7 @@ export function CurrencyInput({
 
           // Position cursor after the decimal - use a slightly longer timeout
           setTimeout(() => {
-            if (inputRef.current) {
+      if (inputRef.current) {
               const newFormatted = formatDisplayValue(newValue);
               const newDecimalPos = newFormatted.indexOf(_decimalSeparator);
               if (newDecimalPos !== -1) {
@@ -634,7 +634,7 @@ export function CurrencyInput({
     },
     [displayValue, onChange, toRawNumber, formatDisplayValue, calculateCursorPosition],
   );
-
+  
   return (
     <div
       className={cn(
@@ -673,14 +673,14 @@ export function CurrencyInput({
       {/* Input field */}
       <div className="relative flex-1">
         <input
-          ref={inputRef}
-          id={id}
-          type="text"
+        ref={inputRef}
+        id={id}
+        type="text"
           value={displayValue}
-          onChange={handleInputChange}
+        onChange={handleInputChange}
           onKeyDown={handleKeyDown}
-          onFocus={handleFocus}
-          onBlur={handleBlur}
+        onFocus={handleFocus}
+        onBlur={handleBlur}
           onPaste={handlePaste}
           className={cn(
             "w-full border border-input h-11 outline-none px-3 font-medium text-[16px] bg-background",
@@ -692,8 +692,8 @@ export function CurrencyInput({
           )}
           placeholder={placeholder}
           autoComplete="off"
-          inputMode="decimal"
-        />
+        inputMode="decimal"
+      />
       </div>
     </div>
   );

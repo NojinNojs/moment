@@ -76,22 +76,22 @@ export function DeleteAssetDialog({
         </div>
 
         <DialogFooter className="gap-2">
-          <Button
+            <Button
             type="button"
             variant="outline"
             onClick={() => onOpenChange(false)}
             disabled={isDeleting}
           >
             Cancel
-          </Button>
-          <Button
+            </Button>
+            <Button
             type="button"
             variant="destructive"
             onClick={onConfirm}
             disabled={isDeleting}
           >
             {isDeleting ? "Deleting..." : "Delete Asset"}
-          </Button>
+            </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
