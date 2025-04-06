@@ -241,16 +241,13 @@ exports.updateUserPreferences = async (req, res) => {
     if (connectionError) return connectionError;
     
     // Get preferences from request body
-    const { currency, language, theme, dateFormat, notificationsEnabled } = req.body;
+    const { currency, dateFormat } = req.body;
     
     // Build preferences object with only provided fields
     const preferencesUpdate = {};
     
     if (currency !== undefined) preferencesUpdate['preferences.currency'] = currency;
-    if (language !== undefined) preferencesUpdate['preferences.language'] = language;
-    if (theme !== undefined) preferencesUpdate['preferences.theme'] = theme;
     if (dateFormat !== undefined) preferencesUpdate['preferences.dateFormat'] = dateFormat;
-    if (notificationsEnabled !== undefined) preferencesUpdate['preferences.notificationsEnabled'] = notificationsEnabled;
     
     // If no preferences provided
     if (Object.keys(preferencesUpdate).length === 0) {

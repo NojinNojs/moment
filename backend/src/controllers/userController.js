@@ -2,6 +2,7 @@
 const User = require('../models/User');
 const apiResponse = require('../utils/apiResponse');
 const { body, validationResult } = require('express-validator');
+const asyncHandler = require('express-async-handler');
 
 /**
  * Get user profile
@@ -30,13 +31,12 @@ exports.getUserProfile = async (req, res) => {
  */
 exports.updateUserProfile = async (req, res) => {
   try {
-    const { name, email, avatar } = req.body;
+    const { name, email } = req.body;
     
     // Build update object with only provided fields
     const updateFields = {};
     if (name) updateFields.name = name;
     if (email) updateFields.email = email;
-    if (avatar) updateFields.avatar = avatar;
     
     // Update user
     const user = await User.findByIdAndUpdate(
@@ -83,7 +83,7 @@ exports.getUserPreferences = async (req, res) => {
  */
 exports.updateUserPreferences = async (req, res) => {
   try {
-    const { currency, language, theme, dateFormat, notificationsEnabled } = req.body;
+    const { currency, dateFormat } = req.body;
     
     // Build preferences update object with only provided fields
     const preferencesUpdate = {};
@@ -97,24 +97,6 @@ exports.updateUserPreferences = async (req, res) => {
       preferencesUpdate['preferences.currency'] = currency;
     }
     
-    if (language) {
-      // Validate language is in allowed list
-      const allowedLanguages = ['en', 'id'];
-      if (!allowedLanguages.includes(language)) {
-        return apiResponse.badRequest(res, 'Invalid language');
-      }
-      preferencesUpdate['preferences.language'] = language;
-    }
-    
-    if (theme) {
-      // Validate theme is in allowed list
-      const allowedThemes = ['light', 'dark', 'system'];
-      if (!allowedThemes.includes(theme)) {
-        return apiResponse.badRequest(res, 'Invalid theme');
-      }
-      preferencesUpdate['preferences.theme'] = theme;
-    }
-    
     if (dateFormat) {
       // Validate dateFormat is in allowed list
       const allowedDateFormats = ['DD/MM/YYYY', 'MM/DD/YYYY', 'YYYY-MM-DD'];
@@ -122,10 +104,6 @@ exports.updateUserPreferences = async (req, res) => {
         return apiResponse.badRequest(res, 'Invalid date format');
       }
       preferencesUpdate['preferences.dateFormat'] = dateFormat;
-    }
-    
-    if (notificationsEnabled !== undefined) {
-      preferencesUpdate['preferences.notificationsEnabled'] = Boolean(notificationsEnabled);
     }
     
     // If no valid preferences were provided

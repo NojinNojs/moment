@@ -28,39 +28,19 @@ const jwt = require('jsonwebtoken');
  *           type: string
  *           format: password
  *           description: The user's password (will be hashed)
- *         avatar:
- *           type: string
- *           description: The user's avatar image URL
  *         preferences:
  *           type: object
  *           properties:
  *             currency:
  *               type: string
  *               description: The user's preferred currency
- *             language:
- *               type: string
- *               description: The user's preferred language
- *             theme:
- *               type: string
- *               enum: [light, dark, system]
- *               description: The user's preferred theme
  *             dateFormat:
  *               type: string
  *               enum: [DD/MM/YYYY, MM/DD/YYYY, YYYY-MM-DD]
  *               description: The user's preferred date format
- *             notificationsEnabled:
- *               type: boolean
- *               description: Whether the user wants to receive notifications
  *         isDeleted:
  *           type: boolean
  *           description: Whether the user account is deleted
- *         resetPasswordToken:
- *           type: string
- *           description: The reset password token
- *         resetPasswordExpire:
- *           type: string
- *           format: date
- *           description: The reset password token expiration date
  *         createdAt:
  *           type: string
  *           format: date
@@ -73,13 +53,9 @@ const jwt = require('jsonwebtoken');
  *         name: John Doe
  *         email: john@example.com
  *         password: password123
- *         avatar: https://example.com/avatar.jpg
  *         preferences:
  *           currency: USD
- *           language: en
- *           theme: light
  *           dateFormat: DD/MM/YYYY
- *           notificationsEnabled: true
  */
 
 /**
@@ -88,11 +64,8 @@ const jwt = require('jsonwebtoken');
  * @field name - User's full name
  * @field email - User's email (must be unique)
  * @field password - User's hashed password
- * @field avatar - User's avatar image URL
  * @field preferences - User's preferences and settings
  * @field isDeleted - Whether the user account is deleted
- * @field resetPasswordToken - The reset password token
- * @field resetPasswordExpire - The reset password token expiration date
  * @field createdAt - Timestamp when the user was created
  * @field updatedAt - Timestamp when the user was last updated
  */
@@ -120,41 +93,22 @@ const userSchema = new mongoose.Schema({
     minlength: [8, 'Password must be at least 8 characters long'],
     select: false // Don't return password in queries by default
   },
-  avatar: {
-    type: String
-  },
   preferences: {
     currency: {
       type: String,
       default: 'USD',
       enum: ['USD', 'IDR', 'EUR', 'GBP', 'JPY', 'CNY', 'AUD', 'CAD', 'SGD', 'MYR']
     },
-    language: {
-      type: String,
-      default: 'en',
-      enum: ['en', 'id']
-    },
-    theme: {
-      type: String,
-      default: 'light',
-      enum: ['light', 'dark', 'system']
-    },
     dateFormat: {
       type: String,
       default: 'DD/MM/YYYY',
       enum: ['DD/MM/YYYY', 'MM/DD/YYYY', 'YYYY-MM-DD']
-    },
-    notificationsEnabled: {
-      type: Boolean,
-      default: true
     }
   },
   isDeleted: {
     type: Boolean,
     default: false
-  },
-  resetPasswordToken: String,
-  resetPasswordExpire: Date
+  }
 }, {
   timestamps: true // Automatically adds createdAt and updatedAt fields
 });

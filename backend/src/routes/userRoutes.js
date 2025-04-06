@@ -31,8 +31,7 @@ router.get('/preferences', protect, async (req, res) => {
       success: true,
       message: 'User preferences retrieved successfully',
       currency: user.preferences?.currency || 'USD',
-      language: user.preferences?.language || 'en',
-      theme: user.preferences?.theme || 'light'
+      dateFormat: user.preferences?.dateFormat || 'DD/MM/YYYY'
     });
   } catch (error) {
     console.error('Error retrieving user preferences:', error);
@@ -46,13 +45,12 @@ router.get('/preferences', protect, async (req, res) => {
 router.put('/preferences', protect, async (req, res) => {
   try {
     const userId = req.user.id;
-    const { currency, language, theme } = req.body;
+    const { currency, dateFormat } = req.body;
     
     // Create object with provided preferences
     const preferences = {};
     if (currency) preferences.currency = currency;
-    if (language) preferences.language = language;
-    if (theme) preferences.theme = theme;
+    if (dateFormat) preferences.dateFormat = dateFormat;
     
     // Check if any preferences were provided
     if (Object.keys(preferences).length === 0) {
@@ -81,8 +79,7 @@ router.put('/preferences', protect, async (req, res) => {
       success: true,
       message: 'User preferences updated successfully',
       currency: updatedUser.preferences?.currency || 'USD',
-      language: updatedUser.preferences?.language || 'en',
-      theme: updatedUser.preferences?.theme || 'light'
+      dateFormat: updatedUser.preferences?.dateFormat || 'DD/MM/YYYY'
     });
   } catch (error) {
     console.error('Error updating user preferences:', error);
