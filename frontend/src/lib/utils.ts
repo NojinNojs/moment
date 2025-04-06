@@ -277,8 +277,11 @@ export const localeToCurrency: Record<string, string> = {
 };
 
 /**
- * Detect the user's currency based on browser locale
- * @returns Detected currency code
+ * Detects and returns the user's currency code based on the browser's locale settings.
+ *
+ * The function retrieves the browser's locale via `navigator.language` and attempts to match it against a predefined locale-to-currency mapping. If an exact match is not found, it falls back to matching the primary language (e.g., "en" from "en-US"). It also handles Indonesian locales specifically by returning "IDR", and defaults to "USD" if no match is found or an error occurs.
+ *
+ * @returns The currency code determined from the user's locale.
  */
 export function detectUserCurrency(): string {
   try {

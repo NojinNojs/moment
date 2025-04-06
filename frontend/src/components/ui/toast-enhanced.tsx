@@ -61,6 +61,20 @@ export const ToastClose = ({ ...props }: React.ButtonHTMLAttributes<HTMLButtonEl
 export const ToastAction = ({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) => <button {...props}>{children}</button>;
 export const ToastTitle = ({ children, ...props }: React.HTMLAttributes<HTMLHeadingElement>) => <h2 {...props}>{children}</h2>;
 
+/**
+ * Renders a toast notification with an optional icon, title, description, and a close button.
+ *
+ * The component applies styling based on the specified variant, displaying an appropriate icon for "success", "error", "warning", or "info" toasts.
+ * It conditionally renders the title and description if provided, and includes a close button when enabled.
+ *
+ * @param className - Optional additional CSS class names for custom styling.
+ * @param variant - Defines the style and icon of the toast. Accepted values include "default", "success", "error", "warning", and "info".
+ * @param title - Optional title text displayed within the toast.
+ * @param description - Optional descriptive text providing further details.
+ * @param closeButton - Determines if a close button is rendered; defaults to true.
+ *
+ * @returns A JSX element representing the toast notification.
+ */
 export function Toast({
   className,
   variant,
@@ -105,6 +119,13 @@ export function Toast({
   );
 }
 
+/**
+ * Renders a toaster notification container for displaying toast notifications.
+ *
+ * This component wraps the Sonner component, configuring it with preset styles, toast options, and positioning at the bottom-right corner. It applies consistent class names for toast elements and variant-specific styling for success, error, warning, and info toasts.
+ *
+ * Additional properties are forwarded to the underlying Sonner component.
+ */
 export function Toaster({ ...props }: ToasterProps) {
   return (
     <Sonner
