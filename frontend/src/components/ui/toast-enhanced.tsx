@@ -1,4 +1,4 @@
-import { Toaster as Sonner } from "sonner";
+import { Toaster as Sonner, toast } from "sonner";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 import { X, CheckCircle, AlertCircle, Info, AlertTriangle } from "lucide-react";
@@ -29,6 +29,37 @@ export interface ToastProps extends React.HTMLAttributes<HTMLDivElement>,
   description?: string;
   closeButton?: boolean;
 }
+
+// Create the useToast hook ourselves for compatibility
+export const useToast = () => {
+  return {
+    toast,
+    dismiss: (toastId?: string) => {
+      if (toastId) {
+        toast.dismiss(toastId);
+      } else {
+        toast.dismiss();
+      }
+    },
+    success: (message: string, options?: Parameters<typeof toast>[1]) => 
+      toast.success(message, options),
+    error: (message: string, options?: Parameters<typeof toast>[1]) => 
+      toast.error(message, options),
+    warning: (message: string, options?: Parameters<typeof toast>[1]) => 
+      toast.warning(message, options),
+    info: (message: string, options?: Parameters<typeof toast>[1]) => 
+      toast.info(message, options),
+  };
+};
+
+// Alias definitions for missing components
+export const ToastProvider = Sonner;
+export const ToastViewport = ({ ...props }: React.HTMLAttributes<HTMLDivElement>) => <div {...props} />;
+export const ToastHeading = ({ children, ...props }: React.HTMLAttributes<HTMLHeadingElement>) => <h2 {...props}>{children}</h2>;
+export const ToastDescription = ({ children, ...props }: React.HTMLAttributes<HTMLParagraphElement>) => <p {...props}>{children}</p>;
+export const ToastClose = ({ ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) => <button {...props}><X className="h-4 w-4" /></button>;
+export const ToastAction = ({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) => <button {...props}>{children}</button>;
+export const ToastTitle = ({ children, ...props }: React.HTMLAttributes<HTMLHeadingElement>) => <h2 {...props}>{children}</h2>;
 
 export function Toast({
   className,
@@ -96,3 +127,6 @@ export function Toaster({ ...props }: ToasterProps) {
     />
   );
 }
+
+// Re-export toast
+export { toast };
