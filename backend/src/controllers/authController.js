@@ -34,7 +34,7 @@ const checkDbConnection = (res) => {
 };
 
 /**
- * @desc    Register a new user
+ * @desc    Register user
  * @route   POST /api/v1/auth/register
  * @access  Public
  */
@@ -45,36 +45,40 @@ exports.register = async (req, res) => {
     if (connectionError) return connectionError;
 
     const { name, email, password } = req.body;
-
+    
     // Check if user already exists
     const userExists = await User.findOne({ email });
+    
     if (userExists) {
-      return apiResponse.badRequest(res, 'User already exists');
+      return apiResponse.badRequest(res, 'User with this email already exists');
     }
-
+    
     // Create new user
     const user = await User.create({
       name,
       email,
       password
     });
-
-    if (user) {
-      // Generate JWT token
-      const token = generateToken(user);
-
-      return apiResponse.success(res, 201, 'User registered successfully', {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        settings: user.settings,
-        token
-      });
-    } else {
-      return apiResponse.badRequest(res, 'Invalid user data');
-    }
+    
+    // Generate token
+    const token = generateToken(user);
+    
+    // Return success response with token
+    return apiResponse.success(res, 201, 'User registered successfully', {
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      preferences: user.preferences,
+      token
+    });
   } catch (error) {
-    console.error('Register error:', error);
+    console.error('Registration error:', error);
+    
+    // Check for validation errors
+    if (error.name === 'ValidationError') {
+      const messages = Object.values(error.errors).map(val => val.message);
+      return apiResponse.badRequest(res, messages.join(', '));
+    }
     
     // Check for MongoDB connection errors
     if (error.name === 'MongooseServerSelectionError' || error.name === 'MongoNotConnectedError') {
@@ -96,7 +100,7 @@ exports.register = async (req, res) => {
 };
 
 /**
- * @desc    Authenticate user & get token (Login)
+ * @desc    Login user & get token
  * @route   POST /api/v1/auth/login
  * @access  Public
  */
@@ -108,24 +112,31 @@ exports.login = async (req, res) => {
 
     const { email, password } = req.body;
 
-    // Find user by email
-    const user = await User.findOne({ email });
+    // Find user by email and explicitly select password
+    const user = await User.findOne({ email }).select('+password');
     
-    // Check if user exists and password matches
-    if (user && (await user.comparePassword(password))) {
-      // Generate JWT token
-      const token = generateToken(user);
-
-      return apiResponse.success(res, 200, 'Login successful', {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        settings: user.settings,
-        token
-      });
-    } else {
+    // Check if user exists
+    if (!user) {
       return apiResponse.unauthorized(res, 'Invalid email or password');
     }
+
+    // Check if password matches
+    const isMatch = await user.comparePassword(password);
+    
+    if (!isMatch) {
+      return apiResponse.unauthorized(res, 'Invalid email or password');
+    }
+
+    // Generate JWT token
+    const token = generateToken(user);
+
+    return apiResponse.success(res, 200, 'Login successful', {
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      preferences: user.preferences,
+      token
+    });
   } catch (error) {
     console.error('Login error:', error);
     
@@ -189,25 +200,25 @@ exports.getCurrentUser = async (req, res) => {
 };
 
 /**
- * @desc    Get user settings
- * @route   GET /api/v1/auth/settings
+ * @desc    Get user preferences
+ * @route   GET /api/v1/auth/preferences
  * @access  Private
  */
-exports.getUserSettings = async (req, res) => {
+exports.getUserPreferences = async (req, res) => {
   try {
     // Check DB connection first
     const connectionError = checkDbConnection(res);
     if (connectionError) return connectionError;
     
-    const user = await User.findById(req.user.id).select('settings');
+    const user = await User.findById(req.user.id).select('preferences');
     
     if (!user) {
       return apiResponse.notFound(res, 'User not found');
     }
 
-    return apiResponse.success(res, 200, 'User settings retrieved successfully', user.settings);
+    return apiResponse.success(res, 200, 'User preferences retrieved successfully', user.preferences);
   } catch (error) {
-    console.error('Get user settings error:', error);
+    console.error('Get user preferences error:', error);
     
     return apiResponse.error(
       res, 
@@ -219,46 +230,47 @@ exports.getUserSettings = async (req, res) => {
 };
 
 /**
- * @desc    Update user settings
- * @route   PUT /api/v1/auth/settings
+ * @desc    Update user preferences
+ * @route   PUT /api/v1/auth/preferences
  * @access  Private
  */
-exports.updateUserSettings = async (req, res) => {
+exports.updateUserPreferences = async (req, res) => {
   try {
     // Check DB connection first
     const connectionError = checkDbConnection(res);
     if (connectionError) return connectionError;
     
-    // Get settings from request body
-    const { currency, language, colorMode, notifications } = req.body;
+    // Get preferences from request body
+    const { currency, language, theme, dateFormat, notificationsEnabled } = req.body;
     
-    // Build settings object with only provided fields
-    const settingsUpdate = {};
+    // Build preferences object with only provided fields
+    const preferencesUpdate = {};
     
-    if (currency !== undefined) settingsUpdate['settings.currency'] = currency;
-    if (language !== undefined) settingsUpdate['settings.language'] = language;
-    if (colorMode !== undefined) settingsUpdate['settings.colorMode'] = colorMode;
-    if (notifications !== undefined) settingsUpdate['settings.notifications'] = notifications;
+    if (currency !== undefined) preferencesUpdate['preferences.currency'] = currency;
+    if (language !== undefined) preferencesUpdate['preferences.language'] = language;
+    if (theme !== undefined) preferencesUpdate['preferences.theme'] = theme;
+    if (dateFormat !== undefined) preferencesUpdate['preferences.dateFormat'] = dateFormat;
+    if (notificationsEnabled !== undefined) preferencesUpdate['preferences.notificationsEnabled'] = notificationsEnabled;
     
-    // If no settings provided
-    if (Object.keys(settingsUpdate).length === 0) {
-      return apiResponse.badRequest(res, 'No settings provided to update');
+    // If no preferences provided
+    if (Object.keys(preferencesUpdate).length === 0) {
+      return apiResponse.badRequest(res, 'No preferences provided to update');
     }
     
-    // Update user settings
+    // Update user preferences
     const user = await User.findByIdAndUpdate(
       req.user.id,
-      { $set: settingsUpdate },
+      { $set: preferencesUpdate },
       { new: true, runValidators: true }
-    ).select('settings');
+    ).select('preferences');
     
     if (!user) {
       return apiResponse.notFound(res, 'User not found');
     }
     
-    return apiResponse.success(res, 200, 'User settings updated successfully', user.settings);
+    return apiResponse.success(res, 200, 'User preferences updated successfully', user.preferences);
   } catch (error) {
-    console.error('Update user settings error:', error);
+    console.error('Update user preferences error:', error);
     
     // Check for validation errors
     if (error.name === 'ValidationError') {

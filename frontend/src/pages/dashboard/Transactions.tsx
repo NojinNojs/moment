@@ -1373,6 +1373,9 @@ export default function Transactions() {
     } catch (error) {
       console.error("🔴 Error handling transaction state change event:", error);
     }
+    // This callback only uses setTransactions which is stable and doesn't need dependencies.
+    // We intentionally don't include accounts or transactions as dependencies to avoid 
+    // recreating this handler when those change, which would cause unnecessary re-renders.
   }, []);
 
   // Listen for transaction state changed events

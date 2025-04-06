@@ -9,6 +9,7 @@ import { Login, Register } from "./pages/auth";
 import DashboardLayout from "./pages/dashboard/index.tsx";
 import { NotFound, ErrorPage, BadRequestPage } from "./pages/misc";
 import { AuthProvider } from "./contexts/AuthContext";
+import { CurrencyProvider } from "./contexts/CurrencyContext";
 import { ProtectedRoute, AuthRoute } from "./components/ProtectedRoute";
 
 // Error boundary component
@@ -179,7 +180,9 @@ function App() {
   return (
     <Router>
       <AuthProvider>
-        <AppLayout />
+        <CurrencyProvider>
+          <AppLayout />
+        </CurrencyProvider>
       </AuthProvider>
     </Router>
   );

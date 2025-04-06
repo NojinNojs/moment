@@ -227,16 +227,16 @@ router.get('/me', protect, authController.getCurrentUser);
 
 /**
  * @swagger
- * /auth/settings:
+ * /auth/preferences:
  *   get:
- *     summary: Get user settings
- *     description: Retrieves the authenticated user's settings
+ *     summary: Get user preferences
+ *     description: Retrieves the authenticated user's preferences
  *     tags: [Auth]
  *     security:
  *       - bearerAuth: []
  *     responses:
  *       200:
- *         description: User settings
+ *         description: User preferences
  *         content:
  *           application/json:
  *             schema:
@@ -245,7 +245,7 @@ router.get('/me', protect, authController.getCurrentUser);
  *                 - type: object
  *                   properties:
  *                     message:
- *                       example: User settings retrieved successfully
+ *                       example: User preferences retrieved successfully
  *                     data:
  *                       $ref: '#/components/schemas/UserSettings'
  *       401:
@@ -255,14 +255,14 @@ router.get('/me', protect, authController.getCurrentUser);
  *       500:
  *         $ref: '#/components/responses/ServerError'
  */
-router.get('/settings', protect, authController.getUserSettings);
+router.get('/preferences', protect, authController.getUserPreferences);
 
 /**
  * @swagger
- * /auth/settings:
+ * /auth/preferences:
  *   put:
- *     summary: Update user settings
- *     description: Updates the authenticated user's settings
+ *     summary: Update user preferences
+ *     description: Updates the authenticated user's preferences
  *     tags: [Auth]
  *     security:
  *       - bearerAuth: []
@@ -287,7 +287,7 @@ router.get('/settings', protect, authController.getUserSettings);
  *                 example: false
  *     responses:
  *       200:
- *         description: User settings updated
+ *         description: User preferences updated
  *         content:
  *           application/json:
  *             schema:
@@ -296,7 +296,7 @@ router.get('/settings', protect, authController.getUserSettings);
  *                 - type: object
  *                   properties:
  *                     message:
- *                       example: User settings updated successfully
+ *                       example: User preferences updated successfully
  *                     data:
  *                       $ref: '#/components/schemas/UserSettings'
  *       400:
@@ -308,7 +308,7 @@ router.get('/settings', protect, authController.getUserSettings);
  *       500:
  *         $ref: '#/components/responses/ServerError'
  */
-router.put('/settings', protect, authController.updateUserSettings);
+router.put('/preferences', protect, authController.updateUserPreferences);
 
 /**
  * @swagger
