@@ -52,7 +52,7 @@ const transactionSchema = new mongoose.Schema({
     required: [true, 'Amount is required'],
     validate: {
       validator: function(value) {
-        // Untuk validasi: jangan izinkan 0, tapi izinkan positif dan negatif
+        // For validation: don't allow zero, but allow positive and negative values
         return value !== 0;
       },
       message: 'Amount cannot be zero'

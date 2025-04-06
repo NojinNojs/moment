@@ -14,11 +14,18 @@ export function cn(...inputs: ClassValue[]) {
 type EventCallback<T = unknown> = (data: T) => void;
 type EventUnsubscribe = () => void;
 
-// Event bus to enable communication between components without direct dependencies
-export const EventBus = {
-  events: {} as Record<string, EventCallback[]>,
-  
-  // Subscribe to an event
+/**
+ * Enhanced event bus to enable communication between components without direct dependencies
+ */
+export class EventBusClass {
+  private events: {[key: string]: Array<(data: unknown) => void>} = {};
+
+  /**
+   * Subscribe to an event
+   * @param event Event name
+   * @param callback Function to call when event is emitted
+   * @returns Unsubscribe function
+   */
   on<T = unknown>(event: string, callback: EventCallback<T>): EventUnsubscribe {
     if (!this.events[event]) {
       this.events[event] = [];
@@ -26,36 +33,62 @@ export const EventBus = {
     
     this.events[event].push(callback as EventCallback);
     
-    // Return an unsubscribe function
+    // Return unsubscribe function
     return () => {
       this.events[event] = this.events[event].filter(cb => cb !== callback);
+      if (this.events[event].length === 0) {
+        delete this.events[event];
+      }
     };
-  },
-  
-  // Emit an event with data
+  }
+
+  /**
+   * Emit an event with data
+   * @param event Event name
+   * @param data Data to send to subscribers
+   */
   emit<T = unknown>(event: string, data?: T): void {
-    if (!this.events[event]) {
-      return;
+    if (this.events[event]) {
+      this.events[event].forEach(callback => {
+        try {
+          callback(data);
+        } catch (error) {
+          console.error(`Error in event handler for ${event}:`, error);
+        }
+      });
     }
-    
-    this.events[event].forEach(callback => {
-      callback(data);
-    });
-  },
-  
-  // Get count of listeners for an event
+  }
+
+  /**
+   * Get count of listeners for an event
+   * @param event Event name
+   * @returns Number of listeners
+   */
   listenerCount(event: string): number {
     return this.events[event]?.length || 0;
-  },
+  }
   
-  // Log all current listeners (for debugging)
+  /**
+   * Log all current listeners (for debugging)
+   */
   debug(): void {
     console.log('[EventBus] Current listeners:');
     Object.entries(this.events).forEach(([event, callbacks]) => {
       console.log(`- ${event}: ${callbacks.length} listeners`);
     });
   }
-};
+
+  /**
+   * Remove all listeners for an event
+   * @param event Event name
+   */
+  removeAllListeners(event: string): void {
+    delete this.events[event];
+  }
+}
+
+// Create a singleton instance for global use
+export const EventBus = new EventBusClass();
 
 /**
  * Format a number as currency
@@ -275,3 +308,107 @@ export function detectUserCurrency(): string {
     return 'USD';
   }
 }
+
+/**
+ * Form validation utility functions
+ */
+export const FormValidation = {
+  /**
+   * Validate that a field is not empty
+   * @param value Field value
+   * @param fieldName Name of the field for error message
+   * @returns Error message or undefined if valid
+   */
+  required: (value: unknown, fieldName = 'Field'): string | undefined => {
+    if (value === undefined || value === null || value === '') {
+      return `${fieldName} is required`;
+    }
+    return undefined;
+  },
+
+  /**
+   * Validate that a string has a minimum length
+   * @param value String to validate
+   * @param min Minimum length
+   * @param fieldName Name of the field for error message
+   * @returns Error message or undefined if valid
+   */
+  minLength: (value: string, min: number, fieldName = 'Field'): string | undefined => {
+    if (!value || value.length < min) {
+      return `${fieldName} must be at least ${min} characters`;
+    }
+    return undefined;
+  },
+
+  /**
+   * Validate that a string doesn't exceed maximum length
+   * @param value String to validate
+   * @param max Maximum length
+   * @param fieldName Name of the field for error message
+   * @returns Error message or undefined if valid
+   */
+  maxLength: (value: string, max: number, fieldName = 'Field'): string | undefined => {
+    if (value && value.length > max) {
+      return `${fieldName} must not exceed ${max} characters`;
+    }
+    return undefined;
+  },
+
+  /**
+   * Validate that a numeric value is greater than zero
+   * @param value Number to validate
+   * @param fieldName Name of the field for error message
+   * @returns Error message or undefined if valid
+   */
+  positiveNumber: (value: number | string, fieldName = 'Field'): string | undefined => {
+    const num = typeof value === 'string' ? parseFloat(value) : value;
+    if (isNaN(num)) {
+      return `${fieldName} must be a valid number`;
+    }
+    if (num <= 0) {
+      return `${fieldName} must be greater than zero`;
+    }
+    return undefined;
+  },
+
+  /**
+   * Validate that two fields match
+   * @param value1 First value
+   * @param value2 Second value
+   * @param fieldName Name of the field for error message
+   * @returns Error message or undefined if valid
+   */
+  match: <T>(value1: T, value2: T, fieldName = 'Fields'): string | undefined => {
+    if (value1 !== value2) {
+      return `${fieldName} must match`;
+    }
+    return undefined;
+  },
+
+  /**
+   * Validate an email address format
+   * @param value Email to validate
+   * @returns Error message or undefined if valid
+   */
+  email: (value: string): string | undefined => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!value || !emailRegex.test(value)) {
+      return 'Please enter a valid email address';
+    }
+    return undefined;
+  },
+
+  /**
+   * Run multiple validations and return the first error
+   * @param validations Array of validation functions
+   * @returns First error message or undefined if all validations pass
+   */
+  runValidations: (validations: Array<string | undefined>): string | undefined => {
+    for (const validation of validations) {
+      if (validation) {
+        return validation;
+      }
+    }
+    return undefined;
+  }
+};
