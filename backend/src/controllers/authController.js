@@ -246,8 +246,23 @@ exports.updateUserPreferences = async (req, res) => {
     // Build preferences object with only provided fields
     const preferencesUpdate = {};
     
-    if (currency !== undefined) preferencesUpdate['preferences.currency'] = currency;
-    if (dateFormat !== undefined) preferencesUpdate['preferences.dateFormat'] = dateFormat;
+    if (currency !== undefined) {
+      // Validate currency is in allowed list
+      const allowedCurrencies = ['USD', 'IDR', 'EUR', 'GBP', 'JPY', 'CNY', 'AUD', 'CAD', 'SGD', 'MYR'];
+      if (!allowedCurrencies.includes(currency)) {
+        return apiResponse.badRequest(res, 'Invalid currency');
+      }
+      preferencesUpdate['preferences.currency'] = currency;
+    }
+    
+    if (dateFormat !== undefined) {
+      // Validate dateFormat is in allowed list
+      const allowedDateFormats = ['DD/MM/YYYY', 'MM/DD/YYYY', 'YYYY-MM-DD'];
+      if (!allowedDateFormats.includes(dateFormat)) {
+        return apiResponse.badRequest(res, 'Invalid date format');
+      }
+      preferencesUpdate['preferences.dateFormat'] = dateFormat;
+    }
     
     // If no preferences provided
     if (Object.keys(preferencesUpdate).length === 0) {
