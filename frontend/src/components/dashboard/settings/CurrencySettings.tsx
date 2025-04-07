@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { motion } from 'framer-motion';
 import { DollarSign, Check, ChevronsUpDown } from "lucide-react";
 
@@ -27,6 +27,7 @@ import { Button } from "@/components/ui/button";
 import { currencies } from "@/lib/currencies";
 import useUserSettings from "@/hooks/useUserSettings";
 import { toast } from "sonner";
+import { EventBus } from "@/lib/utils";
 
 // Animation variants for staggered animations
 const fadeIn = {
@@ -51,23 +52,60 @@ export function CurrencySettings() {
   // Initialize currency when settings are loaded
   useEffect(() => {
     if (settings?.currency) {
+      console.log(`[CurrencySettings] Settings currency updated to: ${settings.currency}`);
       setSelectedCurrency(settings.currency);
+      setIsChanged(false);  // Reset changed state
     }
   }, [settings?.currency]);
   
-  const handleCurrencyChange = (value: string) => {
+  // Listen for currency changes from other devices or contexts
+  useEffect(() => {
+    const handleCurrencyChange = (currencyCode: string) => {
+      console.log(`[CurrencySettings] Received currency change event: ${currencyCode}`);
+      setSelectedCurrency(currencyCode);
+      setIsChanged(false);  // Reset changed state as this is from outside
+    };
+    
+    // Listen for both direct currency changes and preference updates
+    EventBus.on('currency:changed', handleCurrencyChange);
+    
+    const handlePreferenceUpdate = (data: { preference: string; value: string }) => {
+      if (data.preference === 'currency') {
+        console.log(`[CurrencySettings] Currency preference updated to: ${data.value}`);
+        handleCurrencyChange(data.value);
+      }
+    };
+    
+    EventBus.on('preference:updated', handlePreferenceUpdate);
+    
+    return () => {
+      EventBus.off('currency:changed', handleCurrencyChange);
+      // Don't remove preference:updated handler with removeAllListeners
+      // as other components might be using it
+      EventBus.off('preference:updated', handlePreferenceUpdate);
+    };
+  }, []);
+  
+  const handleCurrencyChange = useCallback((value: string) => {
+    console.log(`[CurrencySettings] Local currency selection changed to: ${value}`);
     setSelectedCurrency(value);
     setIsChanged(value !== settings?.currency);
-  };
+  }, [settings?.currency]);
   
   const handleSaveCurrency = async () => {
+    if (!isChanged) {
+      console.log('[CurrencySettings] No changes to save');
+      return;
+    }
+    
     setIsSaving(true);
     try {
+      console.log(`[CurrencySettings] Saving currency: ${selectedCurrency}`);
       await updateSettings({ currency: selectedCurrency });
       toast.success("Currency updated successfully");
       setIsChanged(false);
     } catch (error) {
-      console.error("Failed to update currency:", error);
+      console.error("[CurrencySettings] Failed to update currency:", error);
       toast.error("Failed to update currency", {
         description: "Please try again later"
       });

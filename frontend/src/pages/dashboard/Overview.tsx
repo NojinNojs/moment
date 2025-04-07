@@ -14,7 +14,6 @@ import { motion } from "framer-motion";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
-import { useNavigate } from "react-router-dom";
 
 // Import utils
 import { EventBus } from "@/lib/utils";
@@ -153,10 +152,13 @@ const emergencyDirectAssetBalanceUpdate = async (account: Record<string, unknown
 };
 
 export default function Overview() {
-  const navigate = useNavigate();
+  // Remove unused navigate
   const { formatCurrency } = useCurrencyFormat();
   // Add auth context
   const { user } = useAuth();
+
+  // Add refreshTrigger state
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
 
   // State for transaction modal
   const [showTransactionModal, setShowTransactionModal] = useState(false);
@@ -171,7 +173,7 @@ export default function Overview() {
   
   // State for edit transaction
   const [showEditModal, setShowEditModal] = useState(false);
-  const [currentTransactionType, setCurrentTransactionType] = useState<'income' | 'expense'>('income');
+  const [currentTransactionType] = useState<'income' | 'expense'>('income');
   const [currentTransactionId, setCurrentTransactionId] = useState<number | undefined>(undefined);
   
   // State for delete transaction dialog
@@ -180,8 +182,8 @@ export default function Overview() {
   
   // State for transactions
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [isLoadingTransactions, setIsLoadingTransactions] = useState(false);
-  const [transactionsError, setTransactionsError] = useState<string | null>(null);
+  const [isTransactionsLoading, setIsTransactionsLoading] = useState(true);
+  const [, setTransactionsError] = useState<string | null>(null);
 
   // Use refs for scroll state to prevent update loops
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -203,8 +205,8 @@ export default function Overview() {
 
   // Functions for fetching accounts and calculating totals
   const [accounts, setAccounts] = useState<Asset[]>([]);
-  const [isLoadingAccounts, setIsLoadingAccounts] = useState(false);
-  const [accountsError, setAccountsError] = useState<string | null>(null);
+  const [isAccountsLoading, setIsAccountsLoading] = useState(false);
+  const [, setAccountsError] = useState<string | null>(null);
 
   // State for asset transfers
   const [assetTransfers, setAssetTransfers] = useState<AssetTransfer[]>([]);
@@ -218,7 +220,7 @@ export default function Overview() {
 
   // Memoize fetchAccounts to prevent it from causing re-renders
   const fetchAccounts = useCallback(async () => {
-    setIsLoadingAccounts(true);
+    setIsAccountsLoading(true);
     setAccountsError(null);
     
     try {
@@ -243,7 +245,7 @@ export default function Overview() {
         description: "Please try again later",
       });
     } finally {
-      setIsLoadingAccounts(false);
+      setIsAccountsLoading(false);
     }
   }, []);
 
@@ -253,7 +255,7 @@ export default function Overview() {
   }, [fetchAccounts]);
 
   // Fetch asset transfers when component mounts
-  const fetchAssetTransfers = async () => {
+  const fetchAssetTransfers = useCallback(async () => {
     setIsLoadingTransfers(true);
     try {
       const response = await apiService.getAssetTransfers();
@@ -265,15 +267,15 @@ export default function Overview() {
     } finally {
       setIsLoadingTransfers(false);
     }
-  };
+  }, []);
 
   // Fetch asset transfers when component mounts
   useEffect(() => {
     fetchAssetTransfers();
-  }, []);
+  }, [fetchAssetTransfers]);
 
-  // Calculate date range dynamically
-  const getDateRange = () => {
+  // Calculate date range dynamically with useCallback
+  const getDateRange = useCallback(() => {
     const today = new Date();
     const thirtyDaysAgo = new Date(today);
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -294,7 +296,7 @@ export default function Overview() {
         year: 'numeric'
       })
     };
-  };
+  }, []);
 
   // State for financial data
   const [financialData, setFinancialData] = useState({
@@ -761,7 +763,7 @@ export default function Overview() {
 
   // Memoize fetchTransactions to prevent it from causing re-renders
   const fetchTransactions = useCallback(async () => {
-    setIsLoadingTransactions(true);
+    setIsTransactionsLoading(true);
     setTransactionsError(null);
     
     try {
@@ -800,7 +802,7 @@ export default function Overview() {
       setTransactionsError(error instanceof Error ? error.message : "An unknown error occurred");
       console.error("Error fetching transactions:", error);
     } finally {
-      setIsLoadingTransactions(false);
+      setIsTransactionsLoading(false);
     }
   }, []);
 
@@ -818,7 +820,7 @@ export default function Overview() {
   }, [financialData]);
   
   // Memoize our event handlers to prevent infinite re-renders
-  const handleTransactionCreated = useMemo(() => {
+  const _handleTransactionCreated = useMemo(() => {
     return (data: {
       transaction: Transaction, 
       type: 'income' | 'expense', 
@@ -878,7 +880,7 @@ export default function Overview() {
   }, [totalAssets, fetchAccounts]);
     
   // Memoize transaction update handler
-  const handleTransactionUpdated = useMemo(() => {
+  const _handleTransactionUpdated = useMemo(() => {
     return (data: {
       transaction: Transaction,
       originalType?: 'income' | 'expense',
@@ -949,371 +951,9 @@ export default function Overview() {
       }
     };
   }, [totalAssets, fetchAccounts]);
-  
-  // Memoize transaction deletion handler
-  const handleDeletedTransaction = useMemo(() => {
-    return (data: {
-          transaction: Transaction, 
-          type: 'income' | 'expense', 
-          amount: number, 
-          permanent: boolean
-        }) => {
-          console.log('[Overview] Transaction deleted event received:', data);
-          
-          if (data.transaction) {
-            // For permanent delete, remove from our state
-            if (data.permanent) {
-              setTransactions(prev => prev.filter(t => t.id !== data.transaction.id));
-            } 
-            // For soft delete, mark as deleted
-            else {
-              setTransactions(prev => prev.map(t => 
-                t.id === data.transaction.id ? { ...t, isDeleted: true } : t
-              ));
-            }
-            
-        // Update financial data - using ref to avoid re-render loops
-        const prevData = financialDataRef.current;
-        
-              // Remove this transaction from income or expenses totals
-              const currentIncome = data.type === 'income' 
-                ? prevData.income - data.amount 
-                : prevData.income;
-                
-              const currentExpenses = data.type === 'expense' 
-                ? prevData.expenses - data.amount 
-                : prevData.expenses;
-                
-              const currentSavings = Math.max(0, currentIncome - currentExpenses);
-        const currentBalance = totalAssets > 0 ? totalAssets : (currentIncome - currentExpenses);
-        
-        // Only update if values have changed
-        if (
-          currentIncome !== prevData.income ||
-          currentExpenses !== prevData.expenses ||
-          currentSavings !== prevData.savings ||
-          currentBalance !== prevData.balance
-        ) {
-          setFinancialData({
-                ...prevData,
-                income: currentIncome,
-                expenses: currentExpenses,
-                savings: currentSavings,
-            balance: currentBalance,
-            });
-        }
-            
-            // Refresh accounts
-            fetchAccounts();
-          }
-        };
-  }, [totalAssets, fetchAccounts]);
-        
-  // Memoize transaction restoration handler
-  const handleRestoredTransaction = useMemo(() => {
-    return (data: {
-          transaction: Transaction, 
-          type: 'income' | 'expense', 
-          amount: number
-        }) => {
-          console.log('[Overview] Transaction restored event received:', data);
-          
-          if (data.transaction) {
-            // Update transaction in our state (mark as not deleted)
-            setTransactions(prev => {
-              // Check if the transaction exists in our list
-              const existingIndex = prev.findIndex(t => 
-                (t.id && t.id === data.transaction.id) || 
-                (t._id && t._id === data.transaction._id)
-              );
-              
-              if (existingIndex >= 0) {
-                // Create a new array to trigger re-render
-                const updatedTransactions = [...prev];
-                // Update existing transaction (keeping its existing ID if it has one)
-                updatedTransactions[existingIndex] = {
-                  ...data.transaction,
-                  id: prev[existingIndex].id || data.transaction.id,
-                  _id: prev[existingIndex]._id || data.transaction._id,
-                  isDeleted: false
-                };
-                return updatedTransactions;
-              } else {
-                // Add it to the list if it doesn't exist
-                return [{ ...data.transaction, isDeleted: false }, ...prev];
-              }
-            });
-            
-        // Update financial data - using ref to avoid re-render loops
-        const prevData = financialDataRef.current;
-        
-              const currentIncome = data.type === 'income' 
-                ? prevData.income + data.amount 
-                : prevData.income;
-                
-              const currentExpenses = data.type === 'expense' 
-                ? prevData.expenses + data.amount 
-                : prevData.expenses;
-                
-              const currentSavings = Math.max(0, currentIncome - currentExpenses);
-        const currentBalance = totalAssets > 0 ? totalAssets : (currentIncome - currentExpenses);
-        
-        // Only update if values have changed
-        if (
-          currentIncome !== prevData.income ||
-          currentExpenses !== prevData.expenses ||
-          currentSavings !== prevData.savings ||
-          currentBalance !== prevData.balance
-        ) {
-          setFinancialData({
-                ...prevData,
-                income: currentIncome,
-                expenses: currentExpenses,
-                savings: currentSavings,
-            balance: currentBalance,
-            });
-        }
-            
-            // Refresh accounts data
-            fetchAccounts();
-          }
-        };
-  }, [totalAssets, fetchAccounts]);
-
-  // Subscription to transaction events - use more robust import method
-  useEffect(() => {
-    // Set up local variables for cleanup
-    let unsubscribeCreated = () => {};
-    let unsubscribeUpdated = () => {};
-    let unsubscribeDeleted = () => {};
-    let unsubscribeRestored = () => {};
     
-    // Import the event bus safely
-    const importAndSetupListeners = () => {
-      try {
-        console.log('[Overview] Loading TransactionEventBus');
-        
-        // Since we imported at the top of the file, use it directly
-        console.log('[Overview] TransactionEventBus loaded:', EventBus ? 'SUCCESS' : 'FAILED');
-        
-        // Register for events using our memoized handlers to prevent re-renders
-        unsubscribeCreated = EventBus.on('transaction:created', handleTransactionCreated);
-        unsubscribeUpdated = EventBus.on('transaction:updated', handleTransactionUpdated);
-        
-        // Register deletion handlers
-        unsubscribeDeleted = EventBus.on('transaction:softDeleted', 
-          (data: {transaction: Transaction, type: 'income' | 'expense', amount: number}) => 
-            handleDeletedTransaction({ ...data, permanent: false }));
-          
-        EventBus.on('transaction:permanentlyDeleted', 
-          (data: {transaction: Transaction, type: 'income' | 'expense', amount: number}) => 
-            handleDeletedTransaction({ ...data, permanent: true }));
-        
-        // Register restore handler
-        unsubscribeRestored = EventBus.on('transaction:restored', handleRestoredTransaction);
-        
-        console.log('[Overview] Successfully registered all transaction event handlers');
-      } catch (error) {
-        console.error('[Overview] Error setting up transaction event listeners:', error);
-      }
-    };
-    
-    // Setup listeners immediately
-    importAndSetupListeners();
-    
-    // Clean up subscriptions
-    return () => {
-      console.log('[Overview] Cleaning up transaction event listeners');
-      unsubscribeCreated();
-      unsubscribeUpdated();
-      unsubscribeDeleted();
-      unsubscribeRestored();
-    };
-  }, [handleTransactionCreated, handleTransactionUpdated, handleDeletedTransaction, handleRestoredTransaction]);
-
-  // Re-fetch transactions when there's a transaction error
-  useEffect(() => {
-    if (transactionsError) {
-      console.log("Transaction error detected, will retry fetch in 5 seconds");
-      const timer = setTimeout(() => {
-        fetchTransactions();
-      }, 5000);
-      
-      return () => clearTimeout(timer);
-    }
-  }, [transactionsError]);
-
-  // Re-fetch accounts when there's an accounts error
-  useEffect(() => {
-    if (accountsError) {
-      console.log("Accounts error detected, will retry fetch in 5 seconds");
-      const timer = setTimeout(() => {
-        console.log("Retrying account fetch after error");
-        fetchAccounts();
-      }, 5000);
-      
-      return () => clearTimeout(timer);
-    }
-  }, [accountsError, fetchAccounts]);
-
-  // Handle opening transaction modal for editing
-  const handleEditTransaction = async (id: number) => {
-    const transaction = transactions.find(t => t.id === id && !t.isDeleted);
-    if (!transaction) return;
-    
-    console.log("Editing transaction:", transaction);
-    
-    // Set mode to edit first
-    setCurrentTransactionType(transaction.type as 'income' | 'expense');
-    setCurrentTransactionId(id);
-    
-    // Ensure IDs are resolved to objects before opening the edit form
-    if (typeof transaction.account === 'string' && /^[0-9a-f]{24}$/i.test(transaction.account)) {
-      try {
-        const accountResponse = await apiService.getAccountById(transaction.account);
-        if (accountResponse.success && accountResponse.data) {
-          // Update the transaction account with the full object
-          transaction.account = accountResponse.data;
-        }
-      } catch (error) {
-        console.error("Failed to resolve account:", error);
-      }
-    }
-    
-    if (typeof transaction.category === 'string' && /^[0-9a-f]{24}$/i.test(transaction.category)) {
-      try {
-        const categoryResponse = await apiService.getCategoryById(transaction.category);
-        if (categoryResponse.success && categoryResponse.data) {
-          // Update the transaction category with the full object
-          transaction.category = categoryResponse.data;
-        }
-      } catch (error) {
-        console.error("Failed to resolve category:", error);
-      }
-    }
-    
-    // Ensure the date is in YYYY-MM-DD format
-    let formattedDate = transaction.date;
-    if (transaction.date) {
-      try {
-        // Try to parse and format the date
-        const parsedDate = new Date(transaction.date);
-        if (!isNaN(parsedDate.getTime())) {
-          formattedDate = parsedDate.toISOString().split('T')[0]; // YYYY-MM-DD format
-          console.log("Formatted date for edit:", formattedDate);
-        }
-      } catch (error) {
-        console.error("Error formatting date for edit:", error);
-      }
-    }
-    
-    setTransactionAmount(Math.abs(transaction.amount).toString());
-    setTransactionTitle(transaction.title || '');
-    setTransactionCategory(typeof transaction.category === 'object' && transaction.category !== null ? 
-      ((transaction.category)._id || (transaction.category).id || '').toString() : 
-      transaction.category?.toString() || '');
-    setTransactionDescription(transaction.description || '');
-    setTransactionDate(formattedDate);
-    setTransactionAccount(typeof transaction.account === 'object' && transaction.account !== null ? 
-      ((transaction.account)._id || (transaction.account).id || '').toString() : 
-      transaction.account?.toString() || '');
-    
-    console.log("Form data set for edit:", {
-      amount: Math.abs(transaction.amount).toString(),
-      title: transaction.title || '',
-      category: typeof transaction.category === 'object' && transaction.category !== null ? 
-        ((transaction.category)._id || (transaction.category).id || '').toString() : 
-        transaction.category?.toString() || '',
-      description: transaction.description || '',
-      date: formattedDate,
-      account: typeof transaction.account === 'object' && transaction.account !== null ? 
-        ((transaction.account)._id || (transaction.account).id || '').toString() : 
-        transaction.account?.toString() || ''
-    });
-    
-    setFormErrors({});
-    setShowEditModal(true);
-  };
-  
-  // Handle soft delete (mark as deleted but don't remove) - Refactored
-  const handleSoftDelete = useCallback(
-    (id: string | number, isSoftDeleted: boolean) => {
-      // Update the state to mark the transaction as deleted/undeleted
-      setTransactions(prev =>
-        prev.map(t => {
-          if (String(t.id) === String(id) || (t._id && String(t._id) === String(id))) {
-            return { ...t, isDeleted: isSoftDeleted };
-          }
-          return t;
-        })
-      );
-      
-      // Update financial data
-      if (transactions.length > 0) {
-        const transaction = transactions.find(t => 
-          String(t.id) === String(id) || (t._id && String(t._id) === String(id))
-        );
-        
-        if (transaction) {
-          // Calculate the amount to add/remove based on the transaction type and deleted state
-          const amountChange = transaction.amount || 0;
-          
-          // Update the financial data
-          setFinancialData(prevData => {
-            let currentIncome = prevData.income;
-            let currentExpenses = prevData.expenses;
-            
-            if (transaction.type === 'income') {
-              currentIncome = isSoftDeleted ? currentIncome - amountChange : currentIncome + amountChange;
-            } else if (transaction.type === 'expense') {
-              currentExpenses = isSoftDeleted ? currentExpenses - amountChange : currentExpenses + amountChange;
-            }
-            
-            const currentSavings = Math.max(0, currentIncome - currentExpenses);
-            const currentBalance = totalAssets > 0 ? totalAssets : (currentIncome - currentExpenses);
-            
-            return {
-              ...prevData,
-              income: currentIncome,
-              expenses: currentExpenses,
-              savings: currentSavings,
-              balance: currentBalance,
-            };
-          });
-          
-          // Refresh accounts data
-          fetchAccounts();
-        }
-      }
-    },
-    [transactions, totalAssets, setFinancialData, fetchAccounts]
-  );
-  
-  // Handle initiating delete transaction process
-  const handleDeleteTransaction = (id: number | string) => {
-    const transaction = transactions.find(t => t.id === id || t._id === id);
-    if (!transaction) {
-      console.error(`Transaction not found for delete: ${id}`);
-      return;
-    }
-    
-    console.log('Setting transaction to delete:', {
-      id: transaction.id,
-      _id: transaction._id,
-      idType: typeof transaction.id,
-      title: transaction.title
-    });
-    
-    // Open the delete dialog - don't mark as deleted yet
-    setTransactionToDelete(transaction);
-    setShowDeleteDialog(true);
-    
-    // The actual deletion happens when the user confirms in the dialog
-    // and the dialog calls handleSoftDelete
-  };
-  
   // Event handler for the transaction:restored event
-  const handleTransactionRestored = useCallback((data: {
+  const _handleTransactionRestored = useCallback((data: {
     transaction: Transaction,
     type: 'income' | 'expense',
     amount: number
@@ -1348,7 +988,7 @@ export default function Overview() {
     );
     
     // Update financial stats
-    setFinancialData(prevData => {
+            setFinancialData(prevData => {
       let currentIncome = prevData.income;
       let currentExpenses = prevData.expenses;
       
@@ -1357,135 +997,92 @@ export default function Overview() {
       } else if (type === 'expense') {
         currentExpenses = prevData.expenses + amount;
       }
+                
+              const currentSavings = Math.max(0, currentIncome - currentExpenses);
+      const currentBalance = totalAssets > 0 ? totalAssets : (currentIncome - currentExpenses);
+              
+              return {
+                ...prevData,
+                income: currentIncome,
+                expenses: currentExpenses,
+                savings: currentSavings,
+        balance: currentBalance,
+              };
+            });
+            
+    // Refresh accounts data
+            fetchAccounts();
+    
+    toast.success("Transaction restored successfully");
+  }, [totalAssets, fetchAccounts]);
+
+  // Handle soft delete transaction events
+  const _handleTransactionSoftDeleted = useCallback((data: {
+    transaction: Transaction, 
+    type: 'income' | 'expense', 
+    amount: number
+  }) => {
+    console.log('[Overview] Transaction soft deleted event received:', data);
+    
+    if (data.transaction) {
+      // Mark transaction as deleted
+      setTransactions(prev => prev.map(t => 
+        t.id === data.transaction.id ? { ...t, isDeleted: true } : t
+      ));
+      
+      // Update financial data - using ref to avoid re-render loops
+      const prevData = financialDataRef.current;
+      
+      // Update income/expenses based on transaction type
+      const currentIncome = data.type === 'income' 
+        ? prevData.income - data.amount 
+        : prevData.income;
+      
+      const currentExpenses = data.type === 'expense' 
+        ? prevData.expenses - data.amount 
+        : prevData.expenses;
       
       const currentSavings = Math.max(0, currentIncome - currentExpenses);
       const currentBalance = totalAssets > 0 ? totalAssets : (currentIncome - currentExpenses);
       
-      return {
-        ...prevData,
-        income: currentIncome,
-        expenses: currentExpenses,
-        savings: currentSavings,
-        balance: currentBalance,
-      };
-    });
-    
-    // Refresh accounts data
-    fetchAccounts();
-    
-    toast.success("Transaction restored successfully");
-  }, [transactions, totalAssets, setFinancialData, fetchAccounts]);
-  
-  // Update the exported window function type
-  ((window as unknown) as { 
-    handleRestoreTransactionFromOverview: (data: { 
-      transaction: Transaction; 
-      type: "income" | "expense"; 
-      amount: number; 
-    }) => void 
-  })
-  .handleRestoreTransactionFromOverview = handleTransactionRestored;
-
-  // Navigate to transactions page
-  const handleViewAllTransactions = () => {
-    navigate('/dashboard/transactions');
-  };
-
-  // Function to convert AssetTransfer to Transaction format
-  const convertTransfersToTransactions = (transfers: AssetTransfer[]): Transaction[] => {
-    // Buat map untuk menyimpan ID yang sudah dibuat agar tidak ada duplikasi
-    const usedIds = new Set<number>();
-    
-    // Helper function untuk generate ID unik
-    const generateUniqueId = (seed?: string): number => {
-      // Coba generate ID dari seed jika ada
-      let id: number;
-      if (seed) {
-        // Pastikan substring tidak melebihi panjang string asli
-        const substringLength = Math.min(seed.length, 8);
-        const substring = seed.substring(0, substringLength);
-        id = parseInt(substring, 16);
-      } else {
-        // Jika tidak ada seed, generate random ID
-        id = Math.floor(Math.random() * 100000) + 1;
+      // Only update if values have changed
+      if (
+        currentIncome !== prevData.income ||
+        currentExpenses !== prevData.expenses ||
+        currentSavings !== prevData.savings ||
+        currentBalance !== prevData.balance
+      ) {
+        setFinancialData({
+          ...prevData,
+          income: currentIncome,
+          expenses: currentExpenses,
+          savings: currentSavings,
+          balance: currentBalance,
+        });
       }
       
-      // Pastikan ID valid
-      if (isNaN(id) || id === 0 || usedIds.has(id)) {
-        // Jika invalid atau sudah digunakan, generate ID baru
-        id = Math.floor(Math.random() * 100000) + 1;
-        
-        // Pastikan ID baru tidak duplikat (recursive check)
-        while (usedIds.has(id)) {
-          id = Math.floor(Math.random() * 100000) + 1;
-        }
-      }
-      
-      // Tambahkan ke set ID yang sudah digunakan
-      usedIds.add(id);
-      return id;
-    };
+      // Refresh accounts
+      fetchAccounts();
+    }
+  }, [totalAssets, fetchAccounts]);
 
-    return transfers.map(transfer => {
-      // Extract asset names - handling both string IDs and object references
-      const fromAssetName = typeof transfer.fromAsset === 'object' && transfer.fromAsset 
-        ? transfer.fromAsset.name 
-        : 'Unknown';
-        
-      const toAssetName = typeof transfer.toAsset === 'object' && transfer.toAsset
-        ? transfer.toAsset.name
-        : 'Unknown';
-      
-      // Dapatkan ID dari transfer (object ID, string ID, atau property ID)
-      const transferIdStr = String(transfer._id || transfer.id || '');
-      
-      // Generate ID unik untuk transaction
-      const numericId = generateUniqueId(transferIdStr);
-      
-      // Define transfer type as const
-      const transferType = 'transfer' as const;
-      
-      return {
-        id: numericId,
-        title: `Transfer: ${fromAssetName} → ${toAssetName}`,
-        amount: transfer.amount,
-        date: typeof transfer.date === 'string' ? transfer.date : new Date(transfer.date).toISOString().split('T')[0],
-        category: 'Transfer',
-        description: transfer.description || `Transfer from ${fromAssetName} to ${toAssetName}`,
-        account: fromAssetName,
-        transferType, // Use the const defined above
-        fromAsset: fromAssetName,
-        toAsset: toAssetName,
-        type: 'expense', // Default type for display purposes
-        status: 'completed'
-      };
-    });
-  };
-
-  // Combine regular transactions and transfers before displaying
-  const getAllTransactions = useMemo(() => {
-    const transferTransactions = convertTransfersToTransactions(assetTransfers);
+  // Handle permanent delete transaction events
+  const _handleTransactionPermanentlyDeleted = useCallback((data: {
+    transaction: Transaction, 
+    type: 'income' | 'expense', 
+    amount: number
+  }) => {
+    console.log('[Overview] Transaction permanently deleted event received:', data);
     
-    // Filter hanya transaksi yang benar-benar undefined
-    const validTransactions = transactions.filter(t => 
-      t && t.id !== undefined
-    );
-    
-    const combinedTransactions = [...validTransactions, ...transferTransactions];
-    
-    // Sort by date (newest first)
-    return combinedTransactions.sort((a, b) => {
-      return new Date(b.date).getTime() - new Date(a.date).getTime();
-    });
-  }, [transactions, assetTransfers]);
-
-  // Fetch transactions and resolve references
-  useEffect(() => {
-    fetchTransactions();
-  }, [fetchTransactions]);
-
-  // Add a refreshTrigger state if it doesn't exist
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
+    if (data.transaction) {
+      // Completely remove from our state
+      setTransactions(prev => prev.filter(t => t.id !== data.transaction.id));
+      
+      // No need to update financial data as the transaction was already soft deleted
+      // But we'll refresh accounts just in case
+      fetchAccounts();
+    }
+  }, [fetchAccounts]);
 
   // Function to handle permanent deletion event
   const handlePermanentDeleteEvent = useCallback((event: Event) => {
@@ -1555,7 +1152,7 @@ export default function Overview() {
           
           console.log(`Updating balance: ${prev.balance} + ${amount} = ${newBalance}`);
           console.log(`Updating expenses: ${prev.expenses} - ${amount} = ${newExpenses}`);
-          
+      
           return {
             ...prev,
             expenses: newExpenses,
@@ -1616,9 +1213,9 @@ export default function Overview() {
           
           if (!accountObj || !accountObj._id) {
             console.error("❌ Cannot find valid account for transaction:", account);
-            return;
-          }
-          
+      return;
+    }
+    
           console.log("✅ Found account for balance update:", accountObj);
           
           // Calculate the new balance
@@ -1656,14 +1253,14 @@ export default function Overview() {
             
             // Force UI refresh but NO page reload
             setRefreshTrigger(prev => prev + 1);
-          } else {
+        } else {
             console.error("❌ Failed to update asset balance:", updateResult.message);
             
             // Try emergency update
             console.log("🚨 Attempting emergency direct update");
             const emergencySuccess = await emergencyDirectAssetBalanceUpdate(
               accountObj as unknown as Record<string, unknown>, 
-              amount
+            amount
             );
             
             if (emergencySuccess) {
@@ -1902,8 +1499,8 @@ export default function Overview() {
               
               console.log(`Updating balance: ${prev.balance} - ${transaction.amount} = ${newBalance}`);
               console.log(`Updating expenses: ${prev.expenses} + ${transaction.amount} = ${newExpenses}`);
-              
-              return {
+      
+      return {
                 ...prev,
                 expenses: newExpenses,
                 balance: newBalance,
@@ -1911,8 +1508,8 @@ export default function Overview() {
                 expensesPercentage: prev.expensesPercentage,
                 savingsPercentage: prev.savingsPercentage,
                 balancePercentage: prev.balancePercentage
-              };
-            });
+      };
+    });
             
             // Update the account balance if we have account information
             if (transaction.account) {
@@ -2104,6 +1701,166 @@ export default function Overview() {
       console.error("❌ Error updating account balance for restore:", error);
     }
   }, [setAccounts]);
+
+  // Function to convert AssetTransfer to Transaction format
+  const convertTransfersToTransactions = (transfers: AssetTransfer[]): Transaction[] => {
+    // Buat map untuk menyimpan ID yang sudah dibuat agar tidak ada duplikasi
+    const usedIds = new Set<number>();
+    
+    // Helper function untuk generate ID unik
+    const generateUniqueId = (seed?: string): number => {
+      // Coba generate ID dari seed jika ada
+      let id: number;
+      if (seed) {
+        // Pastikan substring tidak melebihi panjang string asli
+        const substringLength = Math.min(seed.length, 8);
+        const substring = seed.substring(0, substringLength);
+        id = parseInt(substring, 16);
+      } else {
+        // Jika tidak ada seed, generate random ID
+        id = Math.floor(Math.random() * 100000) + 1;
+      }
+      
+      // Pastikan ID valid
+      if (isNaN(id) || id === 0 || usedIds.has(id)) {
+        // Jika invalid atau sudah digunakan, generate ID baru
+        id = Math.floor(Math.random() * 100000) + 1;
+        
+        // Pastikan ID baru tidak duplikat (recursive check)
+        while (usedIds.has(id)) {
+          id = Math.floor(Math.random() * 100000) + 1;
+        }
+      }
+      
+      // Tambahkan ke set ID yang sudah digunakan
+      usedIds.add(id);
+      return id;
+    };
+
+    return transfers.map(transfer => {
+      // Extract asset names - handling both string IDs and object references
+      const fromAssetName = typeof transfer.fromAsset === 'object' && transfer.fromAsset 
+        ? transfer.fromAsset.name 
+        : 'Unknown';
+        
+      const toAssetName = typeof transfer.toAsset === 'object' && transfer.toAsset
+        ? transfer.toAsset.name
+        : 'Unknown';
+      
+      // Dapatkan ID dari transfer (object ID, string ID, atau property ID)
+      const transferIdStr = String(transfer._id || transfer.id || '');
+      
+      // Generate ID unik untuk transaction
+      const numericId = generateUniqueId(transferIdStr);
+      
+      // Define transfer type as const
+      const transferType = 'transfer' as const;
+      
+      return {
+        id: numericId,
+        title: `Transfer: ${fromAssetName} → ${toAssetName}`,
+        amount: transfer.amount,
+        date: typeof transfer.date === 'string' ? transfer.date : new Date(transfer.date).toISOString().split('T')[0],
+        category: 'Transfer',
+        description: transfer.description || `Transfer from ${fromAssetName} to ${toAssetName}`,
+        account: fromAssetName,
+        transferType, // Use the const defined above
+        fromAsset: fromAssetName,
+        toAsset: toAssetName,
+        type: 'expense', // Default type for display purposes
+        status: 'completed'
+      };
+    });
+  };
+
+  // Combine regular transactions and transfers before displaying
+  const getAllTransactions = useMemo(() => {
+    const transferTransactions = convertTransfersToTransactions(assetTransfers);
+    
+    // Filter hanya transaksi yang benar-benar undefined
+    const validTransactions = transactions.filter(t => 
+      t && t.id !== undefined
+    );
+    
+    const combinedTransactions = [...validTransactions, ...transferTransactions];
+    
+    // Sort by date (newest first)
+    return combinedTransactions.sort((a, b) => {
+      return new Date(b.date).getTime() - new Date(a.date).getTime();
+    });
+  }, [transactions, assetTransfers]);
+
+  // Navigate to transactions page
+  const handleViewAllTransactions = () => {
+    window.location.href = '/dashboard/transactions';
+  };
+
+  // Function for editing transactions
+  const handleEditTransaction = (id: number) => {
+    const transaction = transactions.find((t) => t.id === id);
+    if (transaction) {
+      setCurrentTransactionId(id);
+      setShowEditModal(true);
+    }
+  };
+
+  // Function for deleting transactions
+  const handleDeleteTransaction = (id: string | number) => {
+    const transaction = transactions.find((t) => 
+      t.id === id || (typeof t.id === 'string' && typeof id === 'string' && t.id === id)
+    );
+    if (transaction) {
+      setTransactionToDelete(transaction);
+      setShowDeleteDialog(true);
+    }
+  };
+
+  // Soft delete handler
+  const handleSoftDelete = (id: string | number, 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    _: boolean
+  ) => {
+    const transaction = transactions.find((t) => 
+      t.id === id || (typeof t.id === 'string' && typeof id === 'string' && t.id === id)
+    );
+    if (transaction) {
+      setTransactionToDelete(transaction);
+      setShowDeleteDialog(true);
+    }
+  };
+
+  // Find the useEffect that sets up and cleans up transaction event listeners
+  useEffect(() => {
+    console.log('[Overview] Loading TransactionEventBus');
+    
+    // Load transaction event listeners
+    const eventBusLoaded = () => {
+      console.log('[Overview] TransactionEventBus loaded: SUCCESS');
+      
+      // Set up event listeners for transaction changes
+      EventBus.on('transaction:created', _handleTransactionCreated);
+      EventBus.on('transaction:updated', _handleTransactionUpdated);
+      EventBus.on('transaction:softDeleted', _handleTransactionSoftDeleted);
+      EventBus.on('transaction:permanentlyDeleted', _handleTransactionPermanentlyDeleted);
+      EventBus.on('transaction:restored', _handleTransactionRestored);
+        
+      console.log('[Overview] Successfully registered all transaction event handlers');
+    };
+    
+    eventBusLoaded();
+    
+    // Clean up event listeners when component unmounts
+    return () => {
+      console.log('[Overview] Cleaning up transaction event listeners');
+      
+      // Use EventBus.off directly with the handler functions
+      EventBus.off('transaction:created', _handleTransactionCreated);
+      EventBus.off('transaction:updated', _handleTransactionUpdated);
+      EventBus.off('transaction:softDeleted', _handleTransactionSoftDeleted);
+      EventBus.off('transaction:permanentlyDeleted', _handleTransactionPermanentlyDeleted);
+      EventBus.off('transaction:restored', _handleTransactionRestored);
+    };
+  }, [_handleTransactionCreated, _handleTransactionUpdated, _handleTransactionSoftDeleted, _handleTransactionPermanentlyDeleted, _handleTransactionRestored]);
 
   return (
     <div className="w-full py-6 lg:py-8">
@@ -2344,7 +2101,7 @@ export default function Overview() {
             {...slideUp}
             transition={{ delay: 0.25, duration: 0.4 }}
           >
-            {transactions.filter(t => !t.isDeleted).length === 0 && !isLoadingTransactions && assetTransfers.length === 0 ? (
+            {transactions.filter(t => !t.isDeleted).length === 0 && !isTransactionsLoading && assetTransfers.length === 0 ? (
               <Card>
                 <CardHeader>
                   <CardTitle>Recent Transactions</CardTitle>
@@ -2365,8 +2122,8 @@ export default function Overview() {
                 groupByDate={true}
                 onViewAllTransactions={handleViewAllTransactions}
                 onEditTransaction={(id) => handleEditTransaction(Number(id))}
-                onDeleteTransaction={(id) => handleDeleteTransaction(Number(id))}
-                isLoading={isLoadingTransactions || isLoadingTransfers}
+                onDeleteTransaction={(id) => handleDeleteTransaction(id)}
+                isLoading={isTransactionsLoading || isLoadingTransfers}
               />
             )}
           </motion.div>
@@ -2406,7 +2163,7 @@ export default function Overview() {
 
           {/* Recent Transactions Section */}
           <motion.div {...slideUp} transition={{ delay: 0.3, duration: 0.4 }}>
-            {transactions.filter(t => !t.isDeleted).length === 0 && !isLoadingTransactions && assetTransfers.length === 0 ? (
+            {transactions.filter(t => !t.isDeleted).length === 0 && !isTransactionsLoading && assetTransfers.length === 0 ? (
               <Card>
                 <CardHeader>
                   <CardTitle>Recent Transactions</CardTitle>
@@ -2427,8 +2184,8 @@ export default function Overview() {
                 groupByDate={true}
                 onViewAllTransactions={handleViewAllTransactions}
                 onEditTransaction={(id) => handleEditTransaction(Number(id))}
-                onDeleteTransaction={(id) => handleDeleteTransaction(Number(id))}
-                isLoading={isLoadingTransactions || isLoadingTransfers}
+                onDeleteTransaction={(id) => handleDeleteTransaction(id)}
+                isLoading={isTransactionsLoading || isLoadingTransfers}
               />
             )}
           </motion.div>
@@ -2457,7 +2214,7 @@ export default function Overview() {
           onDateChange={(value: string) => setTransactionDate(value)}
           onAccountChange={(value: string) => setTransactionAccount(value)}
           accounts={accounts}
-          isLoadingAccounts={isLoadingAccounts}
+          isLoadingAccounts={isAccountsLoading}
         />
         
         {/* Edit Transaction Modal */}
@@ -2682,7 +2439,7 @@ export default function Overview() {
           onDateChange={(value: string) => setTransactionDate(value)}
           onAccountChange={(value: string) => setTransactionAccount(value)}
           accounts={accounts}
-          isLoadingAccounts={isLoadingAccounts}
+          isLoadingAccounts={isAccountsLoading}
         />
         
         {/* Delete Transaction Dialog */}

@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { User, AuthContextType, UserSettings } from './auth-utils';
 import apiService from '@/services/api';
+import websocketService from '@/services/websocket';
 
 // Create auth context
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -67,6 +68,18 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     localStorage.setItem('user', JSON.stringify(userData));
     // Update state
     setUser(userData);
+    
+    // Connect to WebSocket after login
+    if (userData.id) {
+      try {
+        websocketService.connect(userData.id);
+        console.log('WebSocket connection established');
+      } catch (error) {
+        console.error('Failed to establish WebSocket connection:', error);
+        // Optionally show a toast notification to the user
+        toast.warning('Real-time updates might be delayed');
+      }
+    }
   };
 
   // Update user settings
@@ -108,6 +121,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   // Logout function
   const logout = () => {
+    // Disconnect from WebSocket first
+    websocketService.disconnect();
+    
     // Clear localStorage
     localStorage.removeItem('auth_token');
     localStorage.removeItem('user');

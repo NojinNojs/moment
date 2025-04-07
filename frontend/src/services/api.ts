@@ -1394,6 +1394,22 @@ class ApiService {
       return this.handleServiceError<UserSettings>('Failed to update user settings', error);
     }
   }
+
+  /**
+   * Get the current CSRF token
+   * @returns The current CSRF token or null if not available
+   */
+  public getCsrfToken(): string | null {
+    return this.csrfToken;
+  }
+
+  /**
+   * Get the base URL for API requests
+   * @returns The base URL for API requests
+   */
+  public getBaseUrl(): string {
+    return API_URL;
+  }
 }
 
 // Create and export single instance of API service

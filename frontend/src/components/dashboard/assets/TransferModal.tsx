@@ -102,10 +102,10 @@ export function TransferModal({
   useEffect(() => {
     if (!isOpen) return;
     
-    setError("");
-    
+      setError("");
+      
     // If source asset is provided, use it
-    if (sourceAsset) {
+      if (sourceAsset) {
       console.log("Source asset provided:", sourceAsset.name);
       setFromAsset(sourceAsset);
       
@@ -113,7 +113,7 @@ export function TransferModal({
       if (validAssets.length === 2) {
         const sourceId = getAssetId(sourceAsset);
         const otherAsset = validAssets.find(a => getAssetId(a) !== sourceId);
-        
+          
         if (otherAsset) {
           setToAsset(otherAsset);
         } else {
@@ -132,8 +132,8 @@ export function TransferModal({
   const destinationAssets = useMemo(() => {
     if (!fromAsset || !Array.isArray(assets)) return [];
     const fromAssetId = getAssetId(fromAsset);
-    
-    return assets.filter(asset => {
+      
+      return assets.filter(asset => {
       if (!asset) return false;
       return getAssetId(asset) !== fromAssetId && !asset.isDeleted;
     });
@@ -364,7 +364,7 @@ export function TransferModal({
                         )}
                         onClick={() => {
                           onSelect(asset);
-                          setIsOpen(false);
+                            setIsOpen(false);
                         }}
                       >
                         <span className={cn(
@@ -412,7 +412,7 @@ export function TransferModal({
           getAssetIconBg(asset.type)
         )}>
           <AssetIcon className="h-5 w-5 text-white" />
-        </div>
+          </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-baseline justify-between mb-1">
             <p className="text-sm font-medium truncate">{asset.name}</p>
@@ -533,11 +533,11 @@ export function TransferModal({
             {/* Quick Amount Percentage Buttons */}
             <div className="grid grid-cols-4 gap-2 mt-2">
               {[25, 50, 75, 100].map((percentage) => (
-                <Button
+            <Button 
                   key={percentage}
-                  type="button"
-                  variant="outline"
-                  size="sm"
+              type="button" 
+              variant="outline" 
+              size="sm" 
                   onClick={() => setQuickAmount(percentage / 100)}
                   disabled={!fromAsset}
                   className={cn(
@@ -547,7 +547,7 @@ export function TransferModal({
                   )}
                 >
                   {percentage === 100 ? "Max" : `${percentage}%`}
-                </Button>
+            </Button>
               ))}
             </div>
             
@@ -556,8 +556,8 @@ export function TransferModal({
               <div className="text-xs text-muted-foreground flex items-center justify-between">
                 <span>Available:</span>
                 <span className="font-medium">{formatCurrency(fromAsset.balance)}</span>
-              </div>
-            )}
+          </div>
+          )}
           </div>
         </div>
         

@@ -1,6 +1,7 @@
 // This file defines the schema for user data using Mongoose.
 const mongoose = require("mongoose");
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 
 /**
  * @swagger
@@ -27,22 +28,19 @@ const bcrypt = require('bcrypt');
  *           type: string
  *           format: password
  *           description: The user's password (will be hashed)
- *         settings:
+ *         preferences:
  *           type: object
  *           properties:
  *             currency:
  *               type: string
  *               description: The user's preferred currency
- *             language:
+ *             dateFormat:
  *               type: string
- *               description: The user's preferred language
- *             colorMode:
- *               type: string
- *               enum: [light, dark]
- *               description: The user's preferred color mode
- *             notifications:
- *               type: boolean
- *               description: Whether the user wants to receive notifications
+ *               enum: [DD/MM/YYYY, MM/DD/YYYY, YYYY-MM-DD]
+ *               description: The user's preferred date format
+ *         isDeleted:
+ *           type: boolean
+ *           description: Whether the user account is deleted
  *         createdAt:
  *           type: string
  *           format: date
@@ -55,11 +53,9 @@ const bcrypt = require('bcrypt');
  *         name: John Doe
  *         email: john@example.com
  *         password: password123
- *         settings:
+ *         preferences:
  *           currency: USD
- *           language: en
- *           colorMode: light
- *           notifications: true
+ *           dateFormat: DD/MM/YYYY
  */
 
 /**
@@ -68,7 +64,8 @@ const bcrypt = require('bcrypt');
  * @field name - User's full name
  * @field email - User's email (must be unique)
  * @field password - User's hashed password
- * @field settings - User's preferences and settings
+ * @field preferences - User's preferences and settings
+ * @field isDeleted - Whether the user account is deleted
  * @field createdAt - Timestamp when the user was created
  * @field updatedAt - Timestamp when the user was last updated
  */
@@ -76,7 +73,8 @@ const userSchema = new mongoose.Schema({
   name: {
     type: String,
     required: [true, 'Name is required'],
-    trim: true
+    trim: true,
+    maxlength: [50, 'Name cannot exceed 50 characters']
   },
   email: {
     type: String,
@@ -85,33 +83,31 @@ const userSchema = new mongoose.Schema({
     trim: true,
     lowercase: true,
     match: [
-      /^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/,
+      /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/,
       'Please provide a valid email address'
     ]
   },
   password: {
     type: String,
     required: [true, 'Password is required'],
-    minlength: [8, 'Password must be at least 8 characters long']
+    minlength: [8, 'Password must be at least 8 characters long'],
+    select: false // Don't return password in queries by default
   },
-  settings: {
+  preferences: {
     currency: {
       type: String,
-      default: 'USD'
+      default: 'USD',
+      enum: ['USD', 'IDR', 'EUR', 'GBP', 'JPY', 'CNY', 'AUD', 'CAD', 'SGD', 'MYR']
     },
-    language: {
+    dateFormat: {
       type: String,
-      default: 'en'
-    },
-    colorMode: {
-      type: String,
-      enum: ['light', 'dark'],
-      default: 'light'
-    },
-    notifications: {
-      type: Boolean,
-      default: true
+      default: 'DD/MM/YYYY',
+      enum: ['DD/MM/YYYY', 'MM/DD/YYYY', 'YYYY-MM-DD']
     }
+  },
+  isDeleted: {
+    type: Boolean,
+    default: false
   }
 }, {
   timestamps: true // Automatically adds createdAt and updatedAt fields
@@ -121,12 +117,15 @@ const userSchema = new mongoose.Schema({
  * Pre-save hook to hash password before saving to database
  */
 userSchema.pre('save', async function(next) {
-  // Only hash the password if it has been modified (or is new)
-  if (!this.isModified('password')) return next();
-  
+  // Only hash the password if it's modified
+  if (!this.isModified('password')) {
+    return next();
+  }
+
   try {
-    // Generate a salt and hash the password with fewer rounds for better performance
-    const salt = await bcrypt.genSalt(8); // Reduced from 10 to 8 rounds
+    // Generate salt with 10 rounds
+    const salt = await bcrypt.genSalt(10);
+    // Hash the password with the salt
     this.password = await bcrypt.hash(this.password, salt);
     next();
   } catch (error) {
@@ -137,11 +136,24 @@ userSchema.pre('save', async function(next) {
 /**
  * Method to compare password for login validation
  * 
- * @param {string} candidatePassword - The password to compare with the stored hash
+ * @param {string} enteredPassword - The password to compare with the stored hash
  * @returns {boolean} - Whether the password matches
  */
-userSchema.methods.comparePassword = async function(candidatePassword) {
-  return await bcrypt.compare(candidatePassword, this.password);
+userSchema.methods.comparePassword = async function(enteredPassword) {
+  return await bcrypt.compare(enteredPassword, this.password);
+};
+
+/**
+ * Method to generate JWT token
+ * 
+ * @returns {string} - The generated JWT token
+ */
+userSchema.methods.generateAuthToken = function() {
+  return jwt.sign(
+    { id: this._id, email: this.email },
+    process.env.JWT_SECRET,
+    { expiresIn: process.env.JWT_EXPIRE || '30d' }
+  );
 };
 
 const User = mongoose.model("User", userSchema);
