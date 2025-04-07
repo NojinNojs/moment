@@ -2,6 +2,7 @@
  * Centralized utility for validating and processing user preference updates
  * This removes duplication and ensures consistency across different controllers
  */
+const validationUtils = require('./validationUtils');
 
 /**
  * Validates user preference data and builds an update object for MongoDB
@@ -15,8 +16,7 @@ const validateAndBuildPreferenceUpdate = (requestBody) => {
   
   // Validate currency if provided
   if (currency !== undefined) {
-    const allowedCurrencies = ['USD', 'IDR', 'EUR', 'GBP', 'JPY', 'CNY', 'AUD', 'CAD', 'SGD', 'MYR'];
-    if (!allowedCurrencies.includes(currency)) {
+    if (!validationUtils.validateCurrency(currency)) {
       errors.push('Invalid currency');
     } else {
       preferencesUpdate['preferences.currency'] = currency;
@@ -25,8 +25,7 @@ const validateAndBuildPreferenceUpdate = (requestBody) => {
   
   // Validate dateFormat if provided
   if (dateFormat !== undefined) {
-    const allowedDateFormats = ["DD/MM/YYYY", "MM/DD/YYYY", "YYYY-MM-DD"];
-    if (!allowedDateFormats.includes(dateFormat)) {
+    if (!validationUtils.validateDateFormat(dateFormat)) {
       errors.push('Invalid date format');
     } else {
       preferencesUpdate['preferences.dateFormat'] = dateFormat;

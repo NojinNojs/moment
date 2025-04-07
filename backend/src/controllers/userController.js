@@ -4,6 +4,7 @@ const apiResponse = require('../utils/apiResponse');
 const { body, validationResult } = require('express-validator');
 const asyncHandler = require('express-async-handler');
 const { validateAndBuildPreferenceUpdate } = require('../utils/preferenceValidation');
+const validationUtils = require('../utils/validationUtils');
 
 /**
  * Validation middleware for profile updates
@@ -34,11 +35,11 @@ exports.validateUpdateProfile = [
 exports.validateUpdatePreferences = [
   body('currency')
     .optional()
-    .isIn(['USD', 'IDR', 'EUR', 'GBP', 'JPY', 'CNY', 'AUD', 'CAD', 'SGD', 'MYR'])
+    .isIn(validationUtils.allowedCurrencies)
     .withMessage('Currency must be a valid option'),
   body('dateFormat')
     .optional()
-    .isIn(["DD/MM/YYYY", "MM/DD/YYYY", "YYYY-MM-DD"])
+    .isIn(validationUtils.allowedDateFormats)
     .withMessage('Date format must be a valid option'),
   (req, res, next) => {
     const errors = validationResult(req);

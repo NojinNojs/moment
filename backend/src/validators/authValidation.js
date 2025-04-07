@@ -4,6 +4,7 @@
  * This module contains the validation rules for authentication routes.
  */
 const { body } = require('express-validator');
+const validationUtils = require('../utils/validationUtils');
 
 // Validation rules for registration
 const registerValidation = [

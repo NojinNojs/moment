@@ -5,6 +5,7 @@ const apiResponse = require('../utils/apiResponse');
 const mongoose = require('mongoose');
 const { body, validationResult } = require('express-validator');
 const { validateAndBuildPreferenceUpdate } = require('../utils/preferenceValidation');
+const validationUtils = require('../utils/validationUtils');
 
 /**
  * Helper function to generate JWT token
