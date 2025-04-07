@@ -99,7 +99,7 @@ exports.updateUserPreferences = async (req, res) => {
     
     if (dateFormat) {
       // Validate dateFormat is in allowed list
-      const allowedDateFormats = ['DD/MM/YYYY', 'MM/DD/YYYY', 'YYYY-MM-DD'];
+      const allowedDateFormats = ["DD/MM/YYYY", "MM/DD/YYYY", "YYYY-MM-DD"];
       if (!allowedDateFormats.includes(dateFormat)) {
         return apiResponse.badRequest(res, 'Invalid date format');
       }
