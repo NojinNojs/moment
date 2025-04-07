@@ -172,29 +172,9 @@ exports.login = async (req, res) => {
     // This provides an additional layer of security for logins
     // especially when integrating with external auth systems
     if (password) {
-      // Check minimum length
-      if (password.length < 8) {
-        return apiResponse.badRequest(res, 'Password must be at least 8 characters long');
-      }
-      
-      // Check for uppercase letters
-      if (!/[A-Z]/.test(password)) {
-        return apiResponse.badRequest(res, 'Password must contain at least one uppercase letter');
-      }
-      
-      // Check for lowercase letters
-      if (!/[a-z]/.test(password)) {
-        return apiResponse.badRequest(res, 'Password must contain at least one lowercase letter');
-      }
-      
-      // Check for numbers
-      if (!/[0-9]/.test(password)) {
-        return apiResponse.badRequest(res, 'Password must contain at least one number');
-      }
-      
-      // Check for special characters
-      if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
-        return apiResponse.badRequest(res, 'Password must contain at least one special character');
+      const passwordValidation = validationUtils.validatePassword(password);
+      if (!passwordValidation.isValid) {
+        return apiResponse.badRequest(res, passwordValidation.errors[0]);
       }
     }
 
