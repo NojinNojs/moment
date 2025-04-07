@@ -72,7 +72,12 @@ exports.validateLogin = [
     .notEmpty().withMessage('Email is required')
     .isEmail().withMessage('Please provide a valid email address'),
   body('password')
-    .notEmpty().withMessage('Password is required'),
+    .notEmpty().withMessage('Password is required')
+    .isLength({ min: 8 }).withMessage('Password must be at least 8 characters long')
+    .matches(/[A-Z]/).withMessage('Password must contain at least one uppercase letter')
+    .matches(/[a-z]/).withMessage('Password must contain at least one lowercase letter')
+    .matches(/[0-9]/).withMessage('Password must contain at least one number')
+    .matches(/[!@#$%^&*(),.?":{}|<>]/).withMessage('Password must contain at least one special character'),
   (req, res, next) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -160,6 +165,36 @@ exports.login = async (req, res) => {
     if (connectionError) return connectionError;
 
     const { email, password } = req.body;
+
+    // Verify password complexity requirements manually
+    // This provides an additional layer of security for logins
+    // especially when integrating with external auth systems
+    if (password) {
+      // Check minimum length
+      if (password.length < 8) {
+        return apiResponse.badRequest(res, 'Password must be at least 8 characters long');
+      }
+      
+      // Check for uppercase letters
+      if (!/[A-Z]/.test(password)) {
+        return apiResponse.badRequest(res, 'Password must contain at least one uppercase letter');
+      }
+      
+      // Check for lowercase letters
+      if (!/[a-z]/.test(password)) {
+        return apiResponse.badRequest(res, 'Password must contain at least one lowercase letter');
+      }
+      
+      // Check for numbers
+      if (!/[0-9]/.test(password)) {
+        return apiResponse.badRequest(res, 'Password must contain at least one number');
+      }
+      
+      // Check for special characters
+      if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
+        return apiResponse.badRequest(res, 'Password must contain at least one special character');
+      }
+    }
 
     // Find user by email and explicitly select password
     const user = await User.findOne({ email }).select('+password');
