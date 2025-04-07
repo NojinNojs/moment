@@ -5,6 +5,50 @@ const { body, validationResult } = require('express-validator');
 const asyncHandler = require('express-async-handler');
 
 /**
+ * Validation middleware for profile updates
+ */
+exports.validateUpdateProfile = [
+  body('name')
+    .optional()
+    .trim()
+    .isLength({ min: 1, max: 50 })
+    .withMessage('Name must be between 1 and 50 characters'),
+  body('email')
+    .optional()
+    .trim()
+    .isEmail()
+    .withMessage('Please provide a valid email address'),
+  (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return apiResponse.badRequest(res, 'Validation failed', errors.array());
+    }
+    next();
+  }
+];
+
+/**
+ * Validation middleware for preferences updates
+ */
+exports.validateUpdatePreferences = [
+  body('currency')
+    .optional()
+    .isIn(['USD', 'IDR', 'EUR', 'GBP', 'JPY', 'CNY', 'AUD', 'CAD', 'SGD', 'MYR'])
+    .withMessage('Currency must be a valid option'),
+  body('dateFormat')
+    .optional()
+    .isIn(["DD/MM/YYYY", "MM/DD/YYYY", "YYYY-MM-DD"])
+    .withMessage('Date format must be a valid option'),
+  (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return apiResponse.badRequest(res, 'Validation failed', errors.array());
+    }
+    next();
+  }
+];
+
+/**
  * Get user profile
  * @route GET /api/users/profile
  * @access Private
@@ -99,7 +143,7 @@ exports.updateUserPreferences = async (req, res) => {
     
     if (dateFormat) {
       // Validate dateFormat is in allowed list
-      const allowedDateFormats = ["DD/MM/YYYY", "MM/DD/YYYY", "YYYY-MM-DD"];
+      const allowedDateFormats = ['DD/MM/YYYY', 'MM/DD/YYYY', 'YYYY-MM-DD'];
       if (!allowedDateFormats.includes(dateFormat)) {
         return apiResponse.badRequest(res, 'Invalid date format');
       }
