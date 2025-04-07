@@ -8,7 +8,8 @@ import pickle
 import re
 from Sastrawi.Stemmer.StemmerFactory import StemmerFactory
 
-app = FastAPI(title="Indonesian Financial Text Classifier")
+app = FastAPI(title="Indonesian Financial Text Classifier", 
+             description="API for categorizing financial transactions in both Indonesian and English")
 
 MODEL_PATH = "transaction-classifier/model_artifacts/finance_model.h5"
 TOKENIZER_PATH = "transaction-classifier/model_artifacts/tokenizer.pkl"
@@ -47,13 +48,40 @@ def preprocess_text(text):
 
 class PredictionRequest(BaseModel):
     text: str
+    type: str = None  # Transaction type: 'income' or 'expense'
+    
+    class Config:
+        schema_extra = {
+            "example": {
+                "text": "Pembelian di Indomaret", # Indonesian example
+                "type": "expense"
+            }
+        }
 
 class PredictionResponse(BaseModel):
     category: str
     confidence: float
     processed_text: str
+    suggested_categories: list = []  # List of alternative suggestions
+    
+    class Config:
+        schema_extra = {
+            "example": {
+                "category": "Groceries",
+                "confidence": 0.85,
+                "processed_text": "beli indomaret",
+                "suggested_categories": [
+                    {"category": "Groceries", "confidence": 0.85},
+                    {"category": "Shopping", "confidence": 0.10},
+                    {"category": "Food", "confidence": 0.05}
+                ]
+            }
+        }
 
-@app.post("/transaction-classifier", response_model=PredictionResponse)
+@app.post("/transaction-classifier", 
+         response_model=PredictionResponse,
+         summary="Categorize a financial transaction",
+         description="Takes transaction description text in Indonesian or English and returns predicted category with confidence score")
 async def predict(request: PredictionRequest):
     processed_text = preprocess_text(request.text)
     
@@ -61,10 +89,80 @@ async def predict(request: PredictionRequest):
     padded = pad_sequences(seq, maxlen=model.input_shape[1], padding='post')
     
     proba = model.predict(padded, verbose=0)[0]
-    pred_id = np.argmax(proba)
+    
+    # Get top 3 predictions
+    top_indices = proba.argsort()[-3:][::-1]
+    top_categories = [id2label[idx] for idx in top_indices]
+    top_probas = [float(proba[idx]) for idx in top_indices]
+    
+    # Get the most likely prediction
+    pred_id = top_indices[0]
+    
+    # Consider transaction type if provided
+    if request.type and request.type in ['income', 'expense']:
+        # This is a placeholder - in a real implementation, you would
+        # filter categories based on transaction type
+        pass
     
     return {
         "category": id2label[pred_id],
         "confidence": float(proba[pred_id]),
-        "processed_text": processed_text
+        "processed_text": processed_text,
+        "suggested_categories": [
+            {"category": cat, "confidence": conf} 
+            for cat, conf in zip(top_categories, top_probas)
+        ]
+    }
+
+# Add a health check endpoint
+@app.get("/health")
+async def health_check():
+    return {"status": "ok", "message": "Service is running"}
+
+# Add documentation endpoint
+@app.get("/")
+async def api_info():
+    return {
+        "api_name": "Transaction Auto-Categorization API",
+        "version": "1.0",
+        "description": "Categorizes financial transactions based on text description in Indonesian or English",
+        "endpoints": {
+            "/transaction-classifier": "POST - Categorize a transaction",
+            "/health": "GET - Health check"
+        },
+        "supported_languages": ["Indonesian", "English"],
+        "usage_examples": [
+            {
+                "language": "Indonesian",
+                "request": {
+                    "text": "Pembelian di Indomaret",
+                    "type": "expense"
+                }
+            },
+            {
+                "language": "English",
+                "request": {
+                    "text": "Grocery shopping at Walmart",
+                    "type": "expense"
+                }
+            },
+            {
+                "language": "Indonesian",
+                "request": {
+                    "text": "Gaji bulanan",
+                    "type": "income"
+                }
+            }
+        ],
+        "response_format": {
+            "category": "string (predicted category)",
+            "confidence": "float (0-1)",
+            "processed_text": "string (preprocessed text)",
+            "suggested_categories": [
+                {
+                    "category": "string (alternative category)",
+                    "confidence": "float (0-1)"
+                }
+            ]
+        }
     }
