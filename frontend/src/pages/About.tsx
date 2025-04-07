@@ -14,8 +14,8 @@ const About = () => {
       role: "Machine Learning", 
       emoji: "🧠", 
       abbr: "Z",
-      github: null,
-      linkedin: null
+      github: "https://github.com/ZevHadid",
+      linkedin: "https://youtu.be/xvFZjo5PgG0?si=c8XBbrkgv23ZoLsa"
     },
     { 
       name: "Uno Belmiro Ileng", 
@@ -46,7 +46,7 @@ const About = () => {
       role: "Machine Learning", 
       emoji: "📊", 
       abbr: "C",
-      github: null,
+      github: "https://github.com/tienen1707",
       linkedin: null
     },
     { 

@@ -123,55 +123,56 @@ Donasi bencana gempa,Other
 Money from friend for dinner,Other
 Unidentified cash deposit,Other
 Charity donation transfer,Other
-"Pembayaran sewa apartemen bulanan","Rental"
-"Monthly apartment rental payment","Rental"
-"Pendapatan sewa kendaraan","Rental"
-"Vehicle rental income","Rental"
-"Bayaran sewa gedung kantor","Rental"
-"Office space lease payment","Rental"
-"Uang warisan dari orang tua","Inheritance"
-"Inheritance money from parents","Inheritance"
-"Harta warisan keluarga","Inheritance"
-"Family heritage assets","Inheritance"
-"Pembagian warisan","Inheritance"
-"Estate distribution payment","Inheritance"
-"Pensiun dari perusahaan","Pension"
-"Company pension fund","Pension"
-"Dana pensiun bulanan","Pension"
-"Monthly retirement fund","Pension"
-"Pembayaran pensiun","Pension"
-"Pension fund disbursement","Pension"
-"Uang jajan anak kuliah","Allowance"
-"College student allowance","Allowance"
-"Biaya hidup bulanan mahasiswa","Allowance"
-"Monthly living allowance for student","Allowance"
-"Uang saku pekerja lepas","Allowance"
-"Freelancer's stipend","Allowance"
-"Pendapatan bisnis retail","Small Business"
-"Retail business income","Small Business"
-"Keuntungan toko kelontong","Small Business"
-"Grocery store profits","Small Business"
-"Hasil usaha makanan","Small Business"
-"Food business revenue","Small Business"
-"Return saham teknologi","Investment"
-"Tech stock investment return","Investment"
-"Keuntungan reksadana","Investment"
-"Mutual fund gains","Investment"
-"Dividen portofolio","Investment"
-"Investment portfolio dividends","Investment"
-"Bonus target penjualan","Bonus"
-"Sales target bonus","Bonus"
-"Insentif proyek selesai","Bonus"
-"Project completion incentive","Bonus"
-"Bayaran jasa konsultasi","Freelance"
-"Consultation service payment","Freelance"
-"Honorarium narasumber","Freelance"
-"Speaker's honorarium","Freelance"
-"Pengembalian produk cacat","Refund"
-"Defective product refund","Refund"
-"Refund pembelian online","Refund"
-"Online purchase refund","Refund"
-"Hadiah ulang tahun perusahaan","Gift"
-"Company anniversary gift","Gift"
-"Angpao tahun baru","Gift"
-"New year's money gift","Gift"
+Pembayaran sewa apartemen bulanan,Rental
+Monthly apartment rental payment,Rental
+Pendapatan sewa kendaraan,Rental
+Vehicle rental income,Rental
+Bayaran sewa gedung kantor,Rental
+Office space lease payment,Rental
+Uang warisan dari orang tua,Inheritance
+Inheritance money from parents,Inheritance
+Harta warisan keluarga,Inheritance
+Family heritage assets,Inheritance
+Pembagian warisan,Inheritance
+Estate distribution payment,Inheritance
+Pensiun dari perusahaan,Pension
+Company pension fund,Pension
+Dana pensiun bulanan,Pension
+Monthly retirement fund,Pension
+Pembayaran pensiun,Pension
+Pension fund disbursement,Pension
+Uang jajan anak kuliah,Allowance
+College student allowance,Allowance
+Biaya hidup bulanan mahasiswa,Allowance
+Monthly living allowance for student,Allowance
+Uang saku pekerja lepas,Allowance
+Freelancer's stipend,Allowance
+Pendapatan bisnis retail,Small Business
+Retail business income,Small Business
+Keuntungan toko kelontong,Small Business
+Grocery store profits,Small Business
+Hasil usaha makanan,Small Business
+Food business revenue,Small Business
+Return saham teknologi,Investment
+Tech stock investment return,Investment
+Keuntungan reksadana,Investment
+Mutual fund gains,Investment
+Dividen portofolio,Investment
+Investment portfolio dividends,Investment
+Bonus target penjualan,Bonus
+Sales target bonus,Bonus
+Insentif proyek selesai,Bonus
+Project completion incentive,Bonus
+Bayaran jasa konsultasi,Freelance
+Consultation service payment,Freelance
+Honorarium narasumber,Freelance
+Speaker's honorarium,Freelance
+Pengembalian produk cacat,Refund
+Defective product refund,Refund
+Refund pembelian online,Refund
+Online purchase refund,Refund
+Hadiah ulang tahun perusahaan,Gift
+Company anniversary gift,Gift
+Angpao tahun baru,Gift
+New year's money gift,Gift
+Gaji bulan,Salary
