@@ -4,6 +4,7 @@ const User = require('../models/User');
 const apiResponse = require('../utils/apiResponse');
 const mongoose = require('mongoose');
 const { body, validationResult } = require('express-validator');
+const { validateAndBuildPreferenceUpdate } = require('../utils/preferenceValidation');
 
 /**
  * Helper function to generate JWT token
@@ -324,39 +325,23 @@ exports.updateUserPreferences = async (req, res) => {
     const connectionError = checkDbConnection(res);
     if (connectionError) return connectionError;
     
-    // Get preferences from request body
-    const { currency, dateFormat } = req.body;
+    // Use the validation utility to validate and build update object
+    const validationResult = validateAndBuildPreferenceUpdate(req.body);
     
-    // Build preferences object with only provided fields
-    const preferencesUpdate = {};
-    
-    if (currency !== undefined) {
-      // Validate currency is in allowed list
-      const allowedCurrencies = ['USD', 'IDR', 'EUR', 'GBP', 'JPY', 'CNY', 'AUD', 'CAD', 'SGD', 'MYR'];
-      if (!allowedCurrencies.includes(currency)) {
-        return apiResponse.badRequest(res, 'Invalid currency');
-      }
-      preferencesUpdate['preferences.currency'] = currency;
+    // If not valid, send error response
+    if (!validationResult.isValid) {
+      return apiResponse.badRequest(res, validationResult.errors[0]);
     }
     
-    if (dateFormat !== undefined) {
-      // Validate dateFormat is in allowed list
-      const allowedDateFormats = ["DD/MM/YYYY", "MM/DD/YYYY", "YYYY-MM-DD"];
-      if (!allowedDateFormats.includes(dateFormat)) {
-        return apiResponse.badRequest(res, 'Invalid date format');
-      }
-      preferencesUpdate['preferences.dateFormat'] = dateFormat;
-    }
-    
-    // If no preferences provided
-    if (Object.keys(preferencesUpdate).length === 0) {
+    // If no updates, send error
+    if (!validationResult.hasUpdates) {
       return apiResponse.badRequest(res, 'No preferences provided to update');
     }
     
     // Update user preferences
     const user = await User.findByIdAndUpdate(
       req.user.id,
-      { $set: preferencesUpdate },
+      { $set: validationResult.preferencesUpdate },
       { new: true, runValidators: true }
     ).select('preferences');
     
