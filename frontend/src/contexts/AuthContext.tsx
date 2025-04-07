@@ -71,7 +71,14 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     
     // Connect to WebSocket after login
     if (userData.id) {
-      websocketService.connect(userData.id);
+      try {
+        websocketService.connect(userData.id);
+        console.log('WebSocket connection established');
+      } catch (error) {
+        console.error('Failed to establish WebSocket connection:', error);
+        // Optionally show a toast notification to the user
+        toast.warning('Real-time updates might be delayed');
+      }
     }
   };
 
