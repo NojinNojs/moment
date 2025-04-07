@@ -469,6 +469,14 @@ export async function getUserCurrencyPreference(userId?: string): Promise<string
   try {
     console.log('[getUserCurrencyPreference] Checking user currency preference');
     
+    // Valid currency codes for validation
+    const validCurrencies = ['USD', 'IDR', 'EUR', 'GBP', 'JPY', 'CNY', 'AUD', 'CAD', 'SGD', 'MYR'];
+    
+    // Helper function to validate currency
+    const isValidCurrency = (currency: string): boolean => {
+      return validCurrencies.includes(currency);
+    }
+    
     // If user is logged in, try to get preference from server
     if (userId) {
       const token = localStorage.getItem('auth_token');
@@ -489,10 +497,27 @@ export async function getUserCurrencyPreference(userId?: string): Promise<string
           
           if (response.ok) {
             const data = await response.json();
-            if (data.currency) {
-              // Save to localStorage for offline use
-              localStorage.setItem('userCurrency', data.currency);
-              return data.currency;
+            
+            // Validate the server response
+            if (data && typeof data === 'object') {
+              // Check if data has expected structure
+              if (data.currency && typeof data.currency === 'string') {
+                const currency = data.currency.toUpperCase();
+                
+                // Validate currency code
+                if (isValidCurrency(currency)) {
+                  console.log(`[getUserCurrencyPreference] Valid currency from server: ${currency}`);
+                  // Save to localStorage for offline use
+                  localStorage.setItem('userCurrency', currency);
+                  return currency;
+                } else {
+                  console.warn(`[getUserCurrencyPreference] Server returned invalid currency: ${currency}, falling back to default`);
+                }
+              } else {
+                console.warn('[getUserCurrencyPreference] Server response missing currency field or invalid format');
+              }
+            } else {
+              console.warn('[getUserCurrencyPreference] Server response is not a valid object');
             }
           } else {
             // Log error details for debugging
@@ -506,17 +531,22 @@ export async function getUserCurrencyPreference(userId?: string): Promise<string
     
     // Fall back to localStorage
     const savedCurrency = localStorage.getItem('userCurrency');
-    if (savedCurrency) {
-      console.log(`[getUserCurrencyPreference] Using saved currency from localStorage: ${savedCurrency}`);
+    if (savedCurrency && isValidCurrency(savedCurrency)) {
+      console.log(`[getUserCurrencyPreference] Using valid saved currency from localStorage: ${savedCurrency}`);
       return savedCurrency;
+    } else if (savedCurrency) {
+      console.warn(`[getUserCurrencyPreference] Invalid saved currency in localStorage: ${savedCurrency}`);
     }
     
     // If nothing is found, detect based on locale
     const detectedCurrency = detectUserCurrency();
-    console.log(`[getUserCurrencyPreference] No saved preference, using detected currency: ${detectedCurrency}`);
-    // Save the detected currency for future use
-    localStorage.setItem('userCurrency', detectedCurrency);
-    return detectedCurrency;
+    // Additional validation for detected currency
+    const validatedCurrency = isValidCurrency(detectedCurrency) ? detectedCurrency : 'USD';
+    
+    console.log(`[getUserCurrencyPreference] Using ${validatedCurrency === detectedCurrency ? 'detected' : 'fallback'} currency: ${validatedCurrency}`);
+    // Save the validated currency for future use
+    localStorage.setItem('userCurrency', validatedCurrency);
+    return validatedCurrency;
   } catch (error) {
     console.error('[getUserCurrencyPreference] Error getting currency preference:', error);
     return 'USD'; // Default fallback
