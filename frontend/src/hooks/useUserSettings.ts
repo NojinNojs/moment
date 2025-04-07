@@ -87,6 +87,8 @@ export function useUserSettings() {
       // Instead, remove just this specific handler
       const listeners = EventBus.listenerCount('preference:updated');
       console.log(`[useUserSettings] Cleaning up. Current 'preference:updated' listeners: ${listeners}`);
+      EventBus.off('preference:updated', handlePreferenceUpdate);
+      console.log(`[useUserSettings] Removed specific preference:updated handler. Remaining listeners: ${EventBus.listenerCount('preference:updated')}`);
     };
   }, []);
 
