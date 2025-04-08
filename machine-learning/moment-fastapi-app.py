@@ -15,13 +15,26 @@ MODEL_PATH = "transaction-classifier/model_artifacts/finance_model.h5"
 TOKENIZER_PATH = "transaction-classifier/model_artifacts/tokenizer.pkl"
 LABEL_MAPPINGS_PATH = "transaction-classifier/model_artifacts/label_mappings.pkl"
 
-model = load_model(MODEL_PATH)
+# Flag to track if model loaded successfully
+model_loaded = False
 
-with open(TOKENIZER_PATH, 'rb') as handle:
-    tokenizer = pickle.load(handle)
-
-with open(LABEL_MAPPINGS_PATH, 'rb') as handle:
-    label2id, id2label = pickle.load(handle)
+try:
+    model = load_model(MODEL_PATH)
+    
+    with open(TOKENIZER_PATH, 'rb') as handle:
+        tokenizer = pickle.load(handle)
+    
+    with open(LABEL_MAPPINGS_PATH, 'rb') as handle:
+        label2id, id2label = pickle.load(handle)
+    
+    model_loaded = True
+    print("Model and artifacts loaded successfully")
+except Exception as e:
+    print(f"Error loading model or artifacts: {str(e)}")
+    # Initialize empty objects to avoid further errors
+    model = None
+    tokenizer = None
+    label2id, id2label = {}, {}
 
 factory = StemmerFactory()
 lemmatizer = factory.create_stemmer()
@@ -89,12 +102,34 @@ class PredictionResponse(BaseModel):
          summary="Categorize a financial transaction",
          description="Takes transaction description text in Indonesian or English and returns predicted category with confidence score")
 async def predict(request: PredictionRequest):
-    processed_text = preprocess_text(request.text)
-    
-    seq = tokenizer.texts_to_sequences([processed_text])
-    padded = pad_sequences(seq, maxlen=model.input_shape[1], padding='post')
-    
-    proba = model.predict(padded, verbose=0)[0]
+    # Check if model was loaded successfully
+    if not model_loaded:
+        return {
+            "category": "Error",
+            "confidence": 0.0,
+            "processed_text": request.text if hasattr(request, 'text') else "",
+            "suggested_categories": [],
+            "error": "Model not loaded. Please check server logs."
+        }
+        
+    try:
+        processed_text = preprocess_text(request.text)
+        
+        seq = tokenizer.texts_to_sequences([processed_text])
+        padded = pad_sequences(seq, maxlen=model.input_shape[1], padding='post')
+        
+        proba = model.predict(padded, verbose=0)[0]
+    except Exception as e:
+        # Log the error
+        print(f"Error in prediction: {str(e)}")
+        # Return a fallback response with error information
+        return {
+            "category": "Unknown",
+            "confidence": 0.0,
+            "processed_text": request.text if hasattr(request, 'text') else "",
+            "suggested_categories": [],
+            "error": f"An error occurred during prediction: {str(e)}"
+        }
     
     # Get top 3 predictions
     top_indices = proba.argsort()[-3:][::-1]
@@ -150,7 +185,10 @@ async def predict(request: PredictionRequest):
 # Add a health check endpoint
 @app.get("/health")
 async def health_check():
-    return {"status": "ok", "message": "Service is running"}
+    if model_loaded:
+        return {"status": "ok", "message": "Service is running", "model_loaded": True}
+    else:
+        return {"status": "degraded", "message": "Service is running but model is not loaded", "model_loaded": False}
 
 # Add documentation endpoint
 @app.get("/")
