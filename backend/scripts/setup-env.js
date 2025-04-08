@@ -38,7 +38,13 @@ const ENV_PRESETS = {
     ADMIN_PASSWORD: 'Password123!',
     ADMIN_NAME: 'Admin User',
     AUTO_SEED_CATEGORIES: 'true',
-    USE_ADVANCED_CATEGORIES: 'true'
+    USE_ADVANCED_CATEGORIES: 'true',
+    // ML Service Configuration
+    ML_SERVICE_URL: 'http://localhost:8000',
+    ML_REQUEST_TIMEOUT: '5000',
+    ENABLE_ML_CACHE: 'true',
+    ML_CONFIDENCE_THRESHOLD: '0.7',
+    ML_LOGGING: 'true'
   },
   production: {
     NODE_ENV: 'production',
@@ -57,7 +63,13 @@ const ENV_PRESETS = {
     ADMIN_PASSWORD: generateRandomString(12),
     ADMIN_NAME: 'Admin User',
     AUTO_SEED_CATEGORIES: 'true',
-    USE_ADVANCED_CATEGORIES: 'true'
+    USE_ADVANCED_CATEGORIES: 'true',
+    // ML Service Configuration
+    ML_SERVICE_URL: 'http://ml-service:8000', // Usually a Docker service name in production
+    ML_REQUEST_TIMEOUT: '3000',
+    ENABLE_ML_CACHE: 'true',
+    ML_CONFIDENCE_THRESHOLD: '0.75',
+    ML_LOGGING: 'true'
   },
   test: {
     NODE_ENV: 'test',
@@ -76,7 +88,13 @@ const ENV_PRESETS = {
     ADMIN_PASSWORD: 'test_password',
     ADMIN_NAME: 'Test Admin',
     AUTO_SEED_CATEGORIES: 'true',
-    USE_ADVANCED_CATEGORIES: 'false'
+    USE_ADVANCED_CATEGORIES: 'false',
+    // ML Service Configuration
+    ML_SERVICE_URL: 'http://localhost:8000',
+    ML_REQUEST_TIMEOUT: '1000',
+    ENABLE_ML_CACHE: 'false', // Disable cache for tests
+    ML_CONFIDENCE_THRESHOLD: '0.5',
+    ML_LOGGING: 'false'
   }
 };
 
@@ -202,6 +220,14 @@ async function run() {
     console.log('\n📊 Category Configuration');
     config.AUTO_SEED_CATEGORIES = await ask('Auto-seed categories on startup? (true/false)', config.AUTO_SEED_CATEGORIES);
     config.USE_ADVANCED_CATEGORIES = await ask('Use advanced category set? (true/false)', config.USE_ADVANCED_CATEGORIES);
+
+    // ML Service configuration
+    console.log('\n🧠 ML Service Configuration');
+    config.ML_SERVICE_URL = await ask('ML Service URL', config.ML_SERVICE_URL);
+    config.ML_REQUEST_TIMEOUT = await ask('ML Request Timeout (ms)', config.ML_REQUEST_TIMEOUT);
+    config.ENABLE_ML_CACHE = await ask('Enable ML Prediction Cache? (true/false)', config.ENABLE_ML_CACHE);
+    config.ML_CONFIDENCE_THRESHOLD = await ask('ML Confidence Threshold (0.0-1.0)', config.ML_CONFIDENCE_THRESHOLD);
+    config.ML_LOGGING = await ask('Enable ML Specific Logging? (true/false)', config.ML_LOGGING);
 
     // Create the .env file
     const envFilePath = path.join(rootDir, '.env');

@@ -80,7 +80,7 @@ const { apiKeyValidation } = require('../middlewares/apiKeyMiddleware');
  * /transactions:
  *   post:
  *     summary: Create a new transaction
- *     description: Creates a new transaction for the authenticated user
+ *     description: Creates a new transaction for the authenticated user. If useAutoCategory is true, category field is optional and will be auto-assigned.
  *     tags: [Transactions]
  *     security:
  *       - bearerAuth: []
@@ -93,50 +93,95 @@ const { apiKeyValidation } = require('../middlewares/apiKeyMiddleware');
  *             required:
  *               - amount
  *               - type
- *               - category
+ *               - title
  *             properties:
  *               amount:
  *                 type: number
- *                 description: Transaction amount
- *                 example: 125.50
+ *                 description: Transaction amount (must be greater than 0)
+ *                 example: 50.25
  *               type:
  *                 type: string
+ *                 description: Transaction type (income or expense)
  *                 enum: [income, expense]
- *                 description: Transaction type
  *                 example: expense
+ *               useAutoCategory:
+ *                 type: boolean
+ *                 description: When set to true, the system will automatically predict a category based on title and description
+ *                 example: true
  *               category:
  *                 type: string
- *                 description: Transaction category
- *                 example: groceries
+ *                 description: Transaction category (REQUIRED if useAutoCategory is false or not provided)
+ *                 example: Food
+ *               title:
+ *                 type: string
+ *                 description: Transaction title (used for auto-categorization)
+ *                 example: Grocery shopping
  *               description:
  *                 type: string
- *                 description: Transaction description
- *                 example: Weekly grocery shopping
+ *                 description: Additional details about the transaction (helps improve auto-categorization)
+ *                 example: Weekly groceries from Supermarket XYZ
  *               date:
  *                 type: string
  *                 format: date
- *                 description: Transaction date
- *                 example: "2023-03-15"
+ *                 description: Transaction date (defaults to current date if not provided)
+ *                 example: 2023-05-15
+ *               account:
+ *                 type: string
+ *                 description: Account ID associated with the transaction
+ *                 example: 615f5c6e7b419c001f3d48c5
  *     responses:
  *       201:
  *         description: Transaction created successfully
  *         content:
  *           application/json:
  *             schema:
- *               allOf:
- *                 - $ref: '#/components/schemas/SuccessResponse'
- *                 - type: object
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Transaction created successfully
+ *                 data:
+ *                   type: object
  *                   properties:
- *                     message:
- *                       example: Transaction created successfully
- *                     data:
- *                       $ref: '#/components/schemas/Transaction'
+ *                     _id:
+ *                       type: string
+ *                       example: 615f5c6e7b419c001f3d48c5
+ *                     amount:
+ *                       type: number
+ *                       example: 50.25
+ *                     type:
+ *                       type: string
+ *                       example: expense
+ *                     category:
+ *                       type: string
+ *                       example: Food & Dining
+ *                     title:
+ *                       type: string
+ *                       example: Grocery shopping
+ *                     description:
+ *                       type: string
+ *                       example: Weekly groceries from Supermarket XYZ
+ *                     date:
+ *                       type: string
+ *                       example: 2023-05-15T00:00:00.000Z
+ *                     user:
+ *                       type: string
+ *                       example: 615f5c6e7b419c001f3d48c9
+ *                     isAutoCategorizationApplied:
+ *                       type: boolean
+ *                       example: true
+ *                     categoryConfidence:
+ *                       type: number
+ *                       example: 0.92
  *       400:
- *         $ref: '#/components/responses/BadRequestError'
+ *         description: Invalid request
  *       401:
- *         $ref: '#/components/responses/UnauthorizedError'
+ *         description: Not authorized
  *       500:
- *         $ref: '#/components/responses/ServerError'
+ *         description: Server error
  */
 router.post(
   '/',
@@ -152,8 +197,27 @@ router.post(
       .notEmpty().withMessage('Type is required')
       .isIn(['income', 'expense']).withMessage('Type must be either income or expense'),
     
+    body('useAutoCategory')
+      .optional()
+      .isBoolean().withMessage('useAutoCategory must be a boolean'),
+    
+    // Make category required unless useAutoCategory is true
     body('category')
-      .notEmpty().withMessage('Category is required')
+      .custom((value, { req }) => {
+        // If useAutoCategory is explicitly set to true, category is optional
+        if (req.body.useAutoCategory === true) {
+          return true;
+        }
+        // Otherwise category is required
+        if (!value || value.trim() === '') {
+          throw new Error('Category is required when not using auto-categorization');
+        }
+        return true;
+      })
+      .trim(),
+    
+    body('title')
+      .notEmpty().withMessage('Title is required')
       .trim(),
     
     body('description')
