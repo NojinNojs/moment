@@ -1,239 +1,289 @@
-from fastapi import FastAPI
-from pydantic import BaseModel, validator
+from fastapi import FastAPI, HTTPException, status
+from pydantic import BaseModel, validator, Field
+from typing import List, Optional, Dict, Any
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras.models import load_model
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 import pickle
 import re
+import logging
+from datetime import datetime
 from Sastrawi.Stemmer.StemmerFactory import StemmerFactory
 
-app = FastAPI(title="Indonesian Financial Text Classifier", 
-             description="API for categorizing financial transactions in both Indonesian and English")
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
+app = FastAPI(
+    title="Moment Financial Transaction Classifier API",
+    description="API for automatically categorizing financial transactions in Indonesian and English",
+    version="1.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc"
+)
+
+# Constants
 MODEL_PATH = "transaction-classifier/model_artifacts/finance_model.h5"
 TOKENIZER_PATH = "transaction-classifier/model_artifacts/tokenizer.pkl"
 LABEL_MAPPINGS_PATH = "transaction-classifier/model_artifacts/label_mappings.pkl"
 
-# Flag to track if model loaded successfully
+# Model artifacts
 model_loaded = False
+model = None
+tokenizer = None
+label2id = {}
+id2label = {}
 
-try:
-    model = load_model(MODEL_PATH)
-    
-    with open(TOKENIZER_PATH, 'rb') as handle:
-        tokenizer = pickle.load(handle)
-    
-    with open(LABEL_MAPPINGS_PATH, 'rb') as handle:
-        label2id, id2label = pickle.load(handle)
-    
-    model_loaded = True
-    print("Model and artifacts loaded successfully")
-except Exception as e:
-    print(f"Error loading model or artifacts: {str(e)}")
-    # Initialize empty objects to avoid further errors
-    model = None
-    tokenizer = None
-    label2id, id2label = {}, {}
+# Category lists
+INCOME_CATEGORIES = [
+    "Salary", "Freelance", "Investment", "Gift", "Refund", "Bonus", "Allowance",
+    "Holiday Bonus", "Small Business", "Rental", "Dividend", "Pension", "Asset Sale",
+    "Inheritance", "Other"
+]
 
-factory = StemmerFactory()
-lemmatizer = factory.create_stemmer()
+EXPENSE_CATEGORIES = [
+    "Food & Dining", "Transportation", "Housing", "Utilities", "Internet & Phone",
+    "Healthcare", "Entertainment", "Shopping", "Online Shopping", "Travel",
+    "Education", "Children Education", "Debt Payment", "Charitable Giving",
+    "Family Support", "Tax", "Insurance", "Subscriptions", "Personal Care",
+    "Vehicle Maintenance", "Home Furnishing", "Clothing", "Electronics",
+    "Hobbies", "Social Events", "Other"
+]
 
+# Financial terms mapping for preprocessing
 FINANCIAL_TERMS = {
-    "gopay": "gopay", "ovo": "ovo", "dana": "dana", 
+    "gopay": "gopay", "ovo": "ovo", "dana": "dana",
     "bca": "bca", "kpr": "kpr", "pln": "pln",
     "bibit": "investasi", "membership": "member"
 }
 
-def preprocess_text(text):
-    text = text.lower()
-    text = re.sub(r'[^\w\s]', '', text)
-    
-    tokens = []
-    for token in text.split():
-        if token in FINANCIAL_TERMS:
-            tokens.append(FINANCIAL_TERMS[token])
-        else:
-            stemmed = lemmatizer.stem(token)
-            tokens.append(stemmed)
-    
-    return ' '.join(tokens)
+# Response Models
+class CategoryPrediction(BaseModel):
+    category: str = Field(..., description="Predicted category name")
+    confidence: float = Field(..., description="Confidence score between 0 and 1")
+
+class PredictionResponse(BaseModel):
+    status: str = Field(..., description="Response status (success/error)")
+    timestamp: str = Field(..., description="Timestamp of the prediction")
+    request_id: str = Field(..., description="Unique identifier for the request")
+    data: Dict[str, Any] = Field(..., description="Response data containing predictions")
+    metadata: Dict[str, Any] = Field(..., description="Additional metadata about the prediction")
+
+class ErrorResponse(BaseModel):
+    status: str = Field("error", description="Error status")
+    timestamp: str = Field(..., description="Timestamp of the error")
+    error: str = Field(..., description="Error message")
+    details: Optional[str] = Field(None, description="Additional error details")
 
 class PredictionRequest(BaseModel):
-    text: str
-    type: str = None  # Transaction type: 'income' or 'expense'
-    
+    text: str = Field(..., description="Transaction description text", min_length=1)
+    type: Optional[str] = Field(None, description="Transaction type (income/expense)")
+
     @validator('type')
     def validate_type(cls, v):
         if v is not None and v not in ['income', 'expense']:
             raise ValueError("Type must be either 'income', 'expense', or None")
         return v
-    
+
     class Config:
         schema_extra = {
             "example": {
-                "text": "Pembelian di Indomaret", # Indonesian example
+                "text": "Pembelian di Indomaret",
                 "type": "expense"
             }
         }
 
-class PredictionResponse(BaseModel):
-    category: str
-    confidence: float
-    processed_text: str
-    suggested_categories: list = []  # List of alternative suggestions
-    
-    class Config:
-        schema_extra = {
-            "example": {
-                "category": "Groceries",
-                "confidence": 0.85,
-                "processed_text": "beli indomaret",
-                "suggested_categories": [
-                    {"category": "Groceries", "confidence": 0.85},
-                    {"category": "Shopping", "confidence": 0.10},
-                    {"category": "Food", "confidence": 0.05}
-                ]
-            }
-        }
-
-@app.post("/transaction-classifier", 
-         response_model=PredictionResponse,
-         summary="Categorize a financial transaction",
-         description="Takes transaction description text in Indonesian or English and returns predicted category with confidence score")
-async def predict(request: PredictionRequest):
-    # Check if model was loaded successfully
-    if not model_loaded:
-        return {
-            "category": "Error",
-            "confidence": 0.0,
-            "processed_text": request.text if hasattr(request, 'text') else "",
-            "suggested_categories": [],
-            "error": "Model not loaded. Please check server logs."
-        }
-        
+# Initialize model and dependencies
+def initialize_model():
+    global model, tokenizer, label2id, id2label, model_loaded
     try:
+        logger.info("Loading model and artifacts...")
+        model = load_model(MODEL_PATH)
+        
+        with open(TOKENIZER_PATH, 'rb') as handle:
+            tokenizer = pickle.load(handle)
+        
+        with open(LABEL_MAPPINGS_PATH, 'rb') as handle:
+            label2id, id2label = pickle.load(handle)
+        
+        model_loaded = True
+        logger.info("Model and artifacts loaded successfully")
+    except Exception as e:
+        logger.error(f"Error loading model or artifacts: {str(e)}")
+        model_loaded = False
+        raise
+
+# Text preprocessing
+def preprocess_text(text: str) -> str:
+    try:
+        text = text.lower()
+        text = re.sub(r'[^\w\s]', '', text)
+        
+        tokens = []
+        for token in text.split():
+            if token in FINANCIAL_TERMS:
+                tokens.append(FINANCIAL_TERMS[token])
+            else:
+                stemmed = lemmatizer.stem(token)
+                tokens.append(stemmed)
+        
+        return ' '.join(tokens)
+    except Exception as e:
+        logger.error(f"Error in text preprocessing: {str(e)}")
+        raise
+
+# Initialize Sastrawi stemmer
+factory = StemmerFactory()
+lemmatizer = factory.create_stemmer()
+
+# Initialize model on startup
+try:
+    initialize_model()
+except Exception as e:
+    logger.error(f"Failed to initialize model: {str(e)}")
+
+@app.post(
+    "/api/v1/predict",
+    response_model=PredictionResponse,
+    responses={
+        200: {"description": "Successful prediction"},
+        400: {"model": ErrorResponse, "description": "Invalid input"},
+        500: {"model": ErrorResponse, "description": "Server error"}
+    },
+    tags=["Prediction"]
+)
+async def predict_category(request: PredictionRequest):
+    if not model_loaded:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Model not loaded. Please try again later."
+        )
+
+    try:
+        # Generate request ID and timestamp
+        request_id = f"pred_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        timestamp = datetime.now().isoformat()
+
+        # Preprocess text
         processed_text = preprocess_text(request.text)
         
+        # Generate prediction
         seq = tokenizer.texts_to_sequences([processed_text])
         padded = pad_sequences(seq, maxlen=model.input_shape[1], padding='post')
-        
         proba = model.predict(padded, verbose=0)[0]
-    except Exception as e:
-        # Log the error
-        print(f"Error in prediction: {str(e)}")
-        # Return a fallback response with error information
-        return {
-            "category": "Unknown",
-            "confidence": 0.0,
-            "processed_text": request.text if hasattr(request, 'text') else "",
-            "suggested_categories": [],
-            "error": f"An error occurred during prediction: {str(e)}"
+
+        # Get all predictions and sort by probability
+        all_predictions = [(id2label[i], float(p)) for i, p in enumerate(proba)]
+        all_predictions.sort(key=lambda x: x[1], reverse=True)
+
+        # Filter categories based on transaction type
+        if request.type:
+            valid_categories = INCOME_CATEGORIES if request.type == 'income' else EXPENSE_CATEGORIES
+            filtered_predictions = [(cat, conf) for cat, conf in all_predictions if cat in valid_categories]
+            
+            if not filtered_predictions:
+                # Fallback to "Other" category if no matching categories found
+                default_cat = "Other"
+                filtered_predictions = [(default_cat, float(proba[label2id[default_cat]]))]
+            
+            top_predictions = filtered_predictions[:3]
+        else:
+            top_predictions = all_predictions[:3]
+
+        # Prepare response
+        response_data = {
+            "primary_category": {
+                "category": top_predictions[0][0],
+                "confidence": top_predictions[0][1]
+            },
+            "alternative_categories": [
+                {"category": cat, "confidence": conf}
+                for cat, conf in top_predictions[1:]
+            ],
+            "processed_text": processed_text
         }
-    
-    # Get top 3 predictions
-    top_indices = proba.argsort()[-3:][::-1]
-    top_categories = [id2label[idx] for idx in top_indices]
-    top_probas = [float(proba[idx]) for idx in top_indices]
-    
-    # Get the most likely prediction
-    pred_id = top_indices[0]
-    
-    # Consider transaction type if provided
-    if request.type and request.type in ['income', 'expense']:
-        # Filter or adjust categories based on transaction type
-        income_categories = ["Salary", "Freelance", "Investment", "Gift", "Refund", "Bonus", "Allowance", 
-                           "Holiday Bonus", "Small Business", "Rental", "Dividend", "Pension", "Asset Sale", 
-                           "Inheritance", "Other"]
-        
-        expense_categories = ["Food & Dining", "Transportation", "Housing", "Utilities", "Internet & Phone", 
-                             "Healthcare", "Entertainment", "Shopping", "Online Shopping", "Travel", 
-                             "Education", "Children Education", "Debt Payment", "Charitable Giving", 
-                             "Family Support", "Tax", "Insurance", "Subscriptions", "Personal Care", 
-                             "Vehicle Maintenance", "Home Furnishing", "Clothing", "Electronics", 
-                             "Hobbies", "Social Events", "Other"]
-        
-        if request.type == 'income':
-            # Prioritize income categories
-            filtered_indices = [i for i, cat in enumerate(top_categories) if cat in income_categories]
-            if filtered_indices:
-                # Reorder top categories to prioritize income categories
-                top_indices = [top_indices[i] for i in filtered_indices] + [idx for i, idx in enumerate(top_indices) if i not in filtered_indices]
-                top_categories = [id2label[idx] for idx in top_indices]
-                top_probas = [float(proba[idx]) for idx in top_indices]
-                pred_id = top_indices[0]
-        elif request.type == 'expense':
-            # Prioritize expense categories
-            filtered_indices = [i for i, cat in enumerate(top_categories) if cat in expense_categories]
-            if filtered_indices:
-                # Reorder top categories to prioritize expense categories
-                top_indices = [top_indices[i] for i in filtered_indices] + [idx for i, idx in enumerate(top_indices) if i not in filtered_indices]
-                top_categories = [id2label[idx] for idx in top_indices]
-                top_probas = [float(proba[idx]) for idx in top_indices]
-                pred_id = top_indices[0]
-    
+
+        return PredictionResponse(
+            status="success",
+            timestamp=timestamp,
+            request_id=request_id,
+            data=response_data,
+            metadata={
+                "model_version": "1.0.0",
+                "preprocessing_applied": True,
+                "transaction_type": request.type,
+                "language_support": ["Indonesian", "English"]
+            }
+        )
+
+    except Exception as e:
+        logger.error(f"Error processing request: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
+
+@app.get(
+    "/api/v1/health",
+    tags=["System"],
+    responses={
+        200: {"description": "System health information"}
+    }
+)
+async def health_check():
     return {
-        "category": id2label[pred_id],
-        "confidence": float(proba[pred_id]),
-        "processed_text": processed_text,
-        "suggested_categories": [
-            {"category": cat, "confidence": conf} 
-            for cat, conf in zip(top_categories, top_probas)
-        ]
+        "status": "ok" if model_loaded else "degraded",
+        "timestamp": datetime.now().isoformat(),
+        "components": {
+            "model": "healthy" if model_loaded else "unavailable",
+            "api": "healthy"
+        },
+        "version": "1.0.0"
     }
 
-# Add a health check endpoint
-@app.get("/health")
-async def health_check():
-    if model_loaded:
-        return {"status": "ok", "message": "Service is running", "model_loaded": True}
-    else:
-        return {"status": "degraded", "message": "Service is running but model is not loaded", "model_loaded": False}
+@app.get(
+    "/api/v1/categories",
+    tags=["Categories"],
+    responses={
+        200: {"description": "List of available categories"}
+    }
+)
+async def get_categories():
+    return {
+        "income_categories": INCOME_CATEGORIES,
+        "expense_categories": EXPENSE_CATEGORIES
+    }
 
-# Add documentation endpoint
-@app.get("/")
+@app.get("/", tags=["Documentation"])
 async def api_info():
     return {
-        "api_name": "Transaction Auto-Categorization API",
-        "version": "1.0",
-        "description": "Categorizes financial transactions based on text description in Indonesian or English",
+        "name": "Moment Financial Transaction Classifier API",
+        "version": "1.0.0",
+        "description": "Auto-categorization API for financial transactions",
         "endpoints": {
-            "/transaction-classifier": "POST - Categorize a transaction",
-            "/health": "GET - Health check"
-        },
-        "supported_languages": ["Indonesian", "English"],
-        "usage_examples": [
-            {
-                "language": "Indonesian",
-                "request": {
-                    "text": "Pembelian di Indomaret",
-                    "type": "expense"
+            "/api/v1/predict": {
+                "method": "POST",
+                "description": "Predict transaction category",
+                "request_format": {
+                    "text": "string (required)",
+                    "type": "string (optional: 'income' or 'expense')"
                 }
             },
-            {
-                "language": "English",
-                "request": {
-                    "text": "Grocery shopping at Walmart",
-                    "type": "expense"
-                }
+            "/api/v1/health": {
+                "method": "GET",
+                "description": "Check system health"
             },
-            {
-                "language": "Indonesian",
-                "request": {
-                    "text": "Gaji bulanan",
-                    "type": "income"
-                }
+            "/api/v1/categories": {
+                "method": "GET",
+                "description": "Get available categories"
             }
-        ],
-        "response_format": {
-            "category": "string (predicted category)",
-            "confidence": "float (0-1)",
-            "processed_text": "string (preprocessed text)",
-            "suggested_categories": [
-                {
-                    "category": "string (alternative category)",
-                    "confidence": "float (0-1)"
-                }
-            ]
+        },
+        "documentation": {
+            "openapi": "/docs",
+            "redoc": "/redoc"
         }
     }
