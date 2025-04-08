@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from pydantic import BaseModel
+from pydantic import BaseModel, validator
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras.models import load_model
@@ -49,6 +49,12 @@ def preprocess_text(text):
 class PredictionRequest(BaseModel):
     text: str
     type: str = None  # Transaction type: 'income' or 'expense'
+    
+    @validator('type')
+    def validate_type(cls, v):
+        if v is not None and v not in ['income', 'expense']:
+            raise ValueError("Type must be either 'income', 'expense', or None")
+        return v
     
     class Config:
         schema_extra = {
@@ -100,9 +106,28 @@ async def predict(request: PredictionRequest):
     
     # Consider transaction type if provided
     if request.type and request.type in ['income', 'expense']:
-        # This is a placeholder - in a real implementation, you would
-        # filter categories based on transaction type
-        pass
+        # Filter or adjust categories based on transaction type
+        income_categories = ["Salary", "Investment", "Gift", "Other Income"]
+        expense_categories = ["Food", "Transportation", "Housing", "Utilities", "Entertainment", "Shopping", "Groceries"]
+        
+        if request.type == 'income':
+            # Prioritize income categories
+            filtered_indices = [i for i, cat in enumerate(top_categories) if cat in income_categories]
+            if filtered_indices:
+                # Reorder top categories to prioritize income categories
+                top_indices = [top_indices[i] for i in filtered_indices] + [idx for i, idx in enumerate(top_indices) if i not in filtered_indices]
+                top_categories = [id2label[idx] for idx in top_indices]
+                top_probas = [float(proba[idx]) for idx in top_indices]
+                pred_id = top_indices[0]
+        elif request.type == 'expense':
+            # Prioritize expense categories
+            filtered_indices = [i for i, cat in enumerate(top_categories) if cat in expense_categories]
+            if filtered_indices:
+                # Reorder top categories to prioritize expense categories
+                top_indices = [top_indices[i] for i in filtered_indices] + [idx for i, idx in enumerate(top_indices) if i not in filtered_indices]
+                top_categories = [id2label[idx] for idx in top_indices]
+                top_probas = [float(proba[idx]) for idx in top_indices]
+                pred_id = top_indices[0]
     
     return {
         "category": id2label[pred_id],
