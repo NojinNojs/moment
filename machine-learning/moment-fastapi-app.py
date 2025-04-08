@@ -107,8 +107,16 @@ async def predict(request: PredictionRequest):
     # Consider transaction type if provided
     if request.type and request.type in ['income', 'expense']:
         # Filter or adjust categories based on transaction type
-        income_categories = ["Salary", "Investment", "Gift", "Other Income"]
-        expense_categories = ["Food", "Transportation", "Housing", "Utilities", "Entertainment", "Shopping", "Groceries"]
+        income_categories = ["Salary", "Freelance", "Investment", "Gift", "Refund", "Bonus", "Allowance", 
+                           "Holiday Bonus", "Small Business", "Rental", "Dividend", "Pension", "Asset Sale", 
+                           "Inheritance", "Other"]
+        
+        expense_categories = ["Food & Dining", "Transportation", "Housing", "Utilities", "Internet & Phone", 
+                             "Healthcare", "Entertainment", "Shopping", "Online Shopping", "Travel", 
+                             "Education", "Children Education", "Debt Payment", "Charitable Giving", 
+                             "Family Support", "Tax", "Insurance", "Subscriptions", "Personal Care", 
+                             "Vehicle Maintenance", "Home Furnishing", "Clothing", "Electronics", 
+                             "Hobbies", "Social Events", "Other"]
         
         if request.type == 'income':
             # Prioritize income categories
