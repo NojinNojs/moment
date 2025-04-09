@@ -1751,11 +1751,13 @@ export default function Transactions() {
     const deletedCount = getAllTransactions.filter((t) => t.isDeleted).length;
     const activeCount = getAllTransactions.filter((t) => !t.isDeleted).length;
 
-    console.log(`🧩 [TransactionsMonitor] Transactions state updated:`, {
-      total: getAllTransactions.length,
-      active: activeCount,
-      deleted: deletedCount,
-    });
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(`🧩 [TransactionsMonitor] Transactions state updated:`, {
+        total: getAllTransactions.length,
+        active: activeCount,
+        deleted: deletedCount,
+      });
+    }
 
     // Log the first few active and deleted transactions for debugging
     const firstFewActive = getAllTransactions
@@ -1765,7 +1767,7 @@ export default function Transactions() {
       .filter((t) => t.isDeleted)
       .slice(0, 3);
 
-    if (firstFewActive.length > 0) {
+    if (firstFewActive.length > 0 && process.env.NODE_ENV !== 'production') {
       console.log(
         "📝 First few active transactions:",
         firstFewActive.map((t) => ({
@@ -1777,7 +1779,7 @@ export default function Transactions() {
       );
     }
 
-    if (firstFewDeleted.length > 0) {
+    if (firstFewDeleted.length > 0 && process.env.NODE_ENV !== 'production') {
       console.log(
         "🗑️ First few deleted transactions:",
         firstFewDeleted.map((t) => ({
