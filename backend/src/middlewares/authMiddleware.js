@@ -49,31 +49,6 @@ exports.protect = async (req, res, next) => {
 };
 
 /**
- * @desc    Admin middleware - Verify user is an admin
- * @param   {Object} req - Express request object
- * @param   {Object} res - Express response object
- * @param   {Function} next - Express next middleware function
- */
-exports.admin = async (req, res, next) => {
-  try {
-    // Check if user exists and is an admin (based on email)
-    if (!req.user || req.user.email !== process.env.ADMIN_EMAIL) {
-      return apiResponse.forbidden(res, 'Admin access required');
-    }
-    
-    next();
-  } catch (error) {
-    console.error('Admin middleware error:', error);
-    return apiResponse.error(
-      res, 
-      500, 
-      'Server error', 
-      process.env.NODE_ENV === 'development' ? { message: error.message } : null
-    );
-  }
-};
-
-/**
  * @desc    Grant access to specific roles
  * @param   {string[]} roles - Array of allowed roles
  */

@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { protect, admin } = require('../middlewares/authMiddleware');
+const { protect, authorize } = require('../middlewares/authMiddleware');
 const {
   predictCategory,
   getMLServiceHealth,
@@ -11,7 +11,7 @@ const {
 router.post('/predict', protect, predictCategory);
 
 // Route: /api/categories/predict/health
-router.get('/predict/health', protect, admin, getMLServiceHealth);
+router.get('/predict/health', protect, authorize('admin'), getMLServiceHealth);
 
 // Route: /api/categories/ml-categories
 router.get('/ml-categories', protect, getMLCategories);
