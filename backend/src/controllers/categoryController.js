@@ -4,7 +4,7 @@ const asyncHandler = require('express-async-handler');
 
 /**
  * @swagger
- * /api/v1/categories:
+ * /categories:
  *   get:
  *     summary: Get all categories
  *     description: Retrieve a list of all categories. Can be filtered by type (income or expense).
@@ -62,7 +62,7 @@ const getCategories = asyncHandler(async (req, res) => {
 
 /**
  * @swagger
- * /api/v1/categories/{id}:
+ * /categories/{id}:
  *   get:
  *     summary: Get category by ID
  *     description: Retrieve a specific category by its ID
@@ -115,7 +115,7 @@ const getCategoryById = asyncHandler(async (req, res) => {
 
 /**
  * @swagger
- * /api/v1/categories:
+ * /categories:
  *   post:
  *     summary: Create a new category
  *     description: Create a new transaction category
@@ -212,7 +212,7 @@ const createCategory = asyncHandler(async (req, res) => {
 
 /**
  * @swagger
- * /api/v1/categories/{id}:
+ * /categories/{id}:
  *   put:
  *     summary: Update category
  *     description: Update an existing category by ID
@@ -321,7 +321,7 @@ const updateCategory = asyncHandler(async (req, res) => {
 
 /**
  * @swagger
- * /api/v1/categories/{id}:
+ * /categories/{id}:
  *   delete:
  *     summary: Delete category
  *     description: Soft delete a category by setting isDeleted flag to true
@@ -386,7 +386,7 @@ const deleteCategory = asyncHandler(async (req, res) => {
 
 /**
  * @swagger
- * /api/v1/categories/{id}/restore:
+ * /categories/{id}/restore:
  *   patch:
  *     summary: Restore deleted category
  *     description: Restore a soft-deleted category by setting isDeleted flag to false
