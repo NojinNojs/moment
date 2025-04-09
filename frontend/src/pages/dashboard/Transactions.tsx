@@ -228,14 +228,16 @@ export default function Transactions() {
       try {
         const { transaction, wasAlreadySoftDeleted } = customEvent.detail;
 
-        console.log("🗑️ PERMANENT DELETE event received:", {
-          transactionId: transaction.id,
-          _id: transaction._id || "none",
-          title: transaction.title,
-          amount: transaction.amount,
-          type: transaction.type,
-          wasAlreadySoftDeleted,
-        });
+        if (process.env.NODE_ENV !== 'production') {
+          console.log("🗑️ PERMANENT DELETE event received:", {
+            transactionId: transaction.id,
+            _id: transaction._id || "none",
+            title: transaction.title,
+            amount: transaction.amount,
+            type: transaction.type,
+            wasAlreadySoftDeleted,
+          });
+        }
 
         // Update asset balance based on transaction type
         const updateBalance = async () => {
@@ -259,15 +261,17 @@ export default function Transactions() {
                   const amount = Math.abs(transaction.amount);
 
                   // ALWAYS update the balance, regardless of whether it was soft-deleted
-                  console.log(
-                    `💰 ALWAYS adjusting balance for permanent deletion of ${transaction.type} transaction:`,
-                    {
-                      title: transaction.title,
-                      amount,
-                      currentBalance: account.balance,
-                      wasAlreadySoftDeleted,
-                    }
-                  );
+                  if (process.env.NODE_ENV !== 'production') {
+                    console.log(
+                      `💰 ALWAYS adjusting balance for permanent deletion of ${transaction.type} transaction:`,
+                      {
+                        title: transaction.title,
+                        amount,
+                        currentBalance: account.balance,
+                        wasAlreadySoftDeleted,
+                      }
+                    );
+                  }
 
                   // FINANCIAL LOGIC: Same as updateAssetBalanceForTransaction
                   // Example 1: Asset with 100 - expense 30 = 70, then delete expense (+30) = 100 (original)
@@ -276,50 +280,60 @@ export default function Transactions() {
                   if (transaction.type === "income") {
                     // When deleting income: DECREASE the balance (removing the income)
                     newBalance -= amount;
-                    console.log(
-                      `🔻 Decreasing balance by ${amount} for permanently deleted income (${account.balance} - ${amount} = ${newBalance})`
-                    );
+                    if (process.env.NODE_ENV !== 'production') {
+                      console.log(
+                        `🔻 Decreasing balance by ${amount} for permanently deleted income (${account.balance} - ${amount} = ${newBalance})`
+                      );
+                    }
                   } else if (transaction.type === "expense") {
                     // When deleting expense: INCREASE the balance (adding back what was spent)
                     newBalance += amount;
-                    console.log(
-                      `🔺 Increasing balance by ${amount} for permanently deleted expense (${account.balance} + ${amount} = ${newBalance})`
-                    );
+                    if (process.env.NODE_ENV !== 'production') {
+                      console.log(
+                        `🔺 Increasing balance by ${amount} for permanently deleted expense (${account.balance} + ${amount} = ${newBalance})`
+                      );
+                    }
                   }
 
                   // For debug/verification purposes
-                  console.log(
-                    `💵 PERMANENT DELETE RECALCULATION for ${transaction.title}:`
-                  );
-                  if (transaction.type === "income") {
-                    console.log(`  Original balance: ${account.balance}`);
-                    console.log(`  Income amount: ${amount}`);
+                  if (process.env.NODE_ENV !== 'production') {
                     console.log(
-                      `  Permanently deleting income, so: ${
-                        account.balance
-                      } - ${amount} = ${account.balance - amount}`
+                      `💵 PERMANENT DELETE RECALCULATION for ${transaction.title}:`
                     );
-                  } else if (transaction.type === "expense") {
-                    console.log(`  Original balance: ${account.balance}`);
-                    console.log(`  Expense amount: ${amount}`);
-                    console.log(
-                      `  Permanently deleting expense, so: ${
-                        account.balance
-                      } + ${amount} = ${account.balance + amount}`
-                    );
+                    if (transaction.type === "income") {
+                      console.log(`  Original balance: ${account.balance}`);
+                      console.log(`  Income amount: ${amount}`);
+                      console.log(
+                        `  Permanently deleting income, so: ${
+                          account.balance
+                        } - ${amount} = ${account.balance - amount}`
+                      );
+                    } else if (transaction.type === "expense") {
+                      console.log(`  Original balance: ${account.balance}`);
+                      console.log(`  Expense amount: ${amount}`);
+                      console.log(
+                        `  Permanently deleting expense, so: ${
+                          account.balance
+                        } + ${amount} = ${account.balance + amount}`
+                      );
+                    }
                   }
 
                   // Ensure balance is never negative
                   if (newBalance < 0) {
-                    console.warn(
-                      `⚠️ Calculated negative balance (${newBalance}) during permanent deletion, capping at 0`
-                    );
+                    if (process.env.NODE_ENV !== 'production') {
+                      console.warn(
+                        `⚠️ Calculated negative balance (${newBalance}) during permanent deletion, capping at 0`
+                      );
+                    }
                     newBalance = 0;
                   }
 
-                  console.log(
-                    `⚠️ New balance for ${account.name}: ${newBalance} (before: ${account.balance})`
-                  );
+                  if (process.env.NODE_ENV !== 'production') {
+                    console.log(
+                      `⚠️ New balance for ${account.name}: ${newBalance} (before: ${account.balance})`
+                    );
+                  }
 
                   // Update account balance
                   await apiService.updateAsset(accountId.toString(), {
