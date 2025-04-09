@@ -221,6 +221,161 @@ export default function Transactions() {
     fetchTransactions({ resolveReferences: true });
   }, [fetchTransactions]);
 
+  // Utility function for calculating new balance based on transaction type and action
+  const calculateNewBalance = (
+    currentBalance: number,
+    transactionAmount: number,
+    transactionType: string,
+    isReversingEffect: boolean // true when deleting/removing transaction's effect, false when applying/restoring it
+  ): number => {
+    const amount = Math.abs(transactionAmount);
+    let newBalance = currentBalance;
+    
+    if (isReversingEffect) {
+      // REVERSING: When deleting or permanent deleting
+      if (transactionType === "income") {
+        // Removing income: DECREASE balance
+        newBalance -= amount;
+      } else if (transactionType === "expense") {
+        // Removing expense: INCREASE balance
+        newBalance += amount;
+      }
+    } else {
+      // APPLYING: When restoring or creating
+      if (transactionType === "income") {
+        // Adding income: INCREASE balance
+        newBalance += amount;
+      } else if (transactionType === "expense") {
+        // Adding expense: DECREASE balance
+        newBalance -= amount;
+      }
+    }
+    
+    // Ensure balance is never negative
+    if (newBalance < 0) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn(`⚠️ Calculated negative balance (${newBalance}), capping at 0`);
+      }
+      newBalance = 0;
+    }
+    
+    return newBalance;
+  };
+
+  // Helper function to update asset balance for a transaction
+  const updateAssetBalanceForTransaction = async (
+    transaction: Transaction,
+    isDeleting: boolean
+  ) => {
+    if (process.env.NODE_ENV !== 'production') {
+      console.log(
+        `🚨 BALANCE UPDATE: Transaction: ${transaction.title}, isDeleting=${isDeleting}, currentIsDeleted=${transaction.isDeleted}`
+      );
+    }
+
+    try {
+      if (!transaction.account) {
+        if (process.env.NODE_ENV !== 'production') {
+          console.log(
+            "🔴 No account found for transaction, skipping balance update"
+          );
+        }
+        return;
+      }
+
+      // Get the account ID from the transaction
+      const accountId =
+        typeof transaction.account === "object"
+          ? transaction.account.id || transaction.account._id
+          : transaction.account;
+
+      if (!accountId) {
+        if (process.env.NODE_ENV !== 'production') {
+          console.log("🔴 No valid account ID found, skipping balance update");
+        }
+        return;
+      }
+
+      // Fetch the current account data to get accurate balance
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`📊 Fetching current account data for ID: ${accountId}`);
+      }
+      const accountResponse = await apiService.getAccountById(
+        accountId.toString()
+      );
+      if (!accountResponse.success || !accountResponse.data) {
+        console.error("🔴 Failed to fetch account for balance update");
+        return;
+      }
+
+      const account = accountResponse.data;
+      const amount = Math.abs(transaction.amount);
+      const transactionType = transaction.type || "unknown";
+
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`💰 BALANCE CALCULATION for ${transaction.title}:`, {
+          action: isDeleting ? "Deleting" : "Restoring",
+          transactionType,
+          amount,
+          currentBalance: account.balance,
+        });
+      }
+
+      // Calculate new balance using the shared utility function
+      const newBalance = calculateNewBalance(
+        account.balance,
+        transaction.amount,
+        transactionType,
+        isDeleting
+      );
+
+      // For debug/verification purposes
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(`💵 RECALCULATION for ${transaction.title}:`);
+        if (isDeleting && transactionType === "income") {
+          console.log(`  Original balance: ${account.balance}`);
+          console.log(`  Income amount: ${amount}`);
+          console.log(
+            `  Deleting income, so: ${account.balance} - ${amount} = ${
+              account.balance - amount
+            }`
+          );
+        } else if (isDeleting && transactionType === "expense") {
+          console.log(`  Original balance: ${account.balance}`);
+          console.log(`  Expense amount: ${amount}`);
+          console.log(
+            `  Deleting expense, so: ${account.balance} + ${amount} = ${
+              account.balance + amount
+            }`
+          );
+        }
+
+        console.log(`⚠️ BALANCE CHANGE for account ${account.name}:`, {
+          oldBalance: account.balance,
+          newBalance,
+          difference: newBalance - account.balance,
+        });
+      }
+
+      // Update the account balance
+      await apiService.updateAsset(accountId.toString(), {
+        ...account,
+        balance: newBalance,
+      });
+
+      // Refresh accounts to update UI
+      await fetchAccounts();
+      
+      if (process.env.NODE_ENV !== 'production') {
+        console.log(
+          `✅ Balance update complete. New balance for ${account.name}: ${newBalance}`
+        );
+      }
+    } catch (error) {
+      console.error("🔴 Error updating asset balance:", error);
+    }
+  };
+
   // Function to handle permanent delete events
   const handlePermanentDeleteEvent = useCallback(
     (event: Event) => {
@@ -257,7 +412,6 @@ export default function Transactions() {
                 );
                 if (accountResponse.success && accountResponse.data) {
                   const account = accountResponse.data;
-                  let newBalance = account.balance;
                   const amount = Math.abs(transaction.amount);
 
                   // ALWAYS update the balance, regardless of whether it was soft-deleted
@@ -273,27 +427,14 @@ export default function Transactions() {
                     );
                   }
 
-                  // FINANCIAL LOGIC: Same as updateAssetBalanceForTransaction
-                  // Example 1: Asset with 100 - expense 30 = 70, then delete expense (+30) = 100 (original)
-                  // Example 2: Asset with 100 + income 30 = 130, then delete income (-30) = 100 (original)
-
-                  if (transaction.type === "income") {
-                    // When deleting income: DECREASE the balance (removing the income)
-                    newBalance -= amount;
-                    if (process.env.NODE_ENV !== 'production') {
-                      console.log(
-                        `🔻 Decreasing balance by ${amount} for permanently deleted income (${account.balance} - ${amount} = ${newBalance})`
-                      );
-                    }
-                  } else if (transaction.type === "expense") {
-                    // When deleting expense: INCREASE the balance (adding back what was spent)
-                    newBalance += amount;
-                    if (process.env.NODE_ENV !== 'production') {
-                      console.log(
-                        `🔺 Increasing balance by ${amount} for permanently deleted expense (${account.balance} + ${amount} = ${newBalance})`
-                      );
-                    }
-                  }
+                  // Calculate new balance using the shared utility function
+                  // For permanent delete, we always need to reverse the transaction effect
+                  const newBalance = calculateNewBalance(
+                    account.balance,
+                    transaction.amount,
+                    transaction.type,
+                    true // isReversingEffect = true for permanent deletion
+                  );
 
                   // For debug/verification purposes
                   if (process.env.NODE_ENV !== 'production') {
@@ -317,19 +458,7 @@ export default function Transactions() {
                         } + ${amount} = ${account.balance + amount}`
                       );
                     }
-                  }
 
-                  // Ensure balance is never negative
-                  if (newBalance < 0) {
-                    if (process.env.NODE_ENV !== 'production') {
-                      console.warn(
-                        `⚠️ Calculated negative balance (${newBalance}) during permanent deletion, capping at 0`
-                      );
-                    }
-                    newBalance = 0;
-                  }
-
-                  if (process.env.NODE_ENV !== 'production') {
                     console.log(
                       `⚠️ New balance for ${account.name}: ${newBalance} (before: ${account.balance})`
                     );
@@ -387,161 +516,6 @@ export default function Transactions() {
       );
     };
   }, [handlePermanentDeleteEvent]);
-
-  // Helper function to update asset balance for a transaction
-  const updateAssetBalanceForTransaction = async (
-    transaction: Transaction,
-    isDeleting: boolean
-  ) => {
-    console.log(
-      `🚨 BALANCE UPDATE: Transaction: ${transaction.title}, isDeleting=${isDeleting}, currentIsDeleted=${transaction.isDeleted}`
-    );
-
-    try {
-      if (!transaction.account) {
-        console.log(
-          "🔴 No account found for transaction, skipping balance update"
-        );
-        return;
-      }
-
-      // Get the account ID from the transaction
-      const accountId =
-        typeof transaction.account === "object"
-          ? transaction.account.id || transaction.account._id
-          : transaction.account;
-
-      if (!accountId) {
-        console.log("🔴 No valid account ID found, skipping balance update");
-        return;
-      }
-
-      // Fetch the current account data to get accurate balance
-      console.log(`📊 Fetching current account data for ID: ${accountId}`);
-      const accountResponse = await apiService.getAccountById(
-        accountId.toString()
-      );
-      if (!accountResponse.success || !accountResponse.data) {
-        console.error("🔴 Failed to fetch account for balance update");
-        return;
-      }
-
-      const account = accountResponse.data;
-      let newBalance = account.balance;
-      const amount = Math.abs(transaction.amount);
-      const transactionType = transaction.type || "unknown";
-
-      console.log(`💰 BALANCE CALCULATION for ${transaction.title}:`, {
-        action: isDeleting ? "Deleting" : "Restoring",
-        transactionType,
-        amount,
-        currentBalance: account.balance,
-      });
-
-      // When isDeleting=true, we're marking a transaction as deleted (soft delete)
-      // When isDeleting=false, we're restoring a deleted transaction
-
-      // FINANCIAL LOGIC:
-      // Example 1: Asset with 100 - expense 30 = 70, then delete expense (+30) = 100 (original)
-      // Example 2: Asset with 100 + income 30 = 130, then delete income (-30) = 100 (original)
-
-      if (isDeleting) {
-        // DELETING TRANSACTION: Reverse its effect on the balance
-        if (transactionType === "income") {
-          // When deleting income: DECREASE the balance (removing the income)
-          console.log(
-            `🔻 Deleting INCOME (${
-              transaction.title
-            }): Decreasing balance by ${amount} (${
-              account.balance
-            } - ${amount} = ${account.balance - amount})`
-          );
-          newBalance -= amount;
-        } else if (transactionType === "expense") {
-          // When deleting expense: INCREASE the balance (adding back what was spent)
-          console.log(
-            `🔺 Deleting EXPENSE (${
-              transaction.title
-            }): Increasing balance by ${amount} (${
-              account.balance
-            } + ${amount} = ${account.balance + amount})`
-          );
-          newBalance += amount;
-        }
-      } else {
-        // RESTORING TRANSACTION: Apply its original effect on the balance
-        if (transactionType === "income") {
-          // When restoring income: INCREASE the balance (adding the income back)
-          console.log(
-            `🔺 Restoring INCOME (${
-              transaction.title
-            }): Increasing balance by ${amount} (${
-              account.balance
-            } + ${amount} = ${account.balance + amount})`
-          );
-          newBalance += amount;
-        } else if (transactionType === "expense") {
-          // When restoring expense: DECREASE the balance (applying the expense again)
-          console.log(
-            `🔻 Restoring EXPENSE (${
-              transaction.title
-            }): Decreasing balance by ${amount} (${
-              account.balance
-            } - ${amount} = ${account.balance - amount})`
-          );
-          newBalance -= amount;
-        }
-      }
-
-      // For debug/verification purposes
-      console.log(`💵 RECALCULATION for ${transaction.title}:`);
-      if (isDeleting && transactionType === "income") {
-        console.log(`  Original balance: ${account.balance}`);
-        console.log(`  Income amount: ${amount}`);
-        console.log(
-          `  Deleting income, so: ${account.balance} - ${amount} = ${
-            account.balance - amount
-          }`
-        );
-      } else if (isDeleting && transactionType === "expense") {
-        console.log(`  Original balance: ${account.balance}`);
-        console.log(`  Expense amount: ${amount}`);
-        console.log(
-          `  Deleting expense, so: ${account.balance} + ${amount} = ${
-            account.balance + amount
-          }`
-        );
-      }
-
-      // Ensure balance is never negative
-      if (newBalance < 0) {
-        console.warn(
-          `⚠️ Calculated negative balance (${newBalance}), capping at 0`
-        );
-        newBalance = 0;
-      }
-
-      console.log(`⚠️ BALANCE CHANGE for account ${account.name}:`, {
-        oldBalance: account.balance,
-        newBalance,
-        difference: newBalance - account.balance,
-      });
-
-      // Update the account balance
-      await apiService.updateAsset(accountId.toString(), {
-        ...account,
-        balance: newBalance,
-      });
-
-      // Refresh accounts to update UI
-      await fetchAccounts();
-      console.log(
-        `✅ Balance update complete. New balance for ${account.name}: ${newBalance}`
-      );
-    } catch (error) {
-      console.error("🔴 Error updating asset balance:", error);
-    }
-  };
 
   // Set up event listeners to update data when transactions change
   useEffect(() => {
