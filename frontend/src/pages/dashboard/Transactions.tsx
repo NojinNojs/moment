@@ -808,22 +808,20 @@ export default function Transactions() {
       }
     }
 
-    if (
-      typeof transaction.category === "string" &&
-      /^[0-9a-f]{24}$/i.test(transaction.category)
-    ) {
-      try {
-        const categoryResponse = await apiService.getCategoryById(
-          transaction.category
-        );
-        if (categoryResponse.success && categoryResponse.data) {
-          // Update the transaction category with the full object
-          (transaction as Transaction).category =
-            categoryResponse.data as CategoryObject;
-        }
-      } catch (error) {
-        console.error("Failed to resolve category:", error);
+    try {
+      const categoryId = String(transaction.category);
+      const categoryResponse = await apiService.getCategoryById(
+        categoryId
+      );
+      if (categoryResponse.success && categoryResponse.data) {
+        // Update the transaction category with the full object
+        (transaction as Transaction).category =
+          categoryResponse.data as CategoryObject;
       }
+    } catch (error) {
+      console.error("Failed to resolve category:", error);
+      // When failing to resolve category, at least keep it as a string ID
+      (transaction as Transaction).category = String(transaction.category);
     }
 
     // Now proceed with the edit as before
