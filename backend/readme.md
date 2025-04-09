@@ -9,6 +9,7 @@ A modern RESTful API built with Express.js, MongoDB, and JWT authentication, des
 - [Getting Started](#getting-started)
   - [Prerequisites](#prerequisites)
   - [Installation](#installation)
+  - [Development Setup](#development-setup)
   - [Environment Setup](#environment-setup)
   - [Database Setup](#database-setup)
   - [Running the API](#running-the-api)
@@ -91,7 +92,57 @@ The Moment API is the backend service for the Moment personal finance applicatio
    # Then edit .env with your preferred settings
    ```
 
-### Database Setup
+### Development Setup
+
+1. **IDE Configuration**
+   - We recommend using VS Code with the following extensions:
+     - ESLint
+     - Prettier
+     - REST Client
+     - MongoDB for VS Code
+
+2. **Development Tools Setup**
+   - Install nodemon globally for faster development:
+     ```bash
+     npm install -g nodemon
+     ```
+   - Configure Git hooks for consistent code quality:
+     ```bash
+     npm run prepare
+     ```
+     This will set up husky pre-commit hooks to lint and format code.
+
+3. **Local Development Configuration**
+   - For local development, adjust the following settings in your `.env`:
+     ```
+     NODE_ENV=development
+     LOG_LEVEL=debug
+     CORS_ORIGIN=http://localhost:3000,http://localhost:5173
+     TRUST_PROXY=false
+     ```
+
+4. **API Testing Tools**
+   - For testing API endpoints, consider using:
+     - Postman
+     - Insomnia
+     - VS Code REST Client extension
+   - Import our Postman collection from the `scripts/postman` directory for quick testing
+
+5. **Debugging Setup**
+   - Configure your debugger for Node.js in VS Code:
+     ```json
+     {
+       "type": "node",
+       "request": "launch",
+       "name": "Launch API",
+       "program": "${workspaceFolder}/src/server.js",
+       "env": {
+         "NODE_ENV": "development"
+       }
+     }
+     ```
+
+### Environment Setup
 
 1. **Connect to MongoDB**
    
