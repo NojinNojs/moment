@@ -420,6 +420,22 @@ export default function Assets() {
     setShowAddAssetModal(true);
   };
 
+  // Handle soft delete of an asset (temporary delete with undo option)
+  const handleSoftDelete = (assetToUpdate: Asset, isDeleted: boolean) => {
+    // Update local state to mark asset as deleted/restored
+    setAssets(prevAssets => 
+      prevAssets.map(asset => {
+        const assetId = asset.id || asset._id;
+        const updateId = assetToUpdate.id || assetToUpdate._id;
+        
+        if (assetId === updateId) {
+          return { ...asset, isDeleted };
+        }
+        return asset;
+      })
+    );
+  };
+
   return (
     <div className="min-h-screen bg-background pb-16 lg:pb-0">
       <div className="py-6 lg:py-8">
@@ -585,6 +601,7 @@ export default function Assets() {
           open={showDeleteDialog}
           onOpenChange={setShowDeleteDialog}
           onConfirm={handleConfirmDelete}
+          onSoftDelete={handleSoftDelete}
         />
       )}
     </div>
