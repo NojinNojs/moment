@@ -1,100 +1,152 @@
-# Machine Learning API Documentation
+# Moment Financial Transaction Classifier API
 
-## 1. API Endpoints
+![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)
+![Python](https://img.shields.io/badge/python-3.8+-brightgreen.svg)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.95+-ff69b4.svg)
 
-### Transaction Classifier
-**Endpoint:** `http://127.0.0.1:8000/transaction-classifier`
+A powerful machine learning API for automatically categorizing financial transactions in both Indonesian and English languages. Built with FastAPI and TensorFlow, this API provides accurate transaction categorization with confidence scores and alternative suggestions.
 
+## 📚 Table of Contents
+- [Features](#features)
+- [Quick Start](#quick-start)
+- [API Documentation](#api-documentation)
+- [Development Setup](#development-setup)
+- [API Endpoints](#api-endpoints)
+- [Supported Categories](#supported-categories)
+- [Contributing](#contributing)
+
+## ✨ Features
+- Bilingual support (Indonesian and English)
+- Smart transaction categorization
+- Multiple category suggestions with confidence scores
+- Standardized API responses with request tracking
+- Comprehensive error handling
+- Interactive API documentation
+- Health monitoring endpoint
+- Robust input validation
+
+## 🚀 Quick Start
+
+### Prerequisites
+- Python 3.8 or higher
+- pip (Python package manager)
+- Virtual environment (recommended)
+
+### Installation
+1. Clone the repository
+2. Set up virtual environment:
+   ```bash
+   # Windows
+   python -m venv venv
+   venv\Scripts\activate
+
+   # macOS/Linux
+   python3 -m venv venv
+   source venv/bin/activate
+   ```
+3. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+4. Run the API:
+   ```bash
+   uvicorn moment-fastapi-app:app --host 0.0.0.0 --port 8000 --reload
+   ```
+
+## 📖 API Documentation
+
+### Interactive Documentation
+- Swagger UI: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
+- ReDoc: [http://127.0.0.1:8000/redoc](http://127.0.0.1:8000/redoc)
+
+## 🛠 API Endpoints
+
+### 1. Predict Transaction Category
+**Endpoint:** `/api/v1/predict`  
 **Method:** `POST`
 
-**Request Body:**
 ```json
+// Request Body
 {
-  "text": "string",       // Required: Transaction description
-  "type": "string"        // Optional: Transaction type ('income' or 'expense')
+    "text": "string",       // Required: Transaction description
+    "type": "string"        // Optional: 'income' or 'expense'
 }
-```
 
-**Response:**
-```json
+// Response
 {
-  "category": "string",           // Most likely category
-  "confidence": 0.0,              // Confidence score (0-1)
-  "processed_text": "string",     // Preprocessed text
-  "suggested_categories": [       // Alternative suggestions
-    {
-      "category": "string",
-      "confidence": 0.0
+    "status": "success",
+    "timestamp": "2024-03-21T12:34:56.789Z",
+    "request_id": "pred_20240321_123456",
+    "data": {
+        "primary_category": {
+            "category": "string",
+            "confidence": 0.95
+        },
+        "alternative_categories": [
+            {
+                "category": "string",
+                "confidence": 0.85
+            }
+        ],
+        "processed_text": "string"
+    },
+    "metadata": {
+        "model_version": "1.0.0",
+        "preprocessing_applied": true,
+        "language_support": ["Indonesian", "English"]
     }
-  ]
 }
 ```
 
-### Health Check
-**Endpoint:** `http://127.0.0.1:8000/health`
-
+### 2. Get Available Categories
+**Endpoint:** `/api/v1/categories`  
 **Method:** `GET`
 
-**Response:**
-```json
-{
-  "status": "ok",
-  "message": "Service is running"
-}
-```
+Returns lists of supported income and expense categories.
 
-### API Documentation
-**Endpoint:** `http://127.0.0.1:8000`
-
+### 3. Health Check
+**Endpoint:** `/api/v1/health`  
 **Method:** `GET`
 
-Returns information about available endpoints and example usage.
+Monitors API health status and component availability.
 
-## 2. How To Setup A Virtual Environment
-Virtual environments are important in Python to help prevent conflicts between libraries and tools.
+## 🎯 Supported Categories
 
-### **Windows**
-```sh
-python -m venv venv  # Creates the virtual environment
-venv\Scripts\activate  # Activates the virtual environment
-```
+### Income Categories
+- Salary
+- Freelance
+- Investment
+- Gift
+- Refund
+- And more...
 
-### **macOS/Linux**
-```sh
-python3 -m venv venv  # Creates the virtual environment
-source venv/bin/activate  # Activates the virtual environment
-```
+### Expense Categories
+- Food & Dining
+- Transportation
+- Housing
+- Utilities
+- Healthcare
+- And more...
 
-## 3. Dependencies
-Install all required dependencies using:
-```sh
-pip install -r requirements.txt
-```
+## 🤝 Contributing
+Contributions are welcome! Please feel free to submit a Pull Request.
 
-## 4. How To Run The API
-Run the API using uvicorn with:
+## ⚠️ Important Notes
+1. Always activate your virtual environment before running the API
+2. Keep dependencies up to date
+3. Check the API health endpoint before making predictions
+4. Use appropriate error handling in your applications
 
-```sh
-uvicorn moment-fastapi-app:app --host 0.0.0.0 --port 8000 --reload
-```
+## 🔌 Deactivating Virtual Environment
+When you're done working with the API, you can deactivate the virtual environment using:
 
-## 5. API Testing
-After running the API, you can:
-- Visit **http://127.0.0.1:8000/docs** for Swagger UI documentation
-- Use the interactive API documentation to test endpoints directly
-
-## 6. Supported Languages
-The transaction classifier supports both Indonesian and English text inputs, with a focus on Indonesian financial terminology.
-
-## 7. Deactivating The Virtual Environment
-When you're done working with the API, deactivate your virtual environment:
-
-```sh
+```bash
 deactivate
 ```
 
-**IMPORTANT NOTES:**
-- Don't deactivate your virtual environment if you still want to run the app or install additional tools
-- If you want to run the API again, be sure to activate your virtual environment first
-- Running the API without activating your virtual environment will result in unexpected behavior
-- See [How To Setup A Virtual Environment](#2-how-to-setup-a-virtual-environment) for activation instructions
+**Note:** Make sure to save all your work before deactivating. You'll need to reactivate the virtual environment next time you want to work with the API.
+
+
+
+---
+Made with ❤️ by the Moment Team

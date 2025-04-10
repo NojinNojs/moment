@@ -15,7 +15,7 @@ const About = () => {
       emoji: "🧠", 
       abbr: "Z",
       github: "https://github.com/ZevHadid",
-      linkedin: "https://youtu.be/xvFZjo5PgG0?si=c8XBbrkgv23ZoLsa"
+      linkedin: null
     },
     { 
       name: "Uno Belmiro Ileng", 

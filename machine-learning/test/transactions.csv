@@ -1,0 +1,281 @@
+text,label
+"Received monthly allowance from parents",Allowance
+"Got my weekly pocket money today",Allowance
+"Mom gave me some extra cash",Allowance
+"Got cash from dad for school lunch",Allowance
+"My parents transferred my allowance",Allowance
+"Allowance from older brother",Allowance
+"Pocket money for school",Allowance
+"Cash allowance from parents",Allowance
+"Got school lunch money",Allowance
+"Got a little allowance for snacks",Allowance
+"Dikasih uang jajan oleh ibu",Allowance
+"Uang saku bulanan sudah masuk",Allowance
+"Diberi uang oleh kakak untuk beli jajan",Allowance
+"Dikasih uang jajan sebelum berangkat sekolah",Allowance
+"Uang saku mingguan dari orang tua",Allowance
+"Dikasih uang buat beli buku",Allowance
+"Orang tua kirim uang bulanan",Allowance
+"Uang saku dari orang tua masuk",Allowance
+"Ibu kasih uang untuk ongkos",Allowance
+"Ayah transfer uang jajan",Allowance
+"Sold my old laptop",Asset Sale
+"Sold antique coins to a collector",Asset Sale
+"Sold furniture during a garage sale",Asset Sale
+"Sold my gaming console",Asset Sale
+"Got money from selling secondhand books",Asset Sale
+"Sold a used smartphone online",Asset Sale
+"Sold my old bicycle",Asset Sale
+"Sold a vintage watch at an auction",Asset Sale
+"Sold my old guitar",Asset Sale
+"Sold a digital camera online",Asset Sale
+"Menjual motor bekas",Asset Sale
+"Jual HP lama di marketplace",Asset Sale
+"Menjual kamera DSLR",Asset Sale
+"Menjual barang bekas online",Asset Sale
+"Uang dari hasil penjualan sofa",Asset Sale
+"Menjual sepeda bekas",Asset Sale
+"Menjual jam tangan antik di lelang",Asset Sale
+"Menjual gitar tua",Asset Sale
+"Menjual kamera digital online",Asset Sale
+"Menjual peralatan elektronik bekas",Asset Sale
+"Received a year-end bonus",Bonus
+"Got a performance bonus at work",Bonus
+"Received a cash bonus from my boss",Bonus
+"Earned a bonus for hitting sales targets",Bonus
+"Got a surprise bonus this month",Bonus
+"Bonus payout came through",Bonus
+"Received bonus for working overtime",Bonus
+"Got an extra payment as a bonus",Bonus
+"Received a bonus in my paycheck",Bonus
+"Company rewarded me with a bonus",Bonus
+"Mendapat bonus akhir tahun",Bonus
+"Dapat bonus kinerja dari kantor",Bonus
+"Bonus dari atasan sudah cair",Bonus
+"Dapat uang tambahan dari bonus",Bonus
+"Bonus penjualan bulan ini masuk",Bonus
+"Terima bonus karena lembur",Bonus
+"Perusahaan kasih bonus tahunan",Bonus
+"Dapat tambahan gaji berupa bonus",Bonus
+"Bonus sudah ditransfer ke rekening",Bonus
+"Bonus kerja dikasih minggu ini",Bonus
+"Received dividend from my stock investment",Dividend
+"Got quarterly dividend from mutual funds",Dividend
+"Earned dividend from my shares",Dividend
+"Dividend payment arrived today",Dividend
+"Got passive income from dividends",Dividend
+"Company paid out stock dividends",Dividend
+"Received bank dividend this month",Dividend
+"Collected dividend from REITs",Dividend
+"Dividend income credited to my account",Dividend
+"Earned small dividend from ETF holdings",Dividend
+"Dapat dividen dari investasi saham",Dividend
+"Dividen kuartalan sudah masuk rekening",Dividend
+"Menerima dividen dari reksa dana",Dividend
+"Dividen saham cair hari ini",Dividend
+"Pendapatan pasif dari dividen",Dividend
+"Perusahaan membagikan dividen",Dividend
+"Dividen dari bank sudah masuk",Dividend
+"Dapat dividen dari kepemilikan saham",Dividend
+"Dividen ditransfer ke rekening",Dividend
+"Dividen kecil dari ETF masuk",Dividend
+"Got paid for freelance writing",Freelance
+"Received payment for a graphic design gig",Freelance
+"Earned money from freelance translation",Freelance
+"Finished a freelance project and got paid",Freelance
+"Freelance work for a client in the US",Freelance
+"Received money for freelance video editing",Freelance
+"Completed freelance coding project",Freelance
+"Payment for freelance photography job",Freelance
+"Freelance income from remote client",Freelance
+"Got funds from freelance consulting",Freelance
+"Dibayar untuk proyek freelance menulis",Freelance
+"Menerima bayaran dari desain grafis lepas",Freelance
+"Pendapatan dari kerja lepas sebagai penerjemah",Freelance
+"Dibayar setelah menyelesaikan proyek freelance",Freelance
+"Kerja freelance dengan klien luar negeri",Freelance
+"Menerima uang dari freelance video editing",Freelance
+"Selesai proyek coding freelance dan dibayar",Freelance
+"Dibayar untuk pekerjaan foto freelance",Freelance
+"Pendapatan dari freelance online",Freelance
+"Dapat uang dari konsultasi freelance",Freelance
+"Received a birthday gift in cash",Gift
+"Got money as a wedding gift",Gift
+"My aunt gave me a cash gift",Gift
+"Received gift money from a friend",Gift
+"Grandparents sent me a monetary gift",Gift
+"Uncle gave me money for my graduation",Gift
+"Got a gift card that I redeemed for cash",Gift
+"Received cash as a holiday gift",Gift
+"Cousin gave me money as a present",Gift
+"Got financial help as a birthday present",Gift
+"Dapat hadiah ulang tahun berupa uang",Gift
+"Dikasih uang oleh teman sebagai hadiah",Gift
+"Menerima uang dari tante sebagai kado",Gift
+"Orang tua memberi hadiah uang saat wisuda",Gift
+"Mendapat uang sebagai hadiah pernikahan",Gift
+"Dapat uang kado dari saudara",Gift
+"Kakek memberi uang sebagai hadiah",Gift
+"Uang hadiah dari acara ulang tahun",Gift
+"Menerima hadiah uang saat hari raya",Gift
+"Dikasih uang oleh paman sebagai hadiah",Gift
+"Received a holiday bonus from the company",Holiday Bonus
+"Got an end-of-year holiday bonus",Holiday Bonus
+"Holiday bonus was included in my paycheck",Holiday Bonus
+"Company gave me a Christmas bonus",Holiday Bonus
+"Received festive season bonus",Holiday Bonus
+"Got extra pay as a holiday bonus",Holiday Bonus
+"Holiday bonus arrived before New Year",Holiday Bonus
+"Received bonus for Eid celebration",Holiday Bonus
+"Holiday bonus was sent to my account",Holiday Bonus
+"Bonus came in for the holiday break",Holiday Bonus
+"Mendapat bonus hari raya dari kantor",Holiday Bonus
+"Bonus libur akhir tahun sudah masuk",Holiday Bonus
+"Perusahaan memberikan bonus Natal",Holiday Bonus
+"Dapat bonus Lebaran dari bos",Holiday Bonus
+"Bonus hari libur ditransfer hari ini",Holiday Bonus
+"Bonus akhir tahun masuk ke gaji",Holiday Bonus
+"Menerima bonus liburan dari perusahaan",Holiday Bonus
+"Bonus Imlek diterima minggu lalu",Holiday Bonus
+"Uang tambahan dari bonus hari raya",Holiday Bonus
+"Bonus liburan masuk sebelum tahun baru",Holiday Bonus
+"Received inheritance from my grandfather",Inheritance
+"Got money from my late uncle's estate",Inheritance
+"Inherited savings from my parents",Inheritance
+"Received a large inheritance after the will was read",Inheritance
+"Inheritance funds were transferred to my account",Inheritance
+"Got part of the family inheritance",Inheritance
+"Received inheritance money after funeral",Inheritance
+"Inherited property and sold it for cash",Inheritance
+"My aunt left me an inheritance",Inheritance
+"Received inheritance through legal process",Inheritance
+"Menerima warisan dari kakek saya",Inheritance
+"Dapat uang warisan dari orang tua",Inheritance
+"Warisan dari paman sudah cair",Inheritance
+"Mendapat warisan setelah pembacaan wasiat",Inheritance
+"Uang warisan masuk ke rekening saya",Inheritance
+"Saya menerima bagian dari harta warisan",Inheritance
+"Warisan diterima setelah upacara pemakaman",Inheritance
+"Menjual properti warisan dan menerima uangnya",Inheritance
+"Dapat warisan dari tante saya",Inheritance
+"Warisan diserahkan melalui proses hukum",Inheritance
+"Bought stocks on the trading app",Investment
+"Invested in a mutual fund last month",Investment
+"Earned profits from cryptocurrency",Investment
+"Sold my shares and made a gain",Investment
+"Made an investment in a startup",Investment
+"Received dividends from stock holdings",Investment
+"Put money into real estate investment",Investment
+"Reinvested my earnings into ETFs",Investment
+"Returned capital from an angel investment",Investment
+"Added more money to my investment account",Investment
+"Membeli saham lewat aplikasi investasi",Investment
+"Berinvestasi di reksa dana bulan lalu",Investment
+"Mendapat keuntungan dari kripto",Investment
+"Menjual saham dan mendapatkan untung",Investment
+"Investasi di perusahaan rintisan",Investment
+"Menerima dividen dari kepemilikan saham",Investment
+"Menaruh uang di properti investasi",Investment
+"Menginvestasikan kembali keuntungan saya",Investment
+"Modal kembali dari investasi awal",Investment
+"Menambahkan dana ke akun investasi",Investment
+"Received monthly pension payment",Pension
+"My pension was deposited this morning",Pension
+"Living off retirement pension now",Pension
+"Government sent my pension allowance",Pension
+"Pension fund paid out this week",Pension
+"Got pension benefits from former job",Pension
+"My dad's pension came through today",Pension
+"Retirement income received via pension plan",Pension
+"Pension money arrived in my bank account",Pension
+"Started receiving pension after retiring",Pension
+"Menerima pembayaran pensiun bulanan",Pension
+"Dana pensiun saya masuk hari ini",Pension
+"Hidup dari uang pensiun sekarang",Pension
+"Pemerintah mengirim uang pensiun",Pension
+"Dana pensiun cair minggu ini",Pension
+"Mendapat tunjangan pensiun dari pekerjaan lama",Pension
+"Pensiun ayah saya sudah masuk",Pension
+"Pendapatan pensiun diterima lewat program pensiun",Pension
+"Uang pensiun sudah masuk rekening",Pension
+"Mulai menerima pensiun setelah pensiun kerja",Pension
+"Received a refund for my online purchase",Refund
+"Got a tax refund from the government",Refund
+"Refund was processed to my card",Refund
+"My flight ticket was refunded",Refund
+"Received refund after order cancellation",Refund
+"The store issued a refund today",Refund
+"Got money back from a subscription service",Refund
+"Returned product and got a full refund",Refund
+"Refund for the hotel booking was successful",Refund
+"They refunded my payment after the delay",Refund
+"Menerima pengembalian dana untuk belanja online",Refund
+"Mendapat pengembalian pajak dari pemerintah",Refund
+"Dana refund dikirim ke kartu saya",Refund
+"Tiket pesawat saya sudah direfund",Refund
+"Menerima refund setelah membatalkan pesanan",Refund
+"Toko mengeluarkan refund hari ini",Refund
+"Dapat uang kembali dari layanan langganan",Refund
+"Mengembalikan barang dan dapat refund penuh",Refund
+"Refund untuk pemesanan hotel berhasil",Refund
+"Mereka mengembalikan pembayaran saya setelah keterlambatan",Refund
+"Received monthly rent from my tenant",Rental
+"My apartment rental income just came in",Rental
+"Got paid for renting out my house",Rental
+"Collected rent from my Airbnb guest",Rental
+"Rental payment for the condo arrived",Rental
+"Earned rental income from my property",Rental
+"Tenant transferred the rent today",Rental
+"Rented my garage for extra cash",Rental
+"Got rent from my vacation home",Rental
+"Income from room rental received",Rental
+"Menerima uang sewa dari penyewa",Rental
+"Pendapatan sewa apartemen sudah masuk",Rental
+"Dibayar karena menyewakan rumah",Rental
+"Mengumpulkan sewa dari tamu Airbnb",Rental
+"Pembayaran sewa untuk kondominium diterima",Rental
+"Pendapatan sewa properti saya cair",Rental
+"Penyewa mengirim uang sewa hari ini",Rental
+"Menyewakan garasi untuk penghasilan tambahan",Rental
+"Menerima sewa dari rumah liburan",Rental
+"Uang sewa kamar sudah diterima",Rental
+"Received my monthly salary today",Salary
+"My company just paid my salary",Salary
+"Got paid for my full-time job",Salary
+"Salary credited to my bank account",Salary
+"Monthly wage received this morning",Salary
+"Payment from work arrived",Salary
+"Collected salary for this month",Salary
+"Work compensation has been processed",Salary
+"Payroll hit my account today",Salary
+"Employer transferred my salary",Salary
+"Gaji bulanan saya sudah masuk",Salary
+"Perusahaan membayar gaji hari ini",Salary
+"Dibayar untuk pekerjaan tetap saya",Salary
+"Gaji dikreditkan ke rekening bank",Salary
+"Upah bulanan diterima pagi ini",Salary
+"Pembayaran dari kantor sudah masuk",Salary
+"Menerima gaji bulan ini",Salary
+"Kompensasi kerja telah diproses",Salary
+"Gaji sudah masuk ke rekening saya",Salary
+"Pemberi kerja mentransfer gaji saya",Salary
+"Earned profit from my online store",Small Business
+"Received payment from a customer",Small Business
+"Income from selling handmade crafts",Small Business
+"Got paid for my small shop sales",Small Business
+"Revenue from my home bakery came in",Small Business
+"Payment received from my boutique",Small Business
+"Sold products and received money",Small Business
+"Earnings from weekend market sales",Small Business
+"Transferred funds from my business account",Small Business
+"Profits from my small venture this week",Small Business
+"Mendapat untung dari toko online saya",Small Business
+"Menerima pembayaran dari pelanggan",Small Business
+"Pendapatan dari kerajinan tangan terjual",Small Business
+"Dibayar hasil penjualan toko kecil saya",Small Business
+"Uang masuk dari bisnis kue rumahan",Small Business
+"Pembayaran diterima dari butik saya",Small Business
+"Menjual produk dan mendapat uang",Small Business
+"Pendapatan dari pasar akhir pekan",Small Business
+"Mentransfer dana dari rekening usaha",Small Business
+"Keuntungan dari usaha kecil minggu ini",Small Business
