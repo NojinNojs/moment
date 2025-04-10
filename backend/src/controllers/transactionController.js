@@ -3,6 +3,8 @@ const Transaction = require('../models/Transaction');
 const Asset = require('../models/Asset');
 const asyncHandler = require('express-async-handler');
 const mongoose = require('mongoose');
+const mlService = require('../ml/mlService');
+const { logger } = require('../utils/logger');
 
 /**
  * @desc    Create a new transaction
@@ -17,7 +19,8 @@ const createTransaction = asyncHandler(async (req, res) => {
     title, 
     description, 
     date, 
-    account 
+    account,
+    useAutoCategory 
   } = req.body;
 
   // Validate amount
@@ -27,16 +30,78 @@ const createTransaction = asyncHandler(async (req, res) => {
     throw new Error('Please provide a valid amount greater than zero');
   }
 
+  // Validate required fields
+  if (!type || !['income', 'expense'].includes(type)) {
+    res.status(400);
+    throw new Error('Please provide a valid transaction type (income or expense)');
+  }
+
+  if (!title) {
+    res.status(400);
+    throw new Error('Please provide a transaction title');
+  }
+
   // Prepare transaction data
   const transactionData = {
     amount: transactionAmount,
     type,
-    category,
     title: title || (type === 'income' ? 'Income' : 'Expense'),
     description: description || '',
     date: date ? new Date(date) : new Date(),
     user: req.user.id
   };
+
+  // Handle auto-categorization if useAutoCategory flag is explicitly set to true
+  // or if category is not provided
+  if ((useAutoCategory === true || !category) && (title || description)) {
+    try {
+      // Generate text for prediction using title and/or description
+      const predictionText = [title, description].filter(Boolean).join(' ');
+      
+      logger.info(`Auto-categorizing transaction for user ${req.user.id}`);
+      
+      // Call ML service for prediction
+      const predictionResult = await mlService.predictCategory(predictionText, type);
+      
+      // Use the predicted category if confidence is high enough
+      const confidenceThreshold = parseFloat(process.env.ML_CONFIDENCE_THRESHOLD || 0.7);
+      
+      if (predictionResult?.primary_category?.confidence >= confidenceThreshold) {
+        transactionData.category = predictionResult.primary_category.category;
+        transactionData.categoryConfidence = predictionResult.primary_category.confidence;
+        transactionData.isAutoCategorizationApplied = true;
+        
+        logger.info(`Auto-categorization successful: ${transactionData.category} (${transactionData.categoryConfidence.toFixed(2)})`);
+      } else {
+        // Use default category if confidence is low
+        transactionData.category = type === 'income' ? 'Other' : 'Other';
+        transactionData.categoryConfidence = predictionResult?.primary_category?.confidence || 0;
+        transactionData.isAutoCategorizationApplied = true;
+        transactionData.autoCategorizationReason = 'low_confidence';
+        
+        logger.info(`Auto-categorization with low confidence: ${predictionResult?.primary_category?.category} (${predictionResult?.primary_category?.confidence?.toFixed(2)})`);
+      }
+    } catch (error) {
+      // Log error but continue with default category
+      logger.error(`Auto-categorization failed: ${error.message}`);
+      
+      // Use default category on error
+      transactionData.category = type === 'income' ? 'Other' : 'Other';
+      transactionData.isAutoCategorizationApplied = true;
+      transactionData.autoCategorizationReason = 'error';
+    }
+  } else {
+    // Use provided category (manual mode)
+    transactionData.category = category;
+    transactionData.isAutoCategorizationApplied = false;
+  }
+
+  // Jika kategori tidak tersedia setelah semua proses, gunakan default
+  if (!transactionData.category) {
+    transactionData.category = type === 'income' ? 'Other' : 'Other';
+    transactionData.isAutoCategorizationApplied = true;
+    transactionData.autoCategorizationReason = 'fallback';
+  }
 
   // If account is provided, add it to transaction and update asset balance
   if (account) {

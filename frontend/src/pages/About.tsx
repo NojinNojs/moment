@@ -14,7 +14,7 @@ const About = () => {
       role: "Machine Learning", 
       emoji: "🧠", 
       abbr: "Z",
-      github: null,
+      github: "https://github.com/ZevHadid",
       linkedin: null
     },
     { 
@@ -46,7 +46,7 @@ const About = () => {
       role: "Machine Learning", 
       emoji: "📊", 
       abbr: "C",
-      github: null,
+      github: "https://github.com/tienen1707",
       linkedin: null
     },
     { 

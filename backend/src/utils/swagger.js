@@ -25,7 +25,11 @@ const swaggerOptions = {
       },
       {
         url: '/api',
-        description: 'Legacy API Server (redirects to V1)',
+        description: 'API Base Path',
+      },
+      {
+        url: '/',
+        description: 'Root Path',
       },
     ],
     components: {
@@ -34,6 +38,11 @@ const swaggerOptions = {
           type: 'http',
           scheme: 'bearer',
           bearerFormat: 'JWT',
+        },
+        apiKeyAuth: {
+          type: 'apiKey',
+          in: 'header',
+          name: 'X-API-Key',
         },
       },
       schemas: {
@@ -147,6 +156,7 @@ const swaggerOptions = {
     security: [
       {
         bearerAuth: [],
+        apiKeyAuth: [],
       },
     ],
     tags: [
@@ -165,6 +175,10 @@ const swaggerOptions = {
       {
         name: 'Categories',
         description: 'Transaction category management',
+      },
+      {
+        name: 'ML Integration',
+        description: 'Machine Learning categorization endpoints',
       },
       {
         name: 'Assets',
@@ -248,38 +262,8 @@ const customCss = `
   }
   .swagger-ui .opblock {
     margin: 0 0 15px;
-    border-radius: 6px;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-  }
-  .swagger-ui .opblock-tag {
-    font-size: 24px;
-    font-weight: 600;
-    margin: 30px 0 10px;
-  }
-  .swagger-ui .opblock .opblock-section-header {
-    padding: 12px 20px;
-  }
-  .swagger-ui table {
-    border-collapse: separate;
-    border-spacing: 0;
-    border-radius: 6px;
-    overflow: hidden;
-  }
-  .swagger-ui .markdown p, .swagger-ui .markdown pre {
-    margin: 1em 0;
-    line-height: 1.6;
-  }
-  .swagger-ui .response-col_description__inner p {
-    font-size: 14px;
-    line-height: 1.5;
-  }
-  .swagger-ui .parameter__name, .swagger-ui .parameter__type {
-    font-weight: 600;
-  }
-  .swagger-ui .model-box {
-    background-color: #f7f7f7;
-    padding: 15px;
-    border-radius: 4px;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   }
 `;
 
