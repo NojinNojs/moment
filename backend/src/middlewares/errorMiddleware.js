@@ -5,6 +5,18 @@
 
 // 404 Not Found handler
 const notFound = (req, res, next) => {
+  // Get API prefix from environment variables
+  const API_PREFIX = process.env.API_PREFIX || '/api';
+  
+  // Check if the request accepts HTML (browser request)
+  const acceptsHtml = req.accepts('html');
+  
+  if (acceptsHtml) {
+    // For browser requests, redirect to API documentation
+    return res.redirect(`${API_PREFIX}/docs`);
+  }
+  
+  // For API requests (non-browser), return standard JSON error
   const error = new Error(`Not Found - ${req.originalUrl}`);
   res.status(404);
   next(error);

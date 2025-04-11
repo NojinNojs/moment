@@ -9,6 +9,7 @@ const loadEnv = require('./config/dotenv');
 const authRoutes = require('./routes/authRoutes');
 const transactionRoutes = require('./routes/transactionRoutes');
 const categoryRoutes = require('./routes/categoryRoutes');
+const categoryPredictionRoutes = require('./routes/categoryPredictionRoutes');
 const errorMiddleware = require('./middlewares/errorMiddleware');
 const { swaggerUi, swaggerDocs, customCss } = require('./utils/swagger');
 const assetRoutes = require('./routes/assetRoutes');
@@ -171,13 +172,23 @@ if (process.env.NODE_ENV === 'development') {
 // Static files
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Root redirect to API documentation
+app.get('/', (req, res) => {
+  res.redirect(`${API_PREFIX}/docs`);
+});
+
 // API documentation
-app.use(`${API_BASE_PATH}/docs`, swaggerUi.serve, swaggerUi.setup(swaggerDocs, {
+app.use(`${API_PREFIX}/docs`, swaggerUi.serve, swaggerUi.setup(swaggerDocs, {
   customCss,
   swaggerOptions: {
     persistAuthorization: true,
   },
 }));
+
+// Legacy path support for API docs at versioned path
+app.use(`${API_BASE_PATH}/docs`, (req, res) => {
+  res.redirect(`${API_PREFIX}/docs`);
+});
 
 // Define a simple health check route
 app.get('/health', (req, res) => {
@@ -196,6 +207,7 @@ app.use(`${API_BASE_PATH}/categories`, apiKeyMiddleware.validateApiKey, category
 app.use(`${API_BASE_PATH}/assets`, apiKeyMiddleware.validateApiKey, assetRoutes);
 app.use(`${API_BASE_PATH}/transactions`, apiKeyMiddleware.validateApiKey, restoreTransactionRoute);
 app.use(`${API_BASE_PATH}/users`, userRoutes);
+app.use(`${API_BASE_PATH}/categories`, apiKeyMiddleware.validateApiKey, categoryPredictionRoutes);
 
 // Error handling middleware
 app.use(errorMiddleware.notFound);
