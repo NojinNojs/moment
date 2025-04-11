@@ -74,9 +74,6 @@ const mlService = require('../ml/mlService');
  *                           confidence:
  *                             type: number
  *                             example: 0.05
- *                     processed_text:
- *                       type: string
- *                       example: grocery shopping walmart
  *                     metadata:
  *                       type: object
  *                       properties:
@@ -86,6 +83,9 @@ const mlService = require('../ml/mlService');
  *                         request_id:
  *                           type: string
  *                           example: pred_20230721_081542
+ *                         model_version:
+ *                           type: string
+ *                           example: "1.0.0"
  *                         is_fallback:
  *                           type: boolean
  *                           example: false
@@ -139,11 +139,10 @@ const predictCategory = asyncHandler(async (req, res) => {
       data: {
         prediction: predictionResult.primary_category,
         alternative_categories: predictionResult.alternative_categories || [],
-        confidence: predictionResult.primary_category.confidence,
-        processed_text: predictionResult.processed_text,
         metadata: {
           source: predictionResult.source,
           request_id: predictionResult.request_id,
+          model_version: predictionResult.model_version || '1.0.0',
           is_fallback: !!predictionResult.is_fallback
         }
       }
@@ -159,7 +158,7 @@ const predictCategory = asyncHandler(async (req, res) => {
 
 /**
  * @swagger
- * /categories/predict/health:
+ * /categories/ml/health:
  *   get:
  *     summary: Check ML service health
  *     description: Returns health status of the ML prediction service
@@ -188,10 +187,20 @@ const predictCategory = asyncHandler(async (req, res) => {
  *                       type: string
  *                       format: date-time
  *                       example: "2023-07-21T08:15:42.123Z"
+ *                     components:
+ *                       type: object
+ *                       properties:
+ *                         model:
+ *                           type: string
+ *                           example: healthy
+ *                         api:
+ *                           type: string
+ *                           example: healthy
+ *                     version:
+ *                       type: string
+ *                       example: "1.0.0"
  *       401:
  *         $ref: '#/components/responses/UnauthorizedError'
- *       403:
- *         description: Admin access required
  *       500:
  *         $ref: '#/components/responses/ServerError'
  */
@@ -199,12 +208,32 @@ const getMLServiceHealth = asyncHandler(async (req, res) => {
   try {
     const isHealthy = await mlService.checkHealth();
     
+    // Get detailed health data if available
+    let healthData = {
+      status: isHealthy ? 'healthy' : 'unhealthy',
+      timestamp: new Date().toISOString()
+    };
+    
+    // Try to get detailed health information if the service is healthy
+    if (isHealthy) {
+      try {
+        const response = await mlService.getDetailedHealth();
+        healthData = {
+          ...healthData,
+          components: response.components || {
+            model: isHealthy ? 'healthy' : 'unhealthy',
+            api: 'healthy'
+          },
+          version: response.version || '1.0.0'
+        };
+      } catch (error) {
+        logger.warn(`Could not fetch detailed health data: ${error.message}`);
+      }
+    }
+    
     res.status(200).json({
       success: true,
-      data: {
-        status: isHealthy ? 'healthy' : 'unhealthy',
-        timestamp: new Date().toISOString()
-      }
+      data: healthData
     });
   } catch (error) {
     logger.error(`ML Service health check failed: ${error.message}`);
@@ -218,7 +247,7 @@ const getMLServiceHealth = asyncHandler(async (req, res) => {
 
 /**
  * @swagger
- * /categories/ml-categories:
+ * /categories/ml/list:
  *   get:
  *     summary: Get ML supported categories
  *     description: Returns list of categories supported by the ML service
@@ -244,12 +273,12 @@ const getMLServiceHealth = asyncHandler(async (req, res) => {
  *                       type: array
  *                       items:
  *                         type: string
- *                       example: ["Salary", "Freelance", "Investment"]
+ *                       example: ["Salary", "Freelance", "Investment", "Gift", "Refund", "Bonus", "Allowance", "Small Business", "Rental", "Dividend", "Pension", "Asset Sale", "Other"]
  *                     expense:
  *                       type: array
  *                       items:
  *                         type: string
- *                       example: ["Food & Dining", "Transportation", "Housing"]
+ *                       example: ["Food & Dining", "Transportation", "Housing", "Utilities", "Internet & Phone", "Healthcare", "Entertainment", "Shopping", "Travel", "Education", "Debt Payment", "Charitable Giving", "Family Support", "Tax", "Insurance", "Subscriptions", "Personal Care", "Vehicle Maintenance", "Clothing", "Electronics", "Other"]
  *       401:
  *         $ref: '#/components/responses/UnauthorizedError'
  *       500:
@@ -265,8 +294,11 @@ const getMLCategories = asyncHandler(async (req, res) => {
     });
   } catch (error) {
     logger.error(`Failed to fetch ML categories: ${error.message}`);
-    res.status(500);
-    throw new Error('Failed to fetch categories from ML service');
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch ML categories',
+      details: error.message
+    });
   }
 });
 

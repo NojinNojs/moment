@@ -7,13 +7,13 @@ const {
   getMLCategories
 } = require('../controllers/categoryPredictionController');
 
-// Route: /api/categories/predict
+// Route: /api/v1/categories/predict
 router.post('/predict', protect, predictCategory);
 
-// Route: /api/categories/predict/health
-router.get('/predict/health', protect, authorize('admin'), getMLServiceHealth);
+// Route: /api/v1/categories/ml/health
+router.get('/ml/health', protect, getMLServiceHealth);
 
-// Route: /api/categories/ml-categories
-router.get('/ml-categories', protect, getMLCategories);
+// Route: /api/v1/categories/ml/list
+router.get('/ml/list', protect, getMLCategories);
 
 module.exports = router; 
