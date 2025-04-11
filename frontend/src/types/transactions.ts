@@ -28,11 +28,12 @@ export interface Transaction {
 export interface CreateTransactionDto {
   amount: number | string;
   type: TransactionType;
-  category: string;
+  category?: string; // Make category optional since it's not required with auto-categorization
   title?: string;
   description?: string;
   date?: string;
   account?: string;
+  useAutoCategory?: boolean; // Add flag for auto-categorization
 }
 
 // Interface for updating a transaction

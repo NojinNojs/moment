@@ -81,7 +81,9 @@ export function AddTransactionDialog({
     onCategoryChange,
     onDescriptionChange,
     onDateChange,
-    onAccountChange
+    onAccountChange,
+    useAutoCategory: true,
+    onAutoCategorizationChange: () => {}
   };
 
   // Animation variants
