@@ -6,39 +6,39 @@ interface ProtectedRouteProps {
   children: ReactNode;
 }
 
-// Komponen untuk halaman yang memerlukan autentikasi
+// Component for pages that require authentication
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const { isAuthenticated, isLoading } = useAuth();
   const location = useLocation();
 
-  // Ketika masih loading, bisa tampilkan loading spinner
+  // While loading, display a loading spinner
   if (isLoading) {
     return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
   }
 
-  // Jika tidak terotentikasi, redirect ke login dengan menyimpan intended URL
+  // If not authenticated, redirect to login and save the intended URL
   if (!isAuthenticated) {
     return <Navigate to="/login" state={{ from: location.pathname }} replace />;
   }
 
-  // Jika sudah terotentikasi, tampilkan konten
+  // If authenticated, display the content
   return <>{children}</>;
 }
 
-// Komponen untuk halaman yang hanya bisa diakses oleh user yang belum login
+// Component for pages that can only be accessed by users who are not logged in
 export function AuthRoute({ children }: ProtectedRouteProps) {
   const { isAuthenticated, isLoading } = useAuth();
   
-  // Ketika masih loading, bisa tampilkan loading spinner
+  // While loading, display a loading spinner
   if (isLoading) {
     return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
   }
 
-  // Jika sudah terotentikasi, redirect ke dashboard
+  // If authenticated, redirect to dashboard
   if (isAuthenticated) {
     return <Navigate to="/dashboard" replace />;
   }
 
-  // Jika belum terotentikasi, tampilkan konten
+  // If not authenticated, display the content
   return <>{children}</>;
 } 

@@ -96,7 +96,7 @@ const createTransaction = asyncHandler(async (req, res) => {
     transactionData.isAutoCategorizationApplied = false;
   }
 
-  // Jika kategori tidak tersedia setelah semua proses, gunakan default
+  // If category is still unavailable after all processing, use default
   if (!transactionData.category) {
     transactionData.category = type === 'income' ? 'Other' : 'Other';
     transactionData.isAutoCategorizationApplied = true;

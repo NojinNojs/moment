@@ -1717,22 +1717,22 @@ export default function Overview() {
         const substring = seed.substring(0, substringLength);
         id = parseInt(substring, 16);
       } else {
-        // Jika tidak ada seed, generate random ID
+        // If no seed exists, generate random ID
         id = Math.floor(Math.random() * 100000) + 1;
       }
       
-      // Pastikan ID valid
+      // Ensure ID is valid
       if (isNaN(id) || id === 0 || usedIds.has(id)) {
-        // Jika invalid atau sudah digunakan, generate ID baru
+        // If invalid or already used, generate new ID
         id = Math.floor(Math.random() * 100000) + 1;
         
-        // Pastikan ID baru tidak duplikat (recursive check)
+        // Make sure the new ID is not a duplicate (recursive check)
         while (usedIds.has(id)) {
           id = Math.floor(Math.random() * 100000) + 1;
         }
       }
       
-      // Tambahkan ke set ID yang sudah digunakan
+      // Add to the set of used IDs
       usedIds.add(id);
       return id;
     };
@@ -1747,7 +1747,7 @@ export default function Overview() {
         ? transfer.toAsset.name
         : 'Unknown';
       
-      // Dapatkan ID dari transfer (object ID, string ID, atau property ID)
+      // Get ID from transfer (object ID, string ID, or property ID)
       const transferIdStr = String(transfer._id || transfer.id || '');
       
       // Generate ID unik untuk transaction
