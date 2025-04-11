@@ -9,7 +9,7 @@ import os
 import uvicorn
 
 # Define paths
-model_dir = "C:/Users/zevha/Moment/moment/machine-learning/transaction-classifier/model_artifacts"
+model_dir = "transaction-classifier/model_artifacts"
 model_path = os.path.join(model_dir, "transaction_classifier_model.keras")
 tokenizer_path = os.path.join(model_dir, "tokenizer.pkl")
 label_encoder_path = os.path.join(model_dir, "label_encoder.pkl")
