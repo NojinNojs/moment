@@ -57,17 +57,11 @@ def predict_transaction(text: str):
     confidence = float(np.max(pred))
     return label, confidence
 
-# English endpoint
-@app.post("/predict-category/en")
+# Endpoint
+@app.post("/predict-category")
 def predict_english(input: TextInput):
     label, confidence = predict_transaction(input.text)
     return {"language": "english", "label": label, "confidence": round(confidence, 4)}
-
-# Indonesian endpoint
-@app.post("/predict-category/id")
-def predict_indonesian(input: TextInput):
-    label, confidence = predict_transaction(input.text)
-    return {"language": "indonesian", "label": label, "confidence": round(confidence, 4)}
 
 # For local testing
 if __name__ == "__main__":
