@@ -18,6 +18,11 @@ const ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://localhost:8000';
 const ML_REQUEST_TIMEOUT = parseInt(process.env.ML_REQUEST_TIMEOUT || '5000', 10);
 const ENABLE_CACHE = process.env.ENABLE_ML_CACHE !== 'false';
 
+// ML Service endpoint constants
+const ML_PREDICT_ENDPOINT = '/api/v1/predict';
+const ML_HEALTH_ENDPOINT = '/api/v1/health';
+const ML_CATEGORIES_ENDPOINT = '/api/v1/categories';
+
 // Create axios instance for ML Service
 const mlClient = axios.create({
   baseURL: ML_SERVICE_URL,
@@ -29,8 +34,8 @@ const mlClient = axios.create({
 });
 
 // Default categories for fallback
-const DEFAULT_INCOME_CATEGORIES = ["Salary", "Freelance", "Investment", "Other"];
-const DEFAULT_EXPENSE_CATEGORIES = ["Food & Dining", "Transportation", "Housing", "Other"];
+const DEFAULT_INCOME_CATEGORIES = ["Salary", "Freelance", "Investment", "Gift", "Refund", "Bonus", "Allowance", "Small Business", "Rental", "Dividend", "Pension", "Asset Sale", "Other"];
+const DEFAULT_EXPENSE_CATEGORIES = ["Food & Dining", "Transportation", "Housing", "Utilities", "Internet & Phone", "Healthcare", "Entertainment", "Shopping", "Travel", "Education", "Debt Payment", "Charitable Giving", "Family Support", "Tax", "Insurance", "Subscriptions", "Personal Care", "Vehicle Maintenance", "Clothing", "Electronics", "Other"];
 
 /**
  * Generate cache key for predictions
@@ -48,11 +53,33 @@ const getCacheKey = (text, type) => {
  */
 const checkHealth = async () => {
   try {
-    const response = await mlClient.get('/api/v1/health');
+    const response = await mlClient.get(ML_HEALTH_ENDPOINT);
     return response.data.status === 'ok';
   } catch (error) {
     logger.error(`ML Service health check failed: ${error.message}`);
     return false;
+  }
+};
+
+/**
+ * Get detailed health information from ML service
+ * @returns {Promise<Object>} Detailed health information
+ */
+const getDetailedHealth = async () => {
+  try {
+    const response = await mlClient.get(ML_HEALTH_ENDPOINT);
+    return {
+      status: response.data.status || 'unknown',
+      timestamp: response.data.timestamp || new Date().toISOString(),
+      components: response.data.components || {
+        model: response.data.status === 'ok' ? 'healthy' : 'unhealthy',
+        api: 'healthy'
+      },
+      version: response.data.version || '1.0.0'
+    };
+  } catch (error) {
+    logger.error(`Failed to get detailed health info: ${error.message}`);
+    throw error;
   }
 };
 
@@ -62,8 +89,11 @@ const checkHealth = async () => {
  */
 const getCategories = async () => {
   try {
-    const response = await mlClient.get('/api/v1/categories');
-    return response.data.categories;
+    const response = await mlClient.get(ML_CATEGORIES_ENDPOINT);
+    return {
+      income: response.data.income_categories,
+      expense: response.data.expense_categories
+    };
   } catch (error) {
     logger.error(`Failed to get categories from ML service: ${error.message}`);
     
@@ -147,7 +177,6 @@ const getFallbackPrediction = (type) => {
       confidence: 0.5
     },
     alternative_categories: [],
-    processed_text: "",
     is_fallback: true
   };
 };
@@ -205,9 +234,9 @@ const predictCategory = async (text, type) => {
     };
     
     // Call ML service
-    const response = await mlClient.post('/api/v1/predict', requestData);
+    const response = await mlClient.post(ML_PREDICT_ENDPOINT, requestData);
     
-    // Extract prediction data
+    // Extract prediction data from the new response format
     const predictionData = response.data.data;
     
     // Ensure we have the required fields
@@ -225,7 +254,8 @@ const predictCategory = async (text, type) => {
     return {
       ...predictionData,
       source: 'ml_service',
-      request_id: response.data.request_id
+      request_id: response.data.request_id,
+      model_version: response.data.metadata?.model_version || '1.0.0'
     };
   } catch (error) {
     // Log error
@@ -245,5 +275,6 @@ const predictCategory = async (text, type) => {
 module.exports = {
   predictCategory,
   checkHealth,
+  getDetailedHealth,
   getCategories
 }; 

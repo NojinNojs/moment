@@ -4,23 +4,26 @@
 ![Python](https://img.shields.io/badge/python-3.8+-brightgreen.svg)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.95+-ff69b4.svg)
 
-A powerful machine learning API for automatically categorizing financial transactions in both Indonesian and English languages. Built with FastAPI and TensorFlow, this API provides accurate transaction categorization with confidence scores and alternative suggestions.
+A powerful machine learning API for automatically categorizing financial transactions. Built with FastAPI and TensorFlow, this API provides accurate transaction categorization with confidence scores and alternative suggestions.
 
 ## 📚 Table of Contents
+
 - [Features](#features)
 - [Quick Start](#quick-start)
 - [API Documentation](#api-documentation)
-- [Development Setup](#development-setup)
 - [API Endpoints](#api-endpoints)
 - [Supported Categories](#supported-categories)
+- [Environment Variables](#environment-variables)
 - [Contributing](#contributing)
 
 ## ✨ Features
-- Bilingual support (Indonesian and English)
-- Smart transaction categorization
+
+- Smart transaction categorization with machine learning
 - Multiple category suggestions with confidence scores
+- Support for both income and expense categories
+- Transaction type filtering
 - Standardized API responses with request tracking
-- Comprehensive error handling
+- Comprehensive error handling and status codes
 - Interactive API documentation
 - Health monitoring endpoint
 - Robust input validation
@@ -28,13 +31,16 @@ A powerful machine learning API for automatically categorizing financial transac
 ## 🚀 Quick Start
 
 ### Prerequisites
+
 - Python 3.8 or higher
 - pip (Python package manager)
 - Virtual environment (recommended)
 
 ### Installation
+
 1. Clone the repository
 2. Set up virtual environment:
+
    ```bash
    # Windows
    python -m venv venv
@@ -44,24 +50,27 @@ A powerful machine learning API for automatically categorizing financial transac
    python3 -m venv venv
    source venv/bin/activate
    ```
+
 3. Install dependencies:
    ```bash
    pip install -r requirements.txt
    ```
 4. Run the API:
    ```bash
-   uvicorn moment-fastapi-app:app --host 0.0.0.0 --port 8000 --reload
+   python ml-api.py
    ```
 
 ## 📖 API Documentation
 
 ### Interactive Documentation
+
 - Swagger UI: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
 - ReDoc: [http://127.0.0.1:8000/redoc](http://127.0.0.1:8000/redoc)
 
 ## 🛠 API Endpoints
 
 ### 1. Predict Transaction Category
+
 **Endpoint:** `/api/v1/predict`  
 **Method:** `POST`
 
@@ -76,68 +85,138 @@ A powerful machine learning API for automatically categorizing financial transac
 {
     "status": "success",
     "timestamp": "2024-03-21T12:34:56.789Z",
-    "request_id": "pred_20240321_123456",
+    "request_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
     "data": {
         "primary_category": {
-            "category": "string",
-            "confidence": 0.95
+            "category": "Food & Dining",
+            "confidence": 0.9537
         },
         "alternative_categories": [
             {
-                "category": "string",
-                "confidence": 0.85
+                "category": "Shopping",
+                "confidence": 0.0341
+            },
+            {
+                "category": "Transportation",
+                "confidence": 0.0122
             }
-        ],
-        "processed_text": "string"
+        ]
     },
     "metadata": {
         "model_version": "1.0.0",
-        "preprocessing_applied": true,
-        "language_support": ["Indonesian", "English"]
+        "transaction_type": "expense"
     }
 }
 ```
 
-### 2. Get Available Categories
-**Endpoint:** `/api/v1/categories`  
-**Method:** `GET`
+### 2. Health Check
 
-Returns lists of supported income and expense categories.
-
-### 3. Health Check
 **Endpoint:** `/api/v1/health`  
 **Method:** `GET`
 
-Monitors API health status and component availability.
+```json
+// Response
+{
+    "status": "ok",
+    "timestamp": "2024-03-21T12:34:56.789Z",
+    "components": {
+        "model": "healthy",
+        "api": "healthy"
+    },
+    "version": "1.0.0"
+}
+```
+
+### 3. Get Categories
+
+**Endpoint:** `/api/v1/categories`  
+**Method:** `GET`
+
+```json
+// Response
+{
+    "income_categories": [
+        "Salary", "Freelance", "Investment", "Gift", "Refund", 
+        "Bonus", "Allowance", "Small Business", "Rental", 
+        "Dividend", "Pension", "Asset Sale", "Other"
+    ],
+    "expense_categories": [
+        "Food & Dining", "Transportation", "Housing", "Utilities",
+        "Internet & Phone", "Healthcare", "Entertainment", "Shopping", 
+        "Travel", "Education", "Debt Payment", "Charitable Giving",
+        "Family Support", "Tax", "Insurance", "Subscriptions",
+        "Personal Care", "Vehicle Maintenance", "Clothing", 
+        "Electronics", "Other"
+    ]
+}
+```
+
+### 4. API Information
+
+**Endpoint:** `/`  
+**Method:** `GET`
+
+Returns general information about the API, including available endpoints and documentation links.
 
 ## 🎯 Supported Categories
 
 ### Income Categories
+
 - Salary
 - Freelance
 - Investment
 - Gift
 - Refund
-- And more...
+- Bonus
+- Allowance
+- Small Business
+- Rental
+- Dividend
+- Pension
+- Asset Sale
+- Other
 
 ### Expense Categories
+
 - Food & Dining
 - Transportation
 - Housing
 - Utilities
+- Internet & Phone
 - Healthcare
-- And more...
+- Entertainment
+- Shopping
+- Travel
+- Education
+- Debt Payment
+- Charitable Giving
+- Family Support
+- Tax
+- Insurance
+- Subscriptions
+- Personal Care
+- Vehicle Maintenance
+- Clothing
+- Electronics
+- Other
 
-## 🤝 Contributing
-Contributions are welcome! Please feel free to submit a Pull Request.
+## 🔧 Environment Variables
+
+The API supports the following environment variables for configuration:
+
+- `HOST`: The host to run the server on (default: "0.0.0.0")
+- `PORT`: The port to run the server on (default: 8000)
+- `RELOAD`: Whether to enable auto-reload for development (default: "True")
 
 ## ⚠️ Important Notes
+
 1. Always activate your virtual environment before running the API
 2. Keep dependencies up to date
 3. Check the API health endpoint before making predictions
 4. Use appropriate error handling in your applications
 
 ## 🔌 Deactivating Virtual Environment
+
 When you're done working with the API, you can deactivate the virtual environment using:
 
 ```bash
@@ -146,7 +225,6 @@ deactivate
 
 **Note:** Make sure to save all your work before deactivating. You'll need to reactivate the virtual environment next time you want to work with the API.
 
-
-
 ---
+
 Made with ❤️ by the Moment Team

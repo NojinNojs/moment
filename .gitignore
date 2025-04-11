@@ -35,3 +35,6 @@ venv.bak/
 
 # Log files
 *.log
+
+# FastText model files
+machine-learning/FastText_models/
