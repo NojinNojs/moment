@@ -6,7 +6,7 @@ const mongoose = require('mongoose');
 
 /**
  * @swagger
- * /api/v1/assets/transfers:
+ * /assets/transfers:
  *   get:
  *     summary: Get all asset transfers
  *     description: Retrieve a list of asset transfers for the authenticated user
@@ -101,7 +101,7 @@ const getAssetTransfers = asyncHandler(async (req, res) => {
 
 /**
  * @swagger
- * /api/v1/assets/transfers/{id}:
+ * /assets/transfers/{id}:
  *   get:
  *     summary: Get asset transfer by ID
  *     description: Retrieve a specific asset transfer by its ID
@@ -156,7 +156,7 @@ const getAssetTransferById = asyncHandler(async (req, res) => {
 
 /**
  * @swagger
- * /api/v1/assets/transfers:
+ * /assets/transfers:
  *   post:
  *     summary: Create a new asset transfer
  *     description: Transfer funds between two assets owned by the authenticated user

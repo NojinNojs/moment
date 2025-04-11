@@ -4,7 +4,7 @@ const asyncHandler = require('express-async-handler');
 
 /**
  * @swagger
- * /api/v1/assets:
+ * /assets:
  *   get:
  *     summary: Get all assets
  *     description: Retrieve a list of all assets for the authenticated user. Can be filtered by type.
@@ -67,7 +67,7 @@ const getAssets = asyncHandler(async (req, res) => {
 
 /**
  * @swagger
- * /api/v1/assets/{id}:
+ * /assets/{id}:
  *   get:
  *     summary: Get asset by ID
  *     description: Retrieve a specific asset by its ID
@@ -121,7 +121,7 @@ const getAssetById = asyncHandler(async (req, res) => {
 
 /**
  * @swagger
- * /api/v1/assets:
+ * /assets:
  *   post:
  *     summary: Create a new asset
  *     description: Create a new asset for the authenticated user
@@ -212,7 +212,7 @@ const createAsset = asyncHandler(async (req, res) => {
 
 /**
  * @swagger
- * /api/v1/assets/{id}:
+ * /assets/{id}:
  *   put:
  *     summary: Update asset
  *     description: Update an existing asset by ID
@@ -326,7 +326,7 @@ const updateAsset = asyncHandler(async (req, res) => {
 
 /**
  * @swagger
- * /api/v1/assets/{id}:
+ * /assets/{id}:
  *   delete:
  *     summary: Delete asset
  *     description: Soft delete an asset by setting isDeleted flag to true
@@ -407,7 +407,7 @@ const deleteAsset = asyncHandler(async (req, res) => {
 
 /**
  * @swagger
- * /api/v1/assets/{id}/restore:
+ * /assets/{id}/restore:
  *   patch:
  *     summary: Restore deleted asset
  *     description: Restore a soft-deleted asset by setting isDeleted flag to false

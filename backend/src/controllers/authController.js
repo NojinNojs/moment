@@ -66,8 +66,8 @@ exports.validateLogin = [
 ];
 
 /**
- * @desc    Register user
- * @route   POST /api/v1/auth/register
+ * @desc    Register new user
+ * @route   POST /auth/register
  * @access  Public
  */
 exports.register = async (req, res) => {
@@ -132,8 +132,8 @@ exports.register = async (req, res) => {
 };
 
 /**
- * @desc    Login user & get token
- * @route   POST /api/v1/auth/login
+ * @desc    Login user
+ * @route   POST /auth/login
  * @access  Public
  */
 exports.login = async (req, res) => {
@@ -203,7 +203,7 @@ exports.login = async (req, res) => {
 
 /**
  * @desc    Get current user profile
- * @route   GET /api/v1/auth/me
+ * @route   GET /auth/me
  * @access  Private
  */
 exports.getCurrentUser = async (req, res) => {
@@ -243,7 +243,7 @@ exports.getCurrentUser = async (req, res) => {
 
 /**
  * @desc    Get user preferences
- * @route   GET /api/v1/auth/preferences
+ * @route   GET /auth/preferences
  * @access  Private
  */
 exports.getUserPreferences = async (req, res) => {
@@ -273,7 +273,7 @@ exports.getUserPreferences = async (req, res) => {
 
 /**
  * @desc    Update user preferences
- * @route   PUT /api/v1/auth/preferences
+ * @route   PUT /auth/preferences
  * @access  Private
  */
 exports.updateUserPreferences = async (req, res) => {
@@ -326,9 +326,9 @@ exports.updateUserPreferences = async (req, res) => {
 };
 
 /**
- * @desc    Logout user (clear cookies)
- * @route   POST /api/v1/auth/logout
- * @access  Public
+ * @desc    Logout user
+ * @route   POST /auth/logout
+ * @access  Private
  */
 exports.logout = (req, res) => {
   try {

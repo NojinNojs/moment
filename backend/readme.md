@@ -9,9 +9,11 @@ A modern RESTful API built with Express.js, MongoDB, and JWT authentication, des
 - [Getting Started](#getting-started)
   - [Prerequisites](#prerequisites)
   - [Installation](#installation)
+  - [Development Setup](#development-setup)
   - [Environment Setup](#environment-setup)
   - [Database Setup](#database-setup)
   - [Running the API](#running-the-api)
+  - [ML Service Setup](#ml-service-setup)
 - [Project Structure](#project-structure)
 - [API Documentation](#api-documentation)
   - [Base URL](#base-url)
@@ -23,6 +25,7 @@ A modern RESTful API built with Express.js, MongoDB, and JWT authentication, des
   - [Transaction Management](#transaction-management)
   - [Asset Management](#asset-management)
   - [Categories System](#categories-system)
+  - [ML Integration](#ml-integration)
 - [Database Models](#database-models)
 - [Error Handling](#error-handling)
 - [Security Measures](#security-measures)
@@ -49,6 +52,7 @@ The Moment API is the backend service for the Moment personal finance applicatio
 - **Logging**: Comprehensive logging with Winston
 - **Environment Configuration**: Separate development/production/testing environments
 - **Category Management**: Pre-built system for transaction categorization
+- **ML Integration**: Automatic transaction categorization via ML service
 
 ## 🚀 Getting Started
 
@@ -88,7 +92,57 @@ The Moment API is the backend service for the Moment personal finance applicatio
    # Then edit .env with your preferred settings
    ```
 
-### Database Setup
+### Development Setup
+
+1. **IDE Configuration**
+   - We recommend using VS Code with the following extensions:
+     - ESLint
+     - Prettier
+     - REST Client
+     - MongoDB for VS Code
+
+2. **Development Tools Setup**
+   - Install nodemon globally for faster development:
+     ```bash
+     npm install -g nodemon
+     ```
+   - Configure Git hooks for consistent code quality:
+     ```bash
+     npm run prepare
+     ```
+     This will set up husky pre-commit hooks to lint and format code.
+
+3. **Local Development Configuration**
+   - For local development, adjust the following settings in your `.env`:
+     ```
+     NODE_ENV=development
+     LOG_LEVEL=debug
+     CORS_ORIGIN=http://localhost:3000,http://localhost:5173
+     TRUST_PROXY=false
+     ```
+
+4. **API Testing Tools**
+   - For testing API endpoints, consider using:
+     - Postman
+     - Insomnia
+     - VS Code REST Client extension
+   - Import our Postman collection from the `scripts/postman` directory for quick testing
+
+5. **Debugging Setup**
+   - Configure your debugger for Node.js in VS Code:
+     ```json
+     {
+       "type": "node",
+       "request": "launch",
+       "name": "Launch API",
+       "program": "${workspaceFolder}/src/server.js",
+       "env": {
+         "NODE_ENV": "development"
+       }
+     }
+     ```
+
+### Environment Setup
 
 1. **Connect to MongoDB**
    
@@ -110,6 +164,42 @@ The Moment API is the backend service for the Moment personal finance applicatio
    To seed the database with initial categories and settings:
    ```bash
    npm run seed:categories
+   ```
+
+### ML Service Setup
+
+1. **Configure ML Service Integration**
+
+   Add the following configuration to your `.env` file for ML service integration:
+
+   ```
+   # ML Service Configuration
+   ML_SERVICE_URL=http://localhost:8000     # URL of the ML service
+   ML_REQUEST_TIMEOUT=5000                  # Request timeout in milliseconds
+   ENABLE_ML_CACHE=true                     # Enable prediction caching
+   ML_CONFIDENCE_THRESHOLD=0.7              # Minimum confidence threshold
+   ML_LOGGING=true                          # Enable dedicated ML logs
+   ```
+
+2. **Ensure ML Service is Running**
+
+   Make sure the ML service is running and accessible at the configured URL before using auto-categorization features.
+
+   See the [ML Service README](/machine-learning/README.md) for setup instructions.
+
+3. **Test ML Integration**
+
+   After setting up both services, test the integration with:
+
+   ```bash
+   # Test ML service health
+   curl http://localhost:3000/api/v1/categories/predict/health
+
+   # Test prediction capability
+   curl -X POST http://localhost:3000/api/v1/categories/predict \
+     -H "Content-Type: application/json" \
+     -H "Authorization: Bearer YOUR_TOKEN" \
+     -d '{"text": "Grocery shopping at Walmart", "type": "expense"}'
    ```
 
 ### Running the API
@@ -175,9 +265,14 @@ backend/
 │   │   ├── transactionService.js # Transaction logic
 │   │   └── ...
 │   │
+│   ├── ml/                  # ML integration
+│   │   ├── mlService.js     # ML service client
+│   │   └── ...
+│   │
 │   ├── utils/               # Helper functions
 │   │   ├── apiResponse.js   # Standardized response formatter
 │   │   ├── dateUtils.js     # Date/time utilities
+│   │   ├── logger.js        # Logging utilities
 │   │   └── ...
 │   │
 │   ├── app.js               # Express app configuration
@@ -270,6 +365,14 @@ Authorization: Bearer YOUR_TOKEN_HERE
 | PUT    | /categories/:id           | Update category            | Protected   |
 | DELETE | /categories/:id           | Delete category            | Protected   |
 
+#### ML Integration Routes
+
+| Method | Endpoint                       | Description                    | Access      |
+|--------|--------------------------------|--------------------------------|-------------|
+| POST   | /categories/predict            | Predict transaction category   | Protected   |
+| GET    | /categories/predict/health     | Check ML service health        | Admin       |
+| GET    | /categories/ml-categories      | Get ML service categories      | Protected   |
+
 ### Response Format
 
 All API responses follow a standard format:
@@ -361,6 +464,95 @@ Implementation:
 - Seeding script creates default categories
 - Categories can be customized with colors and icons
 
+### ML Integration
+
+The API integrates with a machine learning service to provide automatic transaction categorization:
+
+#### Features
+
+- **Automatic Categorization**: Transactions can be automatically categorized based on their title and description
+- **Confidence Scoring**: Each prediction includes a confidence score to assess reliability
+- **Fallback Mechanism**: Default categories are used when predictions have low confidence
+- **Caching System**: Efficient caching of predictions to reduce latency and service load
+- **Alternative Suggestions**: Multiple category suggestions with confidence scores
+
+#### Implementation
+
+- **Client-Service Architecture**: Backend connects to a separate ML service via HTTP
+- **Prediction Endpoint**: `/api/categories/predict` for direct prediction requests
+- **Auto Mode**: Transactions can opt-in to auto-categorization during creation
+- **Health Checking**: ML service health status monitoring
+- **Error Handling**: Graceful degradation with fallback categories when service unavailable
+
+#### Usage in Transaction Creation
+
+When creating a transaction with auto-categorization:
+
+```json
+// Request
+POST /api/transactions
+{
+  "title": "Indomaret Kemang",
+  "amount": 120000,
+  "type": "expense",
+  "description": "Weekly groceries",
+  "useAutoCategory": true
+}
+
+// Response
+{
+  "success": true,
+  "message": "Transaction created successfully",
+  "data": {
+    "title": "Indomaret Kemang",
+    "amount": 120000,
+    "type": "expense",
+    "description": "Weekly groceries",
+    "category": "Food & Dining",
+    "categoryConfidence": 0.92,
+    "isAutoCategorizationApplied": true,
+    "_id": "60f7e5c67d123e001fc12345",
+    "date": "2023-07-21T08:15:42.123Z",
+    "user": "60f7e5c67d123e001fc12346"
+  }
+}
+```
+
+#### Direct Category Prediction
+
+You can also directly predict a category without creating a transaction:
+
+```json
+// Request
+POST /api/categories/predict
+{
+  "text": "Gojek ride to office",
+  "type": "expense"
+}
+
+// Response
+{
+  "success": true,
+  "message": "Category prediction successful",
+  "data": {
+    "prediction": {
+      "category": "Transportation",
+      "confidence": 0.88
+    },
+    "alternative_categories": [
+      { "category": "Travel", "confidence": 0.09 },
+      { "category": "Other", "confidence": 0.03 }
+    ],
+    "processed_text": "gojek ride office",
+    "metadata": {
+      "source": "ml_service",
+      "request_id": "pred_20230721_081542",
+      "is_fallback": false
+    }
+  }
+}
+```
+
 ## 🗃️ Database Models
 
 ### User Model
@@ -387,7 +579,10 @@ Implementation:
   date: Date,         // Transaction date
   account: ObjectId,  // Reference to Asset model
   isDeleted: Boolean, // Soft delete flag
-  user: ObjectId      // Reference to User model
+  user: ObjectId,     // Reference to User model
+  categoryConfidence: Number, // Confidence score if ML-categorized
+  isAutoCategorizationApplied: Boolean, // Whether ML was used
+  autoCategorizationReason: String // Why a fallback was used, if any
 }
 ```
 
@@ -586,6 +781,13 @@ Test organization:
    - Verify all environment variables are set
    - Check log files for detailed errors
 
+5. **ML Integration Issues**
+   - Verify ML service is running and accessible
+   - Check ML_SERVICE_URL environment variable
+   - Examine ML-specific logs in logs/ml-service.log
+   - Test ML service health endpoint
+   - Verify if fallback categories work correctly
+
 ## 👥 Contributing
 
 Contributions are welcome! To contribute:
@@ -603,5 +805,3 @@ Contributions are welcome! To contribute:
 - Write unit and integration tests
 - Follow existing patterns for controllers and routes
 - Update API documentation for any changes
-
-For more detailed information, see the main [CONTRIBUTING.md](../CONTRIBUTING.md) file. 

@@ -833,7 +833,7 @@ class ApiService {
         // Update the response with the resolved transactions
         response.data = resolvedTransactions;
         
-        // Tambahkan logging detail
+        // Add logging details
         if (response.success && response.data) {
           console.log("📊 Transactions response details:");
           console.log("  - Total transactions:", response.data.length);

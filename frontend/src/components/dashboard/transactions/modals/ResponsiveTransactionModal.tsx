@@ -28,6 +28,8 @@ export interface TransactionModalProps {
   onDescriptionChange: (value: string) => void;
   onDateChange: (value: string) => void;
   onAccountChange?: (value: string) => void;
+  useAutoCategory?: boolean;
+  onAutoCategorizationChange?: (value: boolean) => void;
   accounts?: { id?: string; _id?: string; name: string; type: string; balance?: number; }[];
   isLoadingAccounts?: boolean;
 }
@@ -61,6 +63,8 @@ export function ResponsiveTransactionModal({
   onDescriptionChange,
   onDateChange,
   onAccountChange = () => {},
+  useAutoCategory = true,
+  onAutoCategorizationChange = () => {},
   accounts = [],
   isLoadingAccounts = false
 }: TransactionModalProps) {
@@ -102,6 +106,8 @@ export function ResponsiveTransactionModal({
     onDescriptionChange,
     onDateChange,
     onAccountChange,
+    useAutoCategory,
+    onAutoCategorizationChange,
     accounts,
     isLoadingAccounts
   };

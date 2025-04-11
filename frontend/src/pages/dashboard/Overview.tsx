@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback, Suspense } from "react";
 import {
   ArrowUpRight,
   ArrowDownRight,
@@ -54,6 +54,9 @@ import { Asset, AssetTransfer } from "@/types/assets";
 
 // Import the useCurrencyFormat hook
 import useCurrencyFormat from "@/hooks/useCurrencyFormat";
+
+// Import the CreateTransactionDto type
+import { CreateTransactionDto } from "@/types/transactions";
 
 // Simple fade in animation preset
 const fadeIn = {
@@ -164,12 +167,13 @@ export default function Overview() {
   const [showTransactionModal, setShowTransactionModal] = useState(false);
   const [transactionType, setTransactionType] = useState<'income' | 'expense'>('income');
   const [transactionAmount, setTransactionAmount] = useState("");
-  const [transactionTitle, setTransactionTitle] = useState("");
-  const [transactionCategory, setTransactionCategory] = useState("");
-  const [transactionDescription, setTransactionDescription] = useState("");
-  const [transactionDate, setTransactionDate] = useState("");
-  const [transactionAccount, setTransactionAccount] = useState("");
+  const [transactionTitle, setTransactionTitle] = useState<string>('');
+  const [transactionCategory, setTransactionCategory] = useState<string>('');
+  const [transactionDescription, setTransactionDescription] = useState<string>('');
+  const [transactionDate, setTransactionDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [transactionAccount, setTransactionAccount] = useState<string>('');
   const [formErrors, setFormErrors] = useState<TransactionFormErrors>({});
+  const [useAutoCategory, setUseAutoCategory] = useState<boolean>(true);
   
   // State for edit transaction
   const [showEditModal, setShowEditModal] = useState(false);
@@ -484,8 +488,8 @@ export default function Overview() {
       errors.amount = "Amount must be greater than zero";
     }
 
-    // Check category
-    if (!transactionCategory) {
+    // Check category - only required if auto-categorization is disabled
+    if (!transactionCategory && !useAutoCategory) {
       errors.category = "Category is required";
     }
     
@@ -522,15 +526,26 @@ export default function Overview() {
 
     try {
       const amount = parseFloat(transactionAmount);
-      const transactionData = {
+      
+      // Create transaction data object based on auto-categorization status
+      const transactionData: CreateTransactionDto = {
         amount: amount,
         type: type,
-      category: transactionCategory,
         title: transactionTitle,
         description: transactionDescription || '',
         date: transactionDate || new Date().toISOString().split('T')[0],
-        account: transactionAccount
+        account: transactionAccount,
+        useAutoCategory: useAutoCategory
       };
+      
+      // Only include category if auto-categorization is disabled
+      if (!useAutoCategory) {
+        transactionData.category = transactionCategory;
+      } else {
+        // Provide a temporary category value when using auto-categorization
+        // This will be overridden by the backend
+        transactionData.category = '';
+      }
 
       const response = await apiService.createTransaction(transactionData);
 
@@ -1717,22 +1732,22 @@ export default function Overview() {
         const substring = seed.substring(0, substringLength);
         id = parseInt(substring, 16);
       } else {
-        // Jika tidak ada seed, generate random ID
+        // If no seed exists, generate random ID
         id = Math.floor(Math.random() * 100000) + 1;
       }
       
-      // Pastikan ID valid
+      // Ensure ID is valid
       if (isNaN(id) || id === 0 || usedIds.has(id)) {
-        // Jika invalid atau sudah digunakan, generate ID baru
+        // If invalid or already used, generate new ID
         id = Math.floor(Math.random() * 100000) + 1;
         
-        // Pastikan ID baru tidak duplikat (recursive check)
+        // Make sure the new ID is not a duplicate (recursive check)
         while (usedIds.has(id)) {
           id = Math.floor(Math.random() * 100000) + 1;
         }
       }
       
-      // Tambahkan ke set ID yang sudah digunakan
+      // Add to the set of used IDs
       usedIds.add(id);
       return id;
     };
@@ -1747,7 +1762,7 @@ export default function Overview() {
         ? transfer.toAsset.name
         : 'Unknown';
       
-      // Dapatkan ID dari transfer (object ID, string ID, atau property ID)
+      // Get ID from transfer (object ID, string ID, or property ID)
       const transferIdStr = String(transfer._id || transfer.id || '');
       
       // Generate ID unik untuk transaction
@@ -1861,6 +1876,16 @@ export default function Overview() {
       EventBus.off('transaction:restored', _handleTransactionRestored);
     };
   }, [_handleTransactionCreated, _handleTransactionUpdated, _handleTransactionSoftDeleted, _handleTransactionPermanentlyDeleted, _handleTransactionRestored]);
+
+  // Update handlers
+  // Handle auto-categorization switch
+  const handleAutoCategorizationChange = (value: boolean) => {
+    setUseAutoCategory(value);
+    // Clear category error if auto-categorization is enabled
+    if (value && formErrors.category) {
+      setFormErrors((prev) => ({ ...prev, category: undefined }));
+    }
+  };
 
   return (
     <div className="w-full py-6 lg:py-8">
@@ -2191,31 +2216,35 @@ export default function Overview() {
           </motion.div>
         </div>
 
-        {/* Add Transaction Modal */}
-        <ResponsiveTransactionModal
-          mode="add"
-          type={transactionType}
-          isOpen={showTransactionModal}
-          transactionAmount={transactionAmount}
-          transactionTitle={transactionTitle}
-          transactionCategory={transactionCategory}
-          transactionDescription={transactionDescription}
-          transactionDate={transactionDate}
-          transactionAccount={transactionAccount}
-          formErrors={formErrors}
-          onClose={handleCloseTransactionModal}
-          onSubmit={handleFormSubmit}
-          onAmountChange={handleAmountChange}
-          onTitleChange={(value: string) => setTransactionTitle(value)}
-          onCategoryChange={(value: string) => setTransactionCategory(value)}
-          onDescriptionChange={(value: string) =>
-            setTransactionDescription(value)
-          }
-          onDateChange={(value: string) => setTransactionDate(value)}
-          onAccountChange={(value: string) => setTransactionAccount(value)}
-          accounts={accounts}
-          isLoadingAccounts={isAccountsLoading}
-        />
+        {/* Transaction add/edit modal */}
+        <Suspense fallback={<div className="flex items-center justify-center h-20">Loading...</div>}>
+          <ResponsiveTransactionModal 
+            mode={currentTransactionId ? 'edit' : 'add'}
+            type={transactionType}
+            isOpen={showTransactionModal}
+            transactionAmount={transactionAmount}
+            transactionTitle={transactionTitle}
+            transactionCategory={transactionCategory}
+            transactionDescription={transactionDescription}
+            transactionDate={transactionDate}
+            transactionAccount={transactionAccount}
+            formErrors={formErrors}
+            onClose={handleCloseTransactionModal}
+            onSubmit={handleFormSubmit}
+            onAmountChange={handleAmountChange}
+            onTitleChange={(value: string) => setTransactionTitle(value)}
+            onCategoryChange={(value: string) => setTransactionCategory(value)}
+            onDescriptionChange={(value: string) =>
+              setTransactionDescription(value)
+            }
+            onDateChange={(value: string) => setTransactionDate(value)}
+            onAccountChange={(value: string) => setTransactionAccount(value)}
+            useAutoCategory={useAutoCategory}
+            onAutoCategorizationChange={handleAutoCategorizationChange}
+            accounts={accounts}
+            isLoadingAccounts={isAccountsLoading}
+          />
+        </Suspense>
         
         {/* Edit Transaction Modal */}
         <ResponsiveTransactionModal

@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   Tooltip,
   TooltipContent,
@@ -76,6 +77,8 @@ interface TransactionFormProps {
   onDescriptionChange: (value: string) => void;
   onDateChange: (value: string) => void;
   onAccountChange?: (value: string) => void;
+  onAutoCategorizationChange?: (value: boolean) => void;
+  useAutoCategory?: boolean;
   accounts?: { id?: string; _id?: string; name: string; type: string; balance?: number; }[];
   isLoadingAccounts?: boolean;
 }
@@ -149,8 +152,26 @@ const selectionFeedbackCss = `
   }
 `;
 
-// Add the selection feedback css to the component
-const combinedStyles = `${globalStyles}\n${selectionFeedbackCss}`;
+// Add darker placeholder style
+const placeholderStyles = `
+  ::placeholder {
+    color: var(--foreground) !important;
+    opacity: 0.5 !important;
+  }
+  
+  ::-webkit-input-placeholder {
+    color: var(--foreground) !important;
+    opacity: 0.5 !important;
+  }
+  
+  :-ms-input-placeholder {
+    color: var(--foreground) !important;
+    opacity: 0.5 !important;
+  }
+`;
+
+// Combined styles
+const allStyles = `${globalStyles}\n${selectionFeedbackCss}\n${placeholderStyles}`;
 
 /**
  * TransactionForm - A reusable form component for income and expense transactions
@@ -181,6 +202,8 @@ export const TransactionForm = ({
   onDescriptionChange,
   onDateChange,
   onAccountChange = () => {},
+  onAutoCategorizationChange = () => {},
+  useAutoCategory = true,
   accounts = [],
   isLoadingAccounts = false,
 }: TransactionFormProps) => {
@@ -194,9 +217,17 @@ export const TransactionForm = ({
   const [categoriesError, setCategoriesError] = useState<string | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   
+  // Auto-categorization state
+  const [autoCategorizationEnabled, setAutoCategorizationEnabled] = useState(useAutoCategory);
+  
   // Get today's date at the start of the day (midnight)
   const today = new Date();
   today.setHours(0, 0, 0, 0);
+  
+  // Update auto-categorization state when prop changes
+  useEffect(() => {
+    setAutoCategorizationEnabled(useAutoCategory);
+  }, [useAutoCategory]);
   
   // State for adding categories and search
   const [categoryComboboxOpen, setCategoryComboboxOpen] = useState(false);
@@ -883,7 +914,7 @@ export const TransactionForm = ({
       initial="hidden"
       animate="show"
     >
-      <style>{combinedStyles}</style>
+      <style>{allStyles}</style>
       {/* Transaction Title Field */}
       <motion.div className="space-y-2" variants={itemAnimation}>
         <div className="flex items-center justify-between gap-2">
@@ -1301,6 +1332,49 @@ export const TransactionForm = ({
           </TooltipProvider>
         </div>
 
+        {/* Auto-categorization switch */}
+        <motion.div 
+          className="flex items-center justify-between rounded-lg p-3 mb-3"
+          initial={{ opacity: 0.8, y: 5 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+          style={{
+            background: autoCategorizationEnabled 
+              ? 'linear-gradient(to right, var(--primary)/0.08, var(--primary)/0.03)' 
+              : 'var(--accent)/0.5',
+            borderLeft: autoCategorizationEnabled 
+              ? '3px solid var(--primary)' 
+              : '3px solid transparent',
+            boxShadow: autoCategorizationEnabled 
+              ? '0 1px 3px var(--primary)/0.05' 
+              : 'none'
+          }}
+        >
+          <div className="flex flex-col">
+            <div className="text-sm font-medium flex items-center gap-1.5">
+              Auto-categorize
+              {autoCategorizationEnabled && (
+                <span className="inline-flex items-center rounded-full bg-primary/15 px-2 py-0.5 text-xs font-medium text-primary">
+                  Active
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground mt-0.5 max-w-sm">
+              {autoCategorizationEnabled 
+                ? "AI will automatically categorize based on title and description" 
+                : "Manually select a category for this transaction"}
+            </p>
+          </div>
+          <Switch
+            checked={autoCategorizationEnabled}
+            onCheckedChange={(checked) => {
+              setAutoCategorizationEnabled(checked);
+              onAutoCategorizationChange(checked);
+            }}
+            className="data-[state=checked]:bg-primary"
+          />
+        </motion.div>
+
         {categoriesLoading ? (
           <div className="p-4 border rounded-lg flex items-center justify-center bg-muted/20">
             <p className="text-sm text-muted-foreground">Loading categories...</p>
@@ -1309,7 +1383,7 @@ export const TransactionForm = ({
           <div className="p-4 border border-destructive/50 rounded-lg bg-destructive/10">
             <p className="text-sm text-destructive">{categoriesError}</p>
           </div>
-        ) : categoryOptions.length > 0 ? (
+        ) : categoryOptions.length > 0 && !autoCategorizationEnabled ? (
           <Popover open={categoryComboboxOpen} onOpenChange={setCategoryComboboxOpen}>
             <PopoverTrigger asChild>
               <Button
@@ -1484,6 +1558,32 @@ export const TransactionForm = ({
               </div>
             </PopoverContent>
           </Popover>
+        ) : autoCategorizationEnabled ? (
+          // Placeholder for auto-categorization
+          <motion.div 
+            className="border border-border/70 rounded-lg bg-background/80 overflow-hidden"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+          >
+            <div className="p-4 text-center relative">
+              <div className="absolute -top-6 -right-6 w-20 h-20 rounded-full bg-primary/5"></div>
+              <div className="absolute -bottom-6 -left-6 w-20 h-20 rounded-full bg-primary/5"></div>
+              <div className="flex flex-col items-center justify-center relative z-10">
+                <div className="flex items-center justify-center w-11 h-11 rounded-full bg-primary/10 text-primary mb-2">
+                  <Tags className="h-5 w-5" />
+                </div>
+                <h4 className="text-sm font-medium">Auto-categorization enabled</h4>
+                <p className="text-xs text-muted-foreground mt-1 max-w-[300px]">
+                  AI will automatically categorize this transaction based on the title and description
+                </p>
+                <div className="mt-3 flex gap-2 items-center text-xs text-muted-foreground">
+                  <div className="w-2 h-2 rounded-full bg-primary animate-pulse"></div>
+                  <span>Make sure to provide descriptive details</span>
+                </div>
+              </div>
+            </div>
+          </motion.div>
         ) : (
           <div className="border border-dashed rounded-lg p-4 flex flex-col items-center justify-center bg-muted/30 text-center space-y-2">
             <div className="flex items-center justify-center w-10 h-10 rounded-full bg-primary/10 text-primary mb-1">
@@ -1496,7 +1596,7 @@ export const TransactionForm = ({
           </div>
         )}
 
-        {formErrors.category && (
+        {formErrors.category && !autoCategorizationEnabled && (
           <p className="text-xs text-red-500 mt-1 flex items-center gap-1.5">
             <span className="h-3.5 w-3.5 rounded-full bg-red-100 dark:bg-red-900/50 border border-red-200 dark:border-red-800 flex items-center justify-center flex-shrink-0">
               <span className="block h-1 w-1 rounded-full bg-red-500" />
