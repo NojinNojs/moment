@@ -174,6 +174,7 @@ export default function Overview() {
   const [transactionAccount, setTransactionAccount] = useState<string>('');
   const [formErrors, setFormErrors] = useState<TransactionFormErrors>({});
   const [useAutoCategory, setUseAutoCategory] = useState<boolean>(true);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   
   // State for edit transaction
   const [showEditModal, setShowEditModal] = useState(false);
@@ -480,12 +481,24 @@ export default function Overview() {
   // Validate form before submission
   const validateForm = () => {
     const errors: TransactionFormErrors = {};
-
+    
     // Check amount
     if (!transactionAmount) {
       errors.amount = "Amount is required";
     } else if (parseFloat(transactionAmount) <= 0) {
       errors.amount = "Amount must be greater than zero";
+    } else {
+      // Check if expense exceeds account balance
+      if (transactionType === 'expense' && transactionAccount) {
+        // Find the selected account
+        const selectedAccount = accounts.find(acc => 
+          acc._id === transactionAccount || acc.id === transactionAccount
+        );
+        
+        if (selectedAccount && parseFloat(transactionAmount) > selectedAccount.balance) {
+          errors.amount = `Expense exceeds your ${selectedAccount.name} balance of ${formatCurrency(selectedAccount.balance)}`;
+        }
+      }
     }
 
     // Check category - only required if auto-categorization is disabled
@@ -520,11 +533,33 @@ export default function Overview() {
 
   // Submit a new transaction
   const handleSubmitTransaction = async (type: 'income' | 'expense') => {
+    // Double-check isSubmitting state to absolutely prevent duplicate submissions
+    if (isSubmitting) {
+      console.log("Submission already in progress, blocking duplicate transaction");
+      return;
+    }
+    
     if (!validateForm()) {
+      // Reset isSubmitting if validation fails
+      setIsSubmitting(false);
       return;
     }
 
     try {
+      // Set submitting state to true to show loading and prevent multiple submissions
+      setIsSubmitting(true);
+      
+      // Add a submission lock to prevent any possibility of race conditions
+      const submissionId = Date.now();
+      const currentSubmissionId = submissionId;
+      
+      // Second check after a short delay to catch race conditions
+      await new Promise(resolve => setTimeout(resolve, 100));
+      if (currentSubmissionId !== submissionId) {
+        console.log("Another submission was started, aborting this one");
+        return;
+      }
+      
       const amount = parseFloat(transactionAmount);
       
       // Create transaction data object based on auto-categorization status
@@ -622,13 +657,28 @@ export default function Overview() {
         description: error instanceof Error ? error.message : "An unexpected error occurred",
         position: "bottom-right"
       });
+    } finally {
+      // Set submitting state back to false when done
+      setIsSubmitting(false);
     }
   };
 
   // Handler for the transaction modal's onSubmit
   const handleFormSubmit = () => {
-    // Use the current transaction type
-    handleSubmitTransaction(transactionType);
+    // Prevent multiple submissions by checking isSubmitting state
+    if (isSubmitting) {
+      console.log("Submission already in progress, preventing duplicate submission");
+      return;
+    }
+    
+    // Set isSubmitting state
+    setIsSubmitting(true);
+    
+    // Use setTimeout to ensure the UI updates with the disabled button before processing
+    setTimeout(() => {
+      // Use the current transaction type
+      handleSubmitTransaction(transactionType);
+    }, 50);
   };
 
   // Function to handle scroll events and update ref (not state)
@@ -2243,6 +2293,7 @@ export default function Overview() {
             onAutoCategorizationChange={handleAutoCategorizationChange}
             accounts={accounts}
             isLoadingAccounts={isAccountsLoading}
+            isSubmitting={isSubmitting}
           />
         </Suspense>
         
@@ -2278,8 +2329,11 @@ export default function Overview() {
             const originalTransaction = transactions.find(t => t.id === currentTransactionId);
             if (!originalTransaction) return;
             
+            // Set submitting state to prevent multiple submissions
+            setIsSubmitting(true);
+            
             // Get the values for calculation
-                const amount = parseFloat(transactionAmount);
+            const amount = parseFloat(transactionAmount);
             const oldAmount = Math.abs(originalTransaction.amount);
             const oldType = originalTransaction.type;
             
@@ -2445,20 +2499,28 @@ export default function Overview() {
             
             // Close modal
             setShowEditModal(false);
+            
+            // Reset submitting state
+            setIsSubmitting(false);
               } else {
                 console.error('Transaction update failed:', response.message || 'Unknown error');
                 toast.error("Transaction update failed", {
                   description: response.message || "An error occurred while updating the transaction",
                   position: "bottom-right"
                 });
+                
+                // Reset submitting state on failure
+                setIsSubmitting(false);
               }
             } catch (error) {
-              console.error("Transaction error:", error);
-              // Show error toast
-              toast.error("Transaction error", {
+              console.error('Error updating transaction:', error);
+              toast.error("Error updating transaction", {
                 description: error instanceof Error ? error.message : "An unexpected error occurred",
                 position: "bottom-right"
               });
+              
+              // Reset submitting state on error
+              setIsSubmitting(false);
             }
           }}
           onAmountChange={handleAmountChange}
@@ -2469,6 +2531,7 @@ export default function Overview() {
           onAccountChange={(value: string) => setTransactionAccount(value)}
           accounts={accounts}
           isLoadingAccounts={isAccountsLoading}
+          isSubmitting={isSubmitting}
         />
         
         {/* Delete Transaction Dialog */}

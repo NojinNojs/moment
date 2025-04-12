@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect, useMemo } from "react";
 import { CreditCard } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
 import { DashboardHeader } from "@/components/dashboard/common/DashboardHeader";
 import {
   Transaction,
@@ -16,6 +17,7 @@ import { toast } from "sonner";
 import apiService from "@/services/api";
 import { Asset, AssetTransfer } from "@/types/assets";
 import { EventBus } from "@/lib/utils";
+import useCurrencyFormat from "@/hooks/useCurrencyFormat";
 
 // Define interfaces for category and account objects
 interface CategoryObject {
@@ -58,6 +60,13 @@ export default function Transactions() {
   const [restoringTransactionId, setRestoringTransactionId] = useState<
     string | null
   >(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [useAutoCategory, setUseAutoCategory] = useState<boolean>(true);
+  const [searchParams] = useSearchParams();
+  const [highlightedTransactionId, setHighlightedTransactionId] = useState<string | null>(null);
+
+  // Initialize the currency formatting hook
+  const { formatCurrency } = useCurrencyFormat();
 
   // State for asset transfers
   const [assetTransfers, setAssetTransfers] = useState<AssetTransfer[]>([]);
@@ -74,7 +83,7 @@ export default function Transactions() {
   >(undefined);
 
   // Form state
-  const [formData, setFormData] = useState<TransactionFormData>({
+  const [formData, setFormData] = useState<TransactionFormData & { type?: 'income' | 'expense' }>({
     amount: "",
     title: "",
     category: "",
@@ -221,6 +230,79 @@ export default function Transactions() {
     fetchTransactions({ resolveReferences: true });
   }, [fetchTransactions]);
 
+  // Handle URL parameters for transaction highlighting
+  useEffect(() => {
+    // Check for transaction ID in URL
+    const transactionId = searchParams.get('id');
+    if (transactionId) {
+      console.log(`[Transactions] Found transaction ID in URL: ${transactionId}`);
+      setHighlightedTransactionId(transactionId);
+      
+      // Find the transaction by ID and highlight it
+      // We'll need to wait for transactions to be loaded
+      if (transactions.length > 0) {
+        const transaction = transactions.find(t => 
+          t._id === transactionId || t.id.toString() === transactionId
+        );
+        
+        if (transaction) {
+          console.log(`[Transactions] Found matching transaction: ${transaction.title}`);
+          // Scroll to the transaction after a short delay to ensure rendering
+          setTimeout(() => {
+            const element = document.getElementById(`transaction-${transactionId}`);
+            if (element) {
+              element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              // Highlight effect - add a temporary class that will fade
+              element.classList.add('highlight-transaction');
+              // Remove the highlight after animation completes
+              setTimeout(() => {
+                element.classList.remove('highlight-transaction');
+              }, 3000);
+            }
+          }, 500);
+        }
+      }
+    }
+  }, [searchParams, transactions]);
+
+  // Add CSS for highlighting transactions at the top of the component
+  useEffect(() => {
+    // Add the CSS for transaction highlighting
+    const style = document.createElement('style');
+    style.textContent = `
+      .highlight-transaction {
+        animation: highlight-pulse 3s ease-in-out;
+        --highlight-color: 59, 130, 246; /* Blue color in RGB format */
+      }
+      
+      @keyframes highlight-pulse {
+        0% { 
+          box-shadow: 0 0 0 0 rgba(var(--highlight-color), 0.2);
+          background-color: rgba(var(--highlight-color), 0.1);
+        }
+        50% { 
+          box-shadow: 0 0 0 8px rgba(var(--highlight-color), 0);
+          background-color: rgba(var(--highlight-color), 0.05);
+        }
+        100% { 
+          box-shadow: 0 0 0 0 rgba(var(--highlight-color), 0);
+          background-color: transparent;
+        }
+      }
+      
+      /* Dark mode adjustments */
+      html.dark .highlight-transaction {
+        --highlight-color: 96, 165, 250; /* Lighter blue for dark mode */
+      }
+    `;
+    document.head.appendChild(style);
+    
+    // Cleanup
+    return () => {
+      document.head.removeChild(style);
+    };
+  }, []);
+
   // Utility function for calculating new balance based on transaction type and action
   const calculateNewBalance = (
     currentBalance: number,
@@ -350,21 +432,32 @@ export default function Transactions() {
           );
         }
 
-        console.log(`⚠️ BALANCE CHANGE for account ${account.name}:`, {
-          oldBalance: account.balance,
-          newBalance,
-          difference: newBalance - account.balance,
-        });
+        console.log(
+          `⚠️ BALANCE CHANGE for account ${account.name}:`, {
+            oldBalance: account.balance,
+            newBalance,
+            difference: newBalance - account.balance,
+          });
       }
 
-      // Update the account balance
+      // Update the account balance in the API
       await apiService.updateAsset(accountId.toString(), {
         ...account,
         balance: newBalance,
       });
 
-      // Refresh accounts to update UI
-      await fetchAccounts();
+      // Update local accounts state directly instead of fetching again
+      setAccounts(prevAccounts => 
+        prevAccounts.map(prevAccount => {
+          if (prevAccount._id === accountId || prevAccount.id === accountId) {
+            return {
+              ...prevAccount,
+              balance: newBalance
+            };
+          }
+          return prevAccount;
+        })
+      );
       
       if (process.env.NODE_ENV !== 'production') {
         console.log(
@@ -470,8 +563,18 @@ export default function Transactions() {
                     balance: newBalance,
                   });
 
-                  // Refresh accounts to update UI
-                  await fetchAccounts();
+                  // Update local accounts state directly instead of fetching again
+                  setAccounts(prevAccounts => 
+                    prevAccounts.map(prevAccount => {
+                      if (prevAccount._id === accountId || prevAccount.id === accountId) {
+                        return {
+                          ...prevAccount,
+                          balance: newBalance
+                        };
+                      }
+                      return prevAccount;
+                    })
+                  );
                 }
               }
             }
@@ -519,22 +622,41 @@ export default function Transactions() {
 
   // Set up event listeners to update data when transactions change
   useEffect(() => {
-    // Listen for transaction events to refresh data
+    // Only listen for transaction creation and updates, not delete/restore
     const createdListener = TransactionEventBus.on(
       "transaction:created",
-      refreshAllData
+      (data) => {
+        console.log("Transaction created, refreshing data", data);
+        // For new transactions we do need to refresh data
+        refreshAllData();
+      }
     );
+    
     const updatedListener = TransactionEventBus.on(
       "transaction:updated",
-      refreshAllData
+      (data) => {
+        console.log("Transaction updated, refreshing data", data);
+        // For updates we do need to refresh data
+        refreshAllData();
+      }
     );
+    
+    // For delete and restore operations, explicitly do nothing
+    // The state is already updated locally
     const deletedListener = TransactionEventBus.on(
       "transaction:softDeleted",
-      refreshAllData
+      (data) => {
+        console.log("Received soft delete event, NO refresh", data);
+        // Do nothing - state is already updated
+      }
     );
+    
     const restoredListener = TransactionEventBus.on(
       "transaction:restored",
-      refreshAllData
+      (data) => {
+        console.log("Received restore event, NO refresh", data);
+        // Do nothing - state is already updated
+      }
     );
 
     // Clean up listeners on unmount
@@ -924,16 +1046,28 @@ export default function Transactions() {
   // Validate form before submission
   const validateForm = useCallback(() => {
     const errors: TransactionFormErrors = {};
-
+    
     // Check amount
     if (!formData.amount) {
       errors.amount = "Amount is required";
     } else if (parseFloat(formData.amount) <= 0) {
       errors.amount = "Amount must be greater than zero";
+    } else {
+      // Check if expense exceeds account balance
+      if (formData.type === 'expense' && formData.account) {
+        // Find the selected account
+        const selectedAccount = accounts.find(acc => 
+          acc._id === formData.account || acc.id === formData.account
+        );
+        
+        if (selectedAccount && parseFloat(formData.amount) > selectedAccount.balance) {
+          errors.amount = `Expense exceeds your ${selectedAccount.name} balance of ${formatCurrency(selectedAccount.balance)}`;
+        }
+      }
     }
 
-    // Check category
-    if (!formData.category) {
+    // Check category - only required if auto-categorization is disabled
+    if (!formData.category && !useAutoCategory) {
       errors.category = "Category is required";
     }
 
@@ -960,23 +1094,24 @@ export default function Transactions() {
 
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
-  }, [formData]);
+  }, [formData, accounts, formatCurrency, useAutoCategory]);
 
   // Helper function to update financial data after transaction changes - defined before it's used
   const updateFinancialData = useCallback(
     (type: "income" | "expense", amount: number) => {
       console.log(`Updating financial data: ${type} - $${amount}`);
-      // Update financial statistics based on transaction type and amount
-      setTransactions((prev) => {
-        // Just return the current state to trigger a re-render
-        // The actual financial calculations are done by parent components
-        return [...prev];
-      });
-
-      // Refresh data to ensure all components are updated
-      refreshAllData();
+      
+      // No need to refresh all data - this is causing the page refresh issue
+      // Update only what's needed for the UI
+      
+      // We'll update the local state calculations instead
+      // For income add to totalIncome, for expense add to totalExpenses
+      // This will be reflected in the UI without a full refresh
+      
+      // We don't need to do anything here since the transaction state is already updated
+      // All derived calculations (totalIncome, totalExpenses, etc) will automatically update
     },
-    [refreshAllData]
+    []
   );
 
   const handleRestoreTransaction = useCallback(
@@ -1046,14 +1181,16 @@ export default function Transactions() {
           toast.success("Transaction restored successfully");
 
           // Emit event for other components to react
+          // But don't include data that would cause a full refresh
           EventBus.emit("transaction:restored", {
             transaction: {
-              ...transactionToRestore,
+              id: transactionToRestore.id,
+              _id: transactionToRestore._id,
               isDeleted: false,
-              ...response.data,
+              // Don't include unnecessary properties that might trigger extensive updates
             },
-            type,
-            amount,
+            // We don't need to send type and amount here since
+            // those are used to trigger financial updates which we've optimized
           });
         } else {
           toast.error("Failed to restore transaction");
@@ -1211,15 +1348,6 @@ export default function Transactions() {
         return newTransactions;
       });
 
-      // Force a refresh of the entire transaction state if we're deleting
-      if (isDeleted) {
-        // Give React a chance to process the state update with a small delay
-        setTimeout(() => {
-          console.log("🔄 Forcing transaction view update...");
-          setTransactions((prev) => [...prev]);
-        }, 50);
-      }
-
       console.log(
         `⚠️ BALANCE UPDATE OPERATION STARTING: ${
           isDeleted ? "DELETING" : "RESTORING"
@@ -1241,6 +1369,9 @@ export default function Transactions() {
 
       // If the operation was successful, log the new account balance
       const logAccountBalanceAfter = async () => {
+        // Skip this in production to avoid unnecessary API calls
+        if (process.env.NODE_ENV === 'production') return;
+        
         try {
           if (result.success) {
             const accountId =
@@ -1281,9 +1412,14 @@ export default function Transactions() {
         );
 
         // Emit event for other components to listen for
+        // But only include minimal data to prevent unnecessary refreshes
         TransactionEventBus.emit(
           isDeleted ? "transaction:softDeleted" : "transaction:restored",
-          updatedTransaction
+          {
+            id: updatedTransaction.id,
+            _id: updatedTransaction._id,
+            isDeleted: updatedTransaction.isDeleted
+          }
         );
 
         // Show success toast ONLY for restore operations, not for soft delete (to avoid duplication)
@@ -1347,7 +1483,12 @@ export default function Transactions() {
     (id: string | number) => {
       // Find the transaction by ID, including soft-deleted transactions
       // by directly accessing the full transactions array
-      const transaction = transactions.find((t) => t.id === id);
+      const transaction = transactions.find((t) => 
+        typeof t.id === typeof id 
+          ? t.id === id 
+          : String(t.id) === String(id) || 
+            (t._id && String(t._id) === String(id))
+      );
 
       if (!transaction) {
         console.error("Transaction not found for soft delete:", id);
@@ -1379,6 +1520,9 @@ export default function Transactions() {
       return;
     }
 
+    // Set loading state to prevent multiple submissions
+    setIsSubmitting(true);
+
     const type = currentTransactionType;
 
     // Parse amount from form data
@@ -1389,6 +1533,7 @@ export default function Transactions() {
     } catch (error) {
       console.error("Error parsing amount:", error);
       setFormErrors((prev) => ({ ...prev, amount: "Invalid amount format" }));
+      setIsSubmitting(false);
       return;
     }
 
@@ -1398,12 +1543,11 @@ export default function Transactions() {
         ...prev,
         amount: "Amount must be a positive number",
       }));
+      setIsSubmitting(false);
       return;
     }
 
     try {
-      setShowTransactionModal(false);
-
       // Format date for API
       let formattedDate = formData.date;
 
@@ -1441,15 +1585,29 @@ export default function Transactions() {
 
       if (currentTransactionMode === "add") {
         // Prepare transaction data for API
-        const transactionData = {
+        const transactionData: {
+          amount: number;
+          type: "income" | "expense";
+          title: string;
+          description: string;
+          date: string;
+          account: string;
+          useAutoCategory: boolean;
+          category?: string;
+        } = {
           amount,
           type,
-          category: formData.category,
           title: formData.title || (type === "income" ? "Income" : "Expense"), // Default title if empty
           description: formData.description || "", // Default empty string if not provided
           date: formattedDate || new Date().toISOString().split("T")[0], // Format date properly
           account: formData.account,
+          useAutoCategory: useAutoCategory
         };
+
+        // Only include category if auto-categorization is disabled
+        if (!useAutoCategory) {
+          transactionData.category = formData.category;
+        }
 
         // Debug log the transaction data
         console.log("Submitting transaction data:", transactionData);
@@ -1460,6 +1618,9 @@ export default function Transactions() {
         // Log any validation errors
         if (!response.success && response.errors) {
           console.error("Transaction validation errors:", response.errors);
+          toast.error("Failed to add transaction", {
+            description: "Please check your information and try again.",
+          });
         }
 
         if (response.success && response.data) {
@@ -1478,6 +1639,9 @@ export default function Transactions() {
             position: "bottom-right",
             id: `add-transaction-${response.data._id}`, // Use unique ID
           });
+
+          // Close modal only after successful submission
+          setShowTransactionModal(false);
         }
       } else if (currentTransactionMode === "edit" && currentTransactionId) {
         // Get the transaction to edit
@@ -1495,15 +1659,29 @@ export default function Transactions() {
         const typeChanged = originalType !== type;
 
         // Prepare transaction data for API
-        const transactionData = {
+        const transactionData: {
+          amount: number;
+          type: "income" | "expense";
+          title: string;
+          description: string;
+          date: string;
+          account: string;
+          useAutoCategory: boolean;
+          category?: string;
+        } = {
           amount,
           type,
-          category: formData.category,
           title: formData.title,
           description: formData.description,
           date: formattedDate,
           account: formData.account,
+          useAutoCategory: useAutoCategory
         };
+
+        // Only include category if auto-categorization is disabled
+        if (!useAutoCategory) {
+          transactionData.category = formData.category;
+        }
 
         console.log("Updating transaction data:", {
           id:
@@ -1616,25 +1794,23 @@ export default function Transactions() {
       // Close modal
       handleCloseModal();
     } catch (error) {
-      console.error("Transaction error:", error);
-      // Show error toast
-      toast.error("Transaction error", {
-        description:
-          error instanceof Error
-            ? error.message
-            : "An unexpected error occurred",
-        position: "bottom-right",
+      console.error("Error submitting transaction:", error);
+      toast.error("Failed to process transaction", {
+        description: "An unexpected error occurred. Please try again.",
       });
+    } finally {
+      // Reset loading state
+      setIsSubmitting(false);
     }
   }, [
-    currentTransactionId,
-    currentTransactionMode,
+    validateForm,
     currentTransactionType,
     formData,
-    formErrors,
-    handleCloseModal,
-    validateForm,
-    refreshAllData,
+    accounts,
+    currentTransactionMode,
+    currentTransactionId,
+    transactions,
+    useAutoCategory,
   ]);
 
   // Handler for transaction state change events - more generic approach to handle all types of events
@@ -1780,6 +1956,11 @@ export default function Transactions() {
     }
   }, [getAllTransactions]);
 
+  // Add an auto-categorization toggle handler function
+  const handleAutoCategorizationChange = useCallback((value: boolean) => {
+    setUseAutoCategory(value);
+  }, []);
+
   return (
     <div className="container mx-auto p-4 md:p-8 max-w-7xl">
       <DashboardHeader
@@ -1812,6 +1993,7 @@ export default function Transactions() {
         onAddTransaction={(type) =>
           type === "income" ? handleAddIncome() : handleAddExpense()
         }
+        highlightedTransactionId={highlightedTransactionId}
       />
 
       {/* Transaction modals - Use ResponsiveTransactionModal directly */}
@@ -1838,8 +2020,11 @@ export default function Transactions() {
         onAccountChange={(value) =>
           setFormData((prev) => ({ ...prev, account: value }))
         }
+        useAutoCategory={useAutoCategory}
+        onAutoCategorizationChange={handleAutoCategorizationChange}
         accounts={accounts}
         isLoadingAccounts={isLoadingAccounts}
+        isSubmitting={isSubmitting}
       />
 
       {/* Delete transaction dialog */}

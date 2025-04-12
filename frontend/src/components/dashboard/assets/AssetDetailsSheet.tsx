@@ -468,6 +468,7 @@ export function AssetDetailsSheet({
                                       <TransactionItem
                                         transaction={transaction}
                                         className="w-full"
+                                        linkable={true}
                                       />
                                     </motion.div>
                                   );
@@ -593,6 +594,7 @@ export function AssetDetailsSheet({
                                       <TransactionItem
                                         transaction={transaction}
                                         className="w-full"
+                                        linkable={true}
                                       />
                                     </motion.div>
                                   );

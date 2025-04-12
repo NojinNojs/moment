@@ -32,6 +32,7 @@ export interface TransactionModalProps {
   onAutoCategorizationChange?: (value: boolean) => void;
   accounts?: { id?: string; _id?: string; name: string; type: string; balance?: number; }[];
   isLoadingAccounts?: boolean;
+  isSubmitting?: boolean;
 }
 
 /**
@@ -66,7 +67,8 @@ export function ResponsiveTransactionModal({
   useAutoCategory = true,
   onAutoCategorizationChange = () => {},
   accounts = [],
-  isLoadingAccounts = false
+  isLoadingAccounts = false,
+  isSubmitting = false
 }: TransactionModalProps) {
   const [isMobile, setIsMobile] = useState(false);
   const [isTouchDevice, setIsTouchDevice] = useState(false);
@@ -109,7 +111,8 @@ export function ResponsiveTransactionModal({
     useAutoCategory,
     onAutoCategorizationChange,
     accounts,
-    isLoadingAccounts
+    isLoadingAccounts,
+    isSubmitting
   };
 
   // Additional optimizations for touch devices

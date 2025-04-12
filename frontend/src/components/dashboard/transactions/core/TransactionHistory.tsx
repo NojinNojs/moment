@@ -105,6 +105,7 @@ interface TransactionHistoryProps {
   showFilters?: boolean;
   className?: string;
   onAddTransaction?: (type: 'income' | 'expense') => void;
+  highlightedTransactionId?: string | null;
 }
 
 // Add type guard function to check category type
@@ -138,7 +139,8 @@ export function TransactionHistory({
   title = "Transaction History",
   showFilters = true,
   className,
-  onAddTransaction
+  onAddTransaction,
+  highlightedTransactionId = null
 }: TransactionHistoryProps) {
   // Filter states
   const [searchQuery, setSearchQuery] = useState("");
@@ -395,6 +397,18 @@ export function TransactionHistory({
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
   };
+
+  // Effect to scroll to highlighted transaction when component mounts
+  useEffect(() => {
+    if (highlightedTransactionId) {
+      setTimeout(() => {
+        const element = document.getElementById(`transaction-${highlightedTransactionId}`);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 300);
+    }
+  }, [highlightedTransactionId, filteredTransactions]);
 
   return (
     <Card className={cn("shadow-sm", className)}>
@@ -989,21 +1003,35 @@ export function TransactionHistory({
 
                     {/* Transactions for this date */}
                     <div className="space-y-2">
-                      {transactions.map((transaction) => (
-                        <motion.div
-                          key={`transaction-${transaction.id}`}
-                          variants={slideUp}
-                          layout
-                          className="relative bg-card hover:bg-muted/50 rounded-lg transition-colors"
-                        >
-                          <TransactionItem
-                            hideDate={true}
-                            transaction={transaction}
-                            onEditTransaction={onEditTransaction}
-                            onDeleteTransaction={onDeleteTransaction}
-                          />
-                        </motion.div>
-                      ))}
+                      {transactions.map((transaction) => {
+                        // Check if this transaction should be highlighted
+                        const isHighlighted = highlightedTransactionId && 
+                          (transaction._id === highlightedTransactionId || 
+                          transaction.id.toString() === highlightedTransactionId);
+                        
+                        // Create an ID for DOM reference and scrolling
+                        const transactionElementId = `transaction-${transaction._id || transaction.id}`;
+                        
+                        return (
+                          <motion.div
+                            key={transaction.id}
+                            variants={slideUp}
+                            layout
+                            className={cn(
+                              isHighlighted ? "highlight-transaction" : "",
+                              "relative bg-card hover:bg-muted/50 rounded-lg transition-colors"
+                            )}
+                            id={transactionElementId}
+                          >
+                            <TransactionItem
+                              hideDate={true}
+                              transaction={transaction}
+                              onEditTransaction={onEditTransaction}
+                              onDeleteTransaction={onDeleteTransaction}
+                            />
+                          </motion.div>
+                        );
+                      })}
                     </div>
                   </motion.div>
                 )
