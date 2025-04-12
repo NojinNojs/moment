@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react";
-import { Routes, Route, Navigate } from "react-router-dom";
+import { useState, useEffect, memo } from "react";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { SidebarProvider } from "../../contexts/SidebarProvider";
 import { useSidebarContext } from "@/contexts/SidebarContext";
 import { BottomBar, DashboardSidebar } from "../../components/dashboard";
+import { useCurrencyFormat } from "@/contexts/CurrencyContext";
 
 // Import all dashboard pages
 import Overview from "./Overview";
@@ -12,6 +13,15 @@ import Assets from "./Assets";
 import Bills from "./Bills";
 import Transactions from "./Transactions";
 import Settings from "./Settings";
+
+// Use memo to prevent unnecessary re-renders
+const MemoizedOverview = memo(Overview);
+const MemoizedReports = memo(Reports);
+const MemoizedSavings = memo(Savings);
+const MemoizedAssets = memo(Assets);
+const MemoizedBills = memo(Bills);
+const MemoizedTransactions = memo(Transactions);
+const MemoizedSettings = memo(Settings);
 
 export default function Dashboard() {
   return (
@@ -29,6 +39,14 @@ export default function Dashboard() {
 function MainContent() {
   const { open } = useSidebarContext();
   const [isMobile, setIsMobile] = useState(window.innerWidth < 1024);
+  const location = useLocation();
+  const { forceRefreshCurrency } = useCurrencyFormat();
+  
+  // Force currency refresh on path change
+  useEffect(() => {
+    console.log(`[Dashboard] Path changed to ${location.pathname}, refreshing currency`);
+    forceRefreshCurrency();
+  }, [location.pathname, forceRefreshCurrency]);
   
   // Handle window resize
   useEffect(() => {
@@ -48,14 +66,14 @@ function MainContent() {
   return (
     <main style={contentStyle} className="min-h-screen">
       <Routes>
-        <Route path="/" element={<Overview />} />
-        <Route path="/overview" element={<Overview />} />
-        <Route path="/assets" element={<Assets />} />
-        <Route path="/savings" element={<Savings />} />
-        <Route path="/bills" element={<Bills />} />
-        <Route path="/reports" element={<Reports />} />
-        <Route path="/settings" element={<Settings />} />
-        <Route path="/transactions" element={<Transactions />} />
+        <Route path="/" element={<MemoizedOverview />} />
+        <Route path="/overview" element={<MemoizedOverview />} />
+        <Route path="/assets" element={<MemoizedAssets />} />
+        <Route path="/savings" element={<MemoizedSavings />} />
+        <Route path="/bills" element={<MemoizedBills />} />
+        <Route path="/reports" element={<MemoizedReports />} />
+        <Route path="/settings" element={<MemoizedSettings />} />
+        <Route path="/transactions" element={<MemoizedTransactions />} />
         {/* Redirect to dashboard if path doesn't match */}
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>

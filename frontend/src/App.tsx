@@ -171,6 +171,15 @@ function AppLayout() {
   );
 }
 
+// CurrencyLayout must be inside Router to access location
+function CurrencyLayout() {
+  return (
+    <CurrencyProvider>
+      <AppLayout />
+    </CurrencyProvider>
+  );
+}
+
 function App() {
   // Force dark mode
   useEffect(() => {
@@ -180,9 +189,7 @@ function App() {
   return (
     <Router>
       <AuthProvider>
-        <CurrencyProvider>
-          <AppLayout />
-        </CurrencyProvider>
+        <CurrencyLayout />
       </AuthProvider>
     </Router>
   );

@@ -3,6 +3,11 @@ import { detectUserCurrency, saveUserCurrencyPreference, getUserCurrencyPreferen
 import { useAuth } from './auth-utils'; // Import auth context from auth-utils
 import websocketService from '@/services/websocket';
 import { toast } from 'sonner';
+import { useLocation } from 'react-router-dom';
+
+// Global variable to track currency outside React lifecycle
+// This helps ensure consistency across page navigations
+let globalCurrentCurrency = localStorage.getItem('userCurrency') || 'USD';
 
 interface CurrencyContextType {
   currencyCode: string;
@@ -10,14 +15,16 @@ interface CurrencyContextType {
   currencyLocale: string;
   setCurrency: (code: string) => Promise<void>;
   isLoadingCurrency: boolean;
+  forceRefreshCurrency: () => void;
 }
 
 const defaultCurrencyContext: CurrencyContextType = {
-  currencyCode: 'USD',
-  currencySymbol: '$',
-  currencyLocale: 'en-US',
+  currencyCode: globalCurrentCurrency,
+  currencySymbol: globalCurrentCurrency === 'IDR' ? 'Rp' : '$',
+  currencyLocale: globalCurrentCurrency === 'IDR' ? 'id-ID' : 'en-US',
   setCurrency: async () => {},
   isLoadingCurrency: true,
+  forceRefreshCurrency: () => {},
 };
 
 const CurrencyContext = createContext<CurrencyContextType>(defaultCurrencyContext);
@@ -29,15 +36,27 @@ interface CurrencyProviderProps {
 }
 
 export const CurrencyProvider: React.FC<CurrencyProviderProps> = ({ children }) => {
-  const [currencyCode, setCurrencyCode] = useState<string>('USD');
-  const [currencySymbol, setCurrencySymbol] = useState<string>('$');
-  const [currencyLocale, setCurrencyLocale] = useState<string>('en-US');
+  const [currencyCode, setCurrencyCode] = useState<string>(globalCurrentCurrency);
+  const [currencySymbol, setCurrencySymbol] = useState<string>(
+    globalCurrentCurrency === 'IDR' ? 'Rp' : 
+    globalCurrentCurrency === 'EUR' ? '€' : 
+    globalCurrentCurrency === 'GBP' ? '£' : '$'
+  );
+  const [currencyLocale, setCurrencyLocale] = useState<string>(
+    globalCurrentCurrency === 'IDR' ? 'id-ID' : 
+    globalCurrentCurrency === 'EUR' ? 'de-DE' : 
+    globalCurrentCurrency === 'GBP' ? 'en-GB' : 'en-US'
+  );
   const [isLoadingCurrency, setIsLoadingCurrency] = useState<boolean>(true);
   const { user } = useAuth();
+  const location = useLocation();
   
   // Use refs to prevent infinite loops with useEffect
   const isInitialized = useRef(false);
   const lastCurrencyUpdate = useRef<string | null>(null);
+  const previousPath = useRef<string>(location.pathname);
+  const isForceRefreshing = useRef(false);
+  const lastRefreshTime = useRef(Date.now());
 
   // Currency maps wrapped in useMemo to prevent unnecessary recreations
   const currencySymbolMap = React.useMemo<Record<string, string>>(() => ({
@@ -75,6 +94,11 @@ export const CurrencyProvider: React.FC<CurrencyProviderProps> = ({ children }) 
     }
     
     console.log(`[CurrencyContext] Updating currency settings to: ${code}`);
+    
+    // Update global tracking variable first
+    globalCurrentCurrency = code;
+    
+    // Then update state
     setCurrencyCode(code);
     setCurrencySymbol(currencySymbolMap[code] || '$');
     setCurrencyLocale(currencyLocaleMap[code] || 'en-US');
@@ -87,12 +111,57 @@ export const CurrencyProvider: React.FC<CurrencyProviderProps> = ({ children }) 
       // Record this update to prevent echo effects
       lastCurrencyUpdate.current = code;
       
-      // Force a rerender of any component that depends on the currency
-      EventBus.emit('currency:changed', code);
+      // Emit the event with a small delay to ensure state updates have processed
+      // Don't trigger a force refresh here to avoid infinite loops
+      setTimeout(() => {
+        EventBus.emit('currency:changed', code);
+      }, 50);
     } else {
       isInitialized.current = true;
     }
   }, [currencyCode, currencySymbolMap, currencyLocaleMap]);
+
+  // Force refresh function that components can call
+  const forceRefreshCurrency = useCallback(() => {
+    // Add debounce to prevent excessive refreshes
+    const now = Date.now();
+    if (now - lastRefreshTime.current < 300) {
+      console.log('[CurrencyContext] Skipping refresh, too soon');
+      return;
+    }
+    
+    // Prevent recursive refreshes
+    if (isForceRefreshing.current) {
+      console.log('[CurrencyContext] Already refreshing, skipping duplicate refresh');
+      return;
+    }
+    
+    console.log('[CurrencyContext] Force refreshing currency display');
+    isForceRefreshing.current = true;
+    lastRefreshTime.current = now;
+    
+    // Use setTimeout to ensure we don't create an infinite loop
+    setTimeout(() => {
+      // Force the Context to re-render
+      setCurrencyCode(current => current);
+      isForceRefreshing.current = false;
+    }, 0);
+  }, []);
+
+  // Listen for path changes to trigger currency refresh
+  useEffect(() => {
+    // If path changed, make sure currency is up to date
+    if (previousPath.current !== location.pathname) {
+      console.log(`[CurrencyContext] Path changed from ${previousPath.current} to ${location.pathname}, refreshing currency`);
+      previousPath.current = location.pathname;
+      
+      // When navigating to a new page, force currency reload from global state only if needed
+      if (globalCurrentCurrency !== currencyCode) {
+        console.log(`[CurrencyContext] Currency mismatch during navigation. Global: ${globalCurrentCurrency}, Local: ${currencyCode}`);
+        updateCurrencySettings(globalCurrentCurrency);
+      }
+    }
+  }, [location.pathname, currencyCode, updateCurrencySettings]);
 
   // Set up WebSocket connection when user is authenticated
   useEffect(() => {
@@ -142,7 +211,7 @@ export const CurrencyProvider: React.FC<CurrencyProviderProps> = ({ children }) 
     
     // Cleanup listener on unmount
     return () => {
-      console.log('[CurrencyContext] Removing preference:updated event listener');
+      console.log('[CurrencyContext] Removing event listeners');
       EventBus.off('preference:updated', handlePreferenceUpdate);
     };
   }, [currencyCode, updateCurrencySettings]);
@@ -226,13 +295,17 @@ export const CurrencyProvider: React.FC<CurrencyProviderProps> = ({ children }) 
       
       // Update locally first for immediate UI response
       lastCurrencyUpdate.current = code;
+      globalCurrentCurrency = code; // Update global tracking variable
       updateCurrencySettings(code);
       
       // Save preference to server and localStorage
       await saveUserCurrencyPreference(code, user?.id);
       
-      // Don't send a WebSocket update - the saveUserCurrencyPreference function does this already
-      // This avoids duplicating the message
+      // Only force refresh once after everything is done
+      setTimeout(() => {
+        forceRefreshCurrency();
+      }, 100);
+            
     } catch (error) {
       console.error('[CurrencyContext] Error setting currency:', error);
     } finally {
@@ -246,11 +319,8 @@ export const CurrencyProvider: React.FC<CurrencyProviderProps> = ({ children }) 
     currencyLocale,
     setCurrency,
     isLoadingCurrency,
+    forceRefreshCurrency,
   };
 
-  return (
-    <CurrencyContext.Provider value={value}>
-      {children}
-    </CurrencyContext.Provider>
-  );
+  return <CurrencyContext.Provider value={value}>{children}</CurrencyContext.Provider>;
 }; 
