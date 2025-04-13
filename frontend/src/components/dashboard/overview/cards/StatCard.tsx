@@ -29,6 +29,7 @@ interface StatCardProps {
   percentage?: number;
   isComingSoon?: boolean;
   formatter?: (value: number) => string;
+  isPreview?: boolean;
 }
 
 /**
@@ -44,7 +45,8 @@ export function StatCard({
   period,
   percentage,
   isComingSoon,
-  formatter
+  formatter,
+  isPreview
 }: StatCardProps) {
   // Card background gradients
   const cardBackgrounds = {
@@ -121,6 +123,23 @@ export function StatCard({
     
     return `${baseText} ${trend.value}% compared to the ${periodText}`;
   };
+  
+  // Animation for preview mode
+  const previewAnimation = isPreview ? {
+    animate: {
+      scale: [1, 1.02, 1],
+      boxShadow: [
+        "0 0 0 0 rgba(34, 197, 94, 0)",
+        "0 0 0 4px rgba(34, 197, 94, 0.3)",
+        "0 0 0 0 rgba(34, 197, 94, 0)"
+      ],
+      transition: {
+        duration: 2,
+        repeat: Infinity,
+        repeatType: "loop" as const
+      }
+    }
+  } : {};
 
   return (
     <motion.div
@@ -133,12 +152,14 @@ export function StatCard({
         transition: { duration: 0.2 } 
       }}
       whileTap={{ scale: 0.98 }}
+      {...previewAnimation}
     >
       <Card 
         className={cn(
           "border overflow-hidden h-full", 
           borderColors[color],
-          cardBackgrounds[color]
+          cardBackgrounds[color],
+          isPreview && "preview-mode"
         )}
       >
         <div className="grid grid-rows-[auto_1fr_auto] h-full p-3 sm:p-4 pb-2 sm:pb-3 
@@ -160,7 +181,7 @@ export function StatCard({
             </div>
 
             {/* Show trend in header with tooltip - smaller on mobile */}
-            {trendInfo && (
+            {trendInfo && !isPreview && (
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -181,6 +202,13 @@ export function StatCard({
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
+            )}
+            
+            {/* Preview indicator */}
+            {isPreview && (
+              <span className="px-1.5 py-0.5 bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400 text-[10px] rounded-full">
+                Preview
+              </span>
             )}
           </div>
           

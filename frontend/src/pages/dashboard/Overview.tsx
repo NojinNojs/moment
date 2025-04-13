@@ -1382,7 +1382,8 @@ export default function Overview() {
 
   // Modify the useEffect that updates financial data to always recalculate based on totalAssets
   useEffect(() => {
-    if (transactions.length > 0 || refreshTrigger > 0) {
+    // Modified condition to also check if totalAssets > 0, even if there are no transactions
+    if (transactions.length > 0 || totalAssets > 0 || refreshTrigger > 0) {
       console.log("💰 Recalculating financial data based on transactions and assets");
       console.log(`Current totalAssets: ${totalAssets}`);
       
@@ -1542,15 +1543,29 @@ export default function Overview() {
       else if (action === 'restored') {
         console.log("🔄 RESTORE detected, updating financial data and UI");
         
-        // Mark as not deleted in UI
-        setTransactions(prevTransactions => 
-          prevTransactions.map(t => {
-            if (t.id === transaction.id || (t._id && transaction._id && t._id === transaction._id)) {
-              return { ...t, isDeleted: false };
-            }
-            return t;
-          })
-        );
+        // For restored transactions, force a more immediate UI update
+        // First, mark the transaction as not deleted in our local state
+        setTransactions(prevTransactions => {
+          // Check if we already have this transaction in our state
+          const exists = prevTransactions.some(t => 
+            t.id === transaction.id || (t._id && transaction._id && t._id === transaction._id)
+          );
+          
+          if (exists) {
+            // Update the existing transaction
+            return prevTransactions.map(t => {
+              if (t.id === transaction.id || (t._id && transaction._id && t._id === transaction._id)) {
+                // Preserve all transaction data but update isDeleted flag
+                return { ...t, ...transaction, isDeleted: false };
+              }
+              return t;
+            });
+          } else {
+            // If we don't have it (rare case), add it to our state
+            console.log("Adding restored transaction to local state that wasn't found:", transaction);
+            return [...prevTransactions, { ...transaction, isDeleted: false }];
+          }
+        });
         
         // Update financial data
         if (transaction.amount && transaction.type) {
@@ -1565,7 +1580,7 @@ export default function Overview() {
               console.log(`Updating balance: ${prev.balance} - ${transaction.amount} = ${newBalance}`);
               console.log(`Updating expenses: ${prev.expenses} + ${transaction.amount} = ${newExpenses}`);
       
-      return {
+              return {
                 ...prev,
                 expenses: newExpenses,
                 balance: newBalance,
@@ -1573,8 +1588,8 @@ export default function Overview() {
                 expensesPercentage: prev.expensesPercentage,
                 savingsPercentage: prev.savingsPercentage,
                 balancePercentage: prev.balancePercentage
-      };
-    });
+              };
+            });
             
             // Update the account balance if we have account information
             if (transaction.account) {
@@ -1606,8 +1621,11 @@ export default function Overview() {
         
         // Refresh accounts data
         fetchAccounts();
-        // Force UI refresh 
-        setRefreshTrigger(prev => prev + 1);
+        // Force UI refresh with higher priority
+        setTimeout(() => {
+          console.log("🔄 Forcing immediate UI refresh after transaction restore");
+          setRefreshTrigger(prev => prev + 1);
+        }, 0);
       }
     } catch (error) {
       console.error("🔴 Error handling transaction state change event in Overview:", error);

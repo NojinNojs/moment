@@ -389,10 +389,16 @@ export function DeleteTransactionDialog({
         throw new Error("Cannot delete transaction: Missing valid ID");
       }
 
-      // CRITICAL FIX: For income transactions, manually update the asset balance BEFORE deleting
-      if (transaction.type === 'income') {
+      // CRITICAL FIX: For income transactions, check if balance update is needed
+      // We only need to update the balance if this is the FIRST time we're removing this transaction
+      // If it's already soft-deleted, we shouldn't adjust the balance again
+      // wasAlreadySoftDeleted will be false if we need to update the balance
+      const wasAlreadySoftDeleted = transaction.isDeleted === true;
+      console.log(`💰 TRANSACTION STATUS CHECK: wasAlreadySoftDeleted=${wasAlreadySoftDeleted}, isDeleted=${transaction.isDeleted}`);
+      
+      if (transaction.type === 'income' && !wasAlreadySoftDeleted) {
         const amount = Math.abs(transaction.amount);
-        console.log(`💰 INCOME DELETION: ${transaction.title} amount=${amount}`);
+        console.log(`💰 INCOME DELETION: ${transaction.title} amount=${amount}, Need to update balance=${!wasAlreadySoftDeleted}`);
         
         // Get account ID
         const accountId = typeof transaction.account === 'object' 
@@ -407,9 +413,10 @@ export function DeleteTransactionDialog({
           
           if (accountResponse.success && accountResponse.data) {
             const account = accountResponse.data;
+            console.log(`💰 Current account balance: ${account.balance}`);
             
-            // SUPER AGGRESSIVE FIX: Force the balance to zero if the amount matches the current balance
-            // This ensures that if we started with 0 and added income of amount X, we go back to 0 when deleting
+            // IMPROVED LOGIC: For income transactions being deleted
+            // Calculate what the balance should be after deletion
             let newBalance;
             if (Math.abs(account.balance - amount) < 0.001) {
               // If the account balance is almost exactly equal to the transaction amount,
@@ -493,12 +500,9 @@ export function DeleteTransactionDialog({
             }, 2000);
           }
         }
+      } else {
+        console.log(`💰 Skipping balance update for ${transaction.type} transaction or already soft-deleted transaction`);
       }
-
-      // The transaction was definitely soft-deleted since we're completing a timed deletion
-      // But set this flag to false to ensure balance gets updated on permanent deletion
-      const wasAlreadySoftDeleted = false;
-      console.log(`[completeTransactionDeletion] Setting wasAlreadySoftDeleted=${wasAlreadySoftDeleted} to FORCE balance update`);
       
       // Dispatch our custom event to immediately update all UI components
       const stateEvent = new CustomEvent('transaction:stateChanged', {
@@ -527,7 +531,7 @@ export function DeleteTransactionDialog({
         document.dispatchEvent(event);
         
         // Show deletion completed toast
-        showDeletionCompletedToast();
+    showDeletionCompletedToast();
       } else {
         // Handle error but still show the completion toast since the transaction is already marked as deleted in UI
         console.error("Error permanently deleting transaction after timeout:", result.message);
@@ -582,18 +586,41 @@ export function DeleteTransactionDialog({
       transaction.isDeleted = false;
       
       if (onSoftDelete) {
-        // Update state in the database via API
-        onSoftDelete(apiId, false);
-      } else {
-        console.error("🔴 onSoftDelete function is undefined, cannot restore transaction");
-      }
+        // Log that we're about to restore
+        console.log(`🔄 Restoring transaction via onSoftDelete: ${apiId}`, {
+          id: transaction.id,
+          _id: transaction._id || 'none',
+          title: transaction.title,
+          type: transaction.type,
+          amount: transaction.amount
+        });
 
-      // Show success toast
-      toast.success('Transaction Restored', {
-        description: `"${transaction.title}" has been restored.`,
-        duration: 3000,
-        position: 'bottom-right'
+        // Update state in the database via API
+      onSoftDelete(apiId, false);
+      
+        // Emit a state changed event for immediate UI update
+      const event = new CustomEvent('transaction:stateChanged', {
+        detail: {
+          transaction,
+            action: 'restored',
+            // Add any relevant metadata
+            metadata: {
+              timestamp: Date.now()
+            }
+        },
+        bubbles: true
       });
+      document.dispatchEvent(event);
+    } else {
+      console.error("🔴 onSoftDelete function is undefined, cannot restore transaction");
+    }
+    
+      // Show success toast
+    toast.success('Transaction Restored', {
+        description: `"${transaction.title}" has been restored.`,
+      duration: 3000,
+      position: 'bottom-right'
+    });
     } finally {
       // Reset all state to prevent issues with future operations
       setLoading(false);
@@ -633,9 +660,10 @@ export function DeleteTransactionDialog({
     
     setLoading(true);
     
-    // Always set to false to ensure the balance gets updated
-    const wasAlreadySoftDeleted = false;
-    console.log(`[handleDeleteNow] Setting wasAlreadySoftDeleted=${wasAlreadySoftDeleted} to FORCE balance update`);
+    // CRITICAL FIX: Check if balance adjustment is needed
+    // We only need to update the balance if this transaction is not already soft-deleted
+    const wasAlreadySoftDeleted = transaction.isDeleted === true;
+    console.log(`[handleDeleteNow] Transaction status check: wasAlreadySoftDeleted=${wasAlreadySoftDeleted}, isDeleted=${transaction.isDeleted}`);
     
     try {
       // Must use MongoDB _id for API calls when available
@@ -643,9 +671,10 @@ export function DeleteTransactionDialog({
       console.log(`📝 Using API ID: ${apiId} for permanent deletion`);
 
       // CRITICAL FIX: For income transactions, manually update the asset balance BEFORE deleting
-      if (transaction.type === 'income') {
+      // Only if NOT already soft-deleted
+      if (transaction.type === 'income' && !wasAlreadySoftDeleted) {
         const amount = Math.abs(transaction.amount);
-        console.log(`💰 INCOME DELETION: ${transaction.title} amount=${amount}`);
+        console.log(`💰 INCOME DELETION: ${transaction.title} amount=${amount}, Need to update balance=${!wasAlreadySoftDeleted}`);
         
         // Get account ID
         const accountId = typeof transaction.account === 'object' 
@@ -660,9 +689,10 @@ export function DeleteTransactionDialog({
           
           if (accountResponse.success && accountResponse.data) {
             const account = accountResponse.data;
+            console.log(`💰 Current account balance: ${account.balance}`);
             
-            // SUPER AGGRESSIVE FIX: Force the balance to zero if the amount matches the current balance
-            // This ensures that if we started with 0 and added income of amount X, we go back to 0 when deleting
+            // IMPROVED LOGIC: For income transactions being deleted
+            // Calculate what the balance should be after deletion
             let newBalance;
             if (Math.abs(account.balance - amount) < 0.001) {
               // If the account balance is almost exactly equal to the transaction amount,
@@ -747,6 +777,8 @@ export function DeleteTransactionDialog({
             }, 2000);
           }
         }
+      } else {
+        console.log(`💰 Skipping balance update for ${transaction.type} transaction or already soft-deleted transaction`);
       }
       
       // Make the API call to permanently delete
