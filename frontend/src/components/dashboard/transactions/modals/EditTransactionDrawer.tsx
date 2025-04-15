@@ -141,9 +141,7 @@ export function EditTransactionDrawer({
         
         <DrawerFooter className="flex-shrink-0 border-t bg-muted/30 pt-4 pb-6 px-4 mt-auto mb-safe z-10">
           <Button
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
+            onClick={() => {
               if (!isSubmitting) {
                 onSubmit();
               }

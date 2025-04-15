@@ -162,15 +162,14 @@ export function AddTransactionDrawer({
         
         <DrawerFooter className="flex-shrink-0 border-t bg-muted/30 pt-4 pb-6 px-4 mt-auto mb-safe z-10">
           <Button
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
+            onClick={() => {
               if (!isSubmitting) {
                 onSubmit();
               }
             }}
+            variant={type === 'income' ? 'primary' : 'destructive'}
             size="lg"
-            className={`${buttonBgColor} ${buttonTextColor} font-medium w-full shadow-md hover:shadow-lg transition-all h-12`}
+            className="w-full h-12 font-medium shadow-md"
             disabled={isSubmitting}
           >
             {isSubmitting ? (

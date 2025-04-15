@@ -134,7 +134,9 @@ export const TransactionUIComponents = ({
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  onSubmit();
+                  if (!isSubmitting) {
+                    onSubmit();
+                  }
                 }} 
                 size="lg" 
                 className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium w-full"
@@ -190,7 +192,9 @@ export const TransactionUIComponents = ({
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
-                  onSubmit();
+                  if (!isSubmitting) {
+                    onSubmit();
+                  }
                 }} 
                 size="lg" 
                 className="bg-destructive hover:bg-destructive/90 text-destructive-foreground font-medium w-full"
@@ -245,7 +249,9 @@ export const TransactionUIComponents = ({
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                onSubmit();
+                if (!isSubmitting) {
+                  onSubmit();
+                }
               }}
               size="lg"
               className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium w-full"
@@ -294,7 +300,9 @@ export const TransactionUIComponents = ({
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                onSubmit();
+                if (!isSubmitting) {
+                  onSubmit();
+                }
               }}
               size="lg"
               className="bg-destructive hover:bg-destructive/90 text-destructive-foreground font-medium w-full"
