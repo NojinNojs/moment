@@ -530,7 +530,8 @@ export function DeleteTransactionDialog({
         detail: {
           transaction,
           action: 'permanentlyDeleted',
-          wasSoftDeleted: wasAlreadySoftDeleted
+          wasSoftDeleted: wasAlreadySoftDeleted,
+          balanceAlreadyUpdated: transaction.type === 'income' && !wasAlreadySoftDeleted
         }
       });
       document.dispatchEvent(stateEvent);
@@ -545,7 +546,8 @@ export function DeleteTransactionDialog({
         const event = new CustomEvent('transaction:permanentlyDeleted', {
           detail: {
             transaction,
-            wasAlreadySoftDeleted
+            wasAlreadySoftDeleted,
+            balanceAlreadyUpdated: transaction.type === 'income' && !wasAlreadySoftDeleted
           },
           bubbles: true
         });
@@ -916,7 +918,8 @@ export function DeleteTransactionDialog({
       const customEvent = new CustomEvent('transaction:permanentlyDeleted', {
         detail: {
           transaction: transaction,
-          wasAlreadySoftDeleted: wasAlreadySoftDeleted
+          wasAlreadySoftDeleted: wasAlreadySoftDeleted,
+          balanceAlreadyUpdated: transaction.type === 'income' && !wasAlreadySoftDeleted
         }
       });
       
@@ -925,7 +928,8 @@ export function DeleteTransactionDialog({
         detail: {
           transaction,
           action: 'permanentlyDeleted',
-          wasSoftDeleted: wasAlreadySoftDeleted
+          wasSoftDeleted: wasAlreadySoftDeleted,
+          balanceAlreadyUpdated: transaction.type === 'income' && !wasAlreadySoftDeleted
         }
       });
       document.dispatchEvent(stateEvent);

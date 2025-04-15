@@ -220,7 +220,13 @@ export function DashboardSidebar() {
       >
         <div className="flex h-14 items-center border-b px-4">
           <Link to="/dashboard" className="flex items-center gap-2 font-semibold">
-            <div className="h-6 w-6 min-w-6 rounded-md bg-primary" />
+            <motion.img 
+              src="/favicon.svg" 
+              alt="Moment Logo" 
+              className="h-6 w-6 min-w-6 rounded-md"
+              whileHover={{ rotate: 360, scale: 1.1 }}
+              transition={{ duration: 0.7, ease: "easeInOut" }}
+            />
             <motion.span
               variants={textVariants}
               initial="hidden"

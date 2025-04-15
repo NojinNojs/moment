@@ -1409,7 +1409,8 @@ export default function Overview() {
     transaction: Transaction, 
     type: 'income' | 'expense', 
     amount: number,
-    wasAlreadySoftDeleted?: boolean
+    wasAlreadySoftDeleted?: boolean,
+    balanceAlreadyUpdated?: boolean
   }) => {
     console.log('[Overview] Transaction permanently deleted event received:', data);
     
@@ -1418,8 +1419,9 @@ export default function Overview() {
       setTransactions(prev => prev.filter(t => t.id !== data.transaction.id));
       
       // For income transactions, if they weren't already soft deleted,
+      // and the balance hasn't already been updated by DeleteTransactionDialog,
       // we need to update the account balance
-      if (data.transaction.type === 'income' && !data.wasAlreadySoftDeleted) {
+      if (data.transaction.type === 'income' && !data.wasAlreadySoftDeleted && !data.balanceAlreadyUpdated) {
         // Find the account associated with this transaction
         const account = data.transaction.account as string | AccountObject;
         const amount = Math.abs(data.transaction.amount);
@@ -1437,6 +1439,8 @@ export default function Overview() {
             updateAccountBalanceForIncomeSoftDelete(accountAsRecord, amount);
           }
         }
+      } else {
+        console.log(`💰 Skipping balance update in Overview.tsx: wasAlreadySoftDeleted=${data.wasAlreadySoftDeleted}, balanceAlreadyUpdated=${data.balanceAlreadyUpdated}`);
       }
       
       // Refresh accounts in any case
