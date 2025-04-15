@@ -75,37 +75,25 @@ A powerful machine learning API for automatically categorizing financial transac
 **Method:** `POST`
 
 ```json
-// Request Body
+// Contoh Request Body
 {
-    "text": "string",       // Required: Transaction description
-    "type": "string"        // Optional: 'income' or 'expense'
+  "text": "investasi stocks apple",
+  "type": null
 }
 
-// Response
+// Contoh Response
 {
-    "status": "success",
-    "timestamp": "2024-03-21T12:34:56.789Z",
-    "request_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
-    "data": {
-        "primary_category": {
-            "category": "Food & Dining",
-            "confidence": 0.9537
-        },
-        "alternative_categories": [
-            {
-                "category": "Shopping",
-                "confidence": 0.0341
-            },
-            {
-                "category": "Transportation",
-                "confidence": 0.0122
-            }
-        ]
-    },
-    "metadata": {
-        "model_version": "1.0.0",
-        "transaction_type": "expense"
-    }
+  "status": "success",
+  "timestamp": "2025-04-13T21:06:53.450030",
+  "request_id": "27320a26-bfed-4630-ae4b-cc7e4ac12e7a",
+  "data": {
+    "category": "Investment",
+    "confidence": 0.7402
+  },
+  "metadata": {
+    "model_version": "1.0.0",
+    "transaction_type": "predicted"
+  }
 }
 ```
 
