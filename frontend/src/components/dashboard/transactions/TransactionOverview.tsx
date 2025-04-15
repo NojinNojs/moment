@@ -13,6 +13,7 @@ export interface TransactionOverviewProps {
   expensesTrend?: TrendInfo;
   netTrend?: TrendInfo;
   showAssetBalance?: boolean;
+  isPreviewMode?: boolean;
 }
 
 /**
@@ -25,12 +26,16 @@ export function TransactionOverview({
   incomeTrend,
   expensesTrend,
   netTrend,
-  showAssetBalance = true
+  showAssetBalance = true,
+  isPreviewMode = false
 }: TransactionOverviewProps) {
   const { formatCurrency } = useCurrencyFormat();
   
+  // CRITICAL FIX: Ensure netAmount is never negative for display
+  const safeNetAmount = netAmount < 0 ? 0 : netAmount;
+  
   return (
-    <Card className="mb-6">
+    <Card className="mb-6 TransactionOverview">
       <CardContent className="p-6">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <motion.div
@@ -72,12 +77,13 @@ export function TransactionOverview({
           >
             <StatCard
               title={showAssetBalance ? "Total Balance" : "Net Amount"}
-              value={netAmount}
+              value={safeNetAmount}
               formatter={formatCurrency}
               icon={Wallet}
               color="green"
               period={showAssetBalance ? "Across all assets" : "Income - Expenses"}
               trend={netTrend}
+              isPreview={isPreviewMode}
             />
           </motion.div>
         </div>

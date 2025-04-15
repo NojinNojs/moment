@@ -174,6 +174,7 @@ export default function Overview() {
   const [transactionAccount, setTransactionAccount] = useState<string>('');
   const [formErrors, setFormErrors] = useState<TransactionFormErrors>({});
   const [useAutoCategory, setUseAutoCategory] = useState<boolean>(true);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   
   // State for edit transaction
   const [showEditModal, setShowEditModal] = useState(false);
@@ -480,12 +481,24 @@ export default function Overview() {
   // Validate form before submission
   const validateForm = () => {
     const errors: TransactionFormErrors = {};
-
+    
     // Check amount
     if (!transactionAmount) {
       errors.amount = "Amount is required";
     } else if (parseFloat(transactionAmount) <= 0) {
       errors.amount = "Amount must be greater than zero";
+    } else {
+      // Check if expense exceeds account balance
+      if (transactionType === 'expense' && transactionAccount) {
+        // Find the selected account
+        const selectedAccount = accounts.find(acc => 
+          acc._id === transactionAccount || acc.id === transactionAccount
+        );
+        
+        if (selectedAccount && parseFloat(transactionAmount) > selectedAccount.balance) {
+          errors.amount = `Expense exceeds your ${selectedAccount.name} balance of ${formatCurrency(selectedAccount.balance)}`;
+        }
+      }
     }
 
     // Check category - only required if auto-categorization is disabled
@@ -520,11 +533,33 @@ export default function Overview() {
 
   // Submit a new transaction
   const handleSubmitTransaction = async (type: 'income' | 'expense') => {
+    // Double-check isSubmitting state to absolutely prevent duplicate submissions
+    if (isSubmitting) {
+      console.log("Submission already in progress, blocking duplicate transaction");
+      return;
+    }
+    
     if (!validateForm()) {
+      // Reset isSubmitting if validation fails
+      setIsSubmitting(false);
       return;
     }
 
     try {
+      // Set submitting state to true to show loading and prevent multiple submissions
+      setIsSubmitting(true);
+      
+      // Add a submission lock to prevent any possibility of race conditions
+      const submissionId = Date.now();
+      const currentSubmissionId = submissionId;
+      
+      // Second check after a short delay to catch race conditions
+      await new Promise(resolve => setTimeout(resolve, 100));
+      if (currentSubmissionId !== submissionId) {
+        console.log("Another submission was started, aborting this one");
+        return;
+      }
+      
       const amount = parseFloat(transactionAmount);
       
       // Create transaction data object based on auto-categorization status
@@ -622,13 +657,28 @@ export default function Overview() {
         description: error instanceof Error ? error.message : "An unexpected error occurred",
         position: "bottom-right"
       });
+    } finally {
+      // Set submitting state back to false when done
+      setIsSubmitting(false);
     }
   };
 
   // Handler for the transaction modal's onSubmit
   const handleFormSubmit = () => {
-    // Use the current transaction type
-    handleSubmitTransaction(transactionType);
+    // Prevent multiple submissions by checking isSubmitting state
+    if (isSubmitting) {
+      console.log("Submission already in progress, preventing duplicate submission");
+      return;
+    }
+    
+    // Set isSubmitting state
+    setIsSubmitting(true);
+    
+    // Use setTimeout to ensure the UI updates with the disabled button before processing
+    setTimeout(() => {
+      // Use the current transaction type
+      handleSubmitTransaction(transactionType);
+    }, 50);
   };
 
   // Function to handle scroll events and update ref (not state)
@@ -1155,9 +1205,11 @@ export default function Overview() {
       );
     }
 
-    // IMMEDIATE FINANCIAL DATA UPDATE - do this for all transaction types
-    if (amount && type) {
+    // CRITICAL FIX: Only update financial data if the transaction wasn't already soft deleted
+    // Because if it was soft deleted, the balance was already adjusted during soft delete
+    if (amount && type && !wasAlreadySoftDeleted) {
       console.log(`💰 Immediate financial data update for ${type} transaction with amount ${amount}`);
+      console.log(`Was already soft deleted: ${wasAlreadySoftDeleted}`);
       
       if (type === 'expense') {
         // For expense, we ADD the amount back to balance and REDUCE expenses
@@ -1178,7 +1230,7 @@ export default function Overview() {
             balancePercentage: prev.balancePercentage
           };
         });
-      } else if (type === 'income' && !wasAlreadySoftDeleted) {
+      } else if (type === 'income') {
         // For income, we SUBTRACT the amount from balance and REDUCE income
         setFinancialData(prev => {
           const newBalance = Math.max(0, prev.balance - amount);
@@ -1198,10 +1250,12 @@ export default function Overview() {
           };
         });
       }
+    } else {
+      console.log("💡 Skipping financial data update because transaction was already soft deleted");
     }
     
-    // Handle expense transactions with account balance update
-    if (type === 'expense') {
+    // CRITICAL FIX: Only update account balance if transaction wasn't already soft deleted
+    if (type === 'expense' && !wasAlreadySoftDeleted) {
       console.log("🔥 EXPENSE DELETION: Updating asset balance");
       
       // Function to update the account balance
@@ -1228,9 +1282,9 @@ export default function Overview() {
           
           if (!accountObj || !accountObj._id) {
             console.error("❌ Cannot find valid account for transaction:", account);
-      return;
-    }
-    
+            return;
+          }
+          
           console.log("✅ Found account for balance update:", accountObj);
           
           // Calculate the new balance
@@ -1260,22 +1314,16 @@ export default function Overview() {
               });
             });
             
-            // Remove duplicate toast notification - keeping only the one with undo button
-            // toast.success("Balance updated successfully", {
-            //  description: `New balance: $${newBalance.toFixed(2)}`,
-            //  duration: 3000
-            // });
-            
             // Force UI refresh but NO page reload
             setRefreshTrigger(prev => prev + 1);
-        } else {
+          } else {
             console.error("❌ Failed to update asset balance:", updateResult.message);
             
             // Try emergency update
             console.log("🚨 Attempting emergency direct update");
             const emergencySuccess = await emergencyDirectAssetBalanceUpdate(
               accountObj as unknown as Record<string, unknown>, 
-            amount
+              amount
             );
             
             if (emergencySuccess) {
@@ -1284,15 +1332,8 @@ export default function Overview() {
               fetchAccounts();
               // Force UI refresh but NO page reload
               setRefreshTrigger(prev => prev + 1);
-              
-              // Remove duplicate toast notification
-              // toast.success("Balance updated successfully (emergency mode)", {
-              //  description: `Balance updated with direct API access`,
-              //  duration: 3000
-              // });
             } else {
               console.error("🚨 Emergency update failed");
-              // Keep error toasts as they're important for user feedback
               toast.error("Failed to update balance", {
                 description: "Please refresh the page and try again",
                 duration: 5000
@@ -1301,7 +1342,6 @@ export default function Overview() {
           }
         } catch (error) {
           console.error("❌ Error updating account balance:", error);
-          // Keep error toasts as they're important for user feedback
           toast.error("Error updating balance", {
             description: "An unexpected error occurred",
             duration: 5000
@@ -1311,28 +1351,19 @@ export default function Overview() {
       
       // Execute the update
       updateAccountBalance();
-      
-      // Force refresh accounts to update immediately
-      fetchAccounts();
     } else {
-      // For income or other types, still refresh accounts
-      fetchAccounts();
+      console.log("💡 Skipping account balance update because transaction was already soft deleted");
     }
     
+    // Always refresh accounts at the end to ensure UI is in sync
+    fetchAccounts();
+    
   }, [fetchAccounts, setRefreshTrigger, setFinancialData, setAccounts]);
-  
-  // Force fetch accounts whenever financial data is updated
-  useEffect(() => {
-    // Only run after initial render
-    if (financialData.balance !== 0 || financialData.income !== 0 || financialData.expenses !== 0) {
-      console.log("💰 Financial data changed, refreshing accounts");
-      fetchAccounts();
-    }
-  }, [financialData, fetchAccounts]);
 
   // Modify the useEffect that updates financial data to always recalculate based on totalAssets
   useEffect(() => {
-    if (transactions.length > 0 || refreshTrigger > 0) {
+    // Modified condition to also check if totalAssets > 0, even if there are no transactions
+    if (transactions.length > 0 || totalAssets > 0 || refreshTrigger > 0) {
       console.log("💰 Recalculating financial data based on transactions and assets");
       console.log(`Current totalAssets: ${totalAssets}`);
       
@@ -1492,15 +1523,29 @@ export default function Overview() {
       else if (action === 'restored') {
         console.log("🔄 RESTORE detected, updating financial data and UI");
         
-        // Mark as not deleted in UI
-        setTransactions(prevTransactions => 
-          prevTransactions.map(t => {
-            if (t.id === transaction.id || (t._id && transaction._id && t._id === transaction._id)) {
-              return { ...t, isDeleted: false };
-            }
-            return t;
-          })
-        );
+        // For restored transactions, force a more immediate UI update
+        // First, mark the transaction as not deleted in our local state
+        setTransactions(prevTransactions => {
+          // Check if we already have this transaction in our state
+          const exists = prevTransactions.some(t => 
+            t.id === transaction.id || (t._id && transaction._id && t._id === transaction._id)
+          );
+          
+          if (exists) {
+            // Update the existing transaction
+            return prevTransactions.map(t => {
+              if (t.id === transaction.id || (t._id && transaction._id && t._id === transaction._id)) {
+                // Preserve all transaction data but update isDeleted flag
+                return { ...t, ...transaction, isDeleted: false };
+              }
+              return t;
+            });
+          } else {
+            // If we don't have it (rare case), add it to our state
+            console.log("Adding restored transaction to local state that wasn't found:", transaction);
+            return [...prevTransactions, { ...transaction, isDeleted: false }];
+          }
+        });
         
         // Update financial data
         if (transaction.amount && transaction.type) {
@@ -1515,7 +1560,7 @@ export default function Overview() {
               console.log(`Updating balance: ${prev.balance} - ${transaction.amount} = ${newBalance}`);
               console.log(`Updating expenses: ${prev.expenses} + ${transaction.amount} = ${newExpenses}`);
       
-      return {
+              return {
                 ...prev,
                 expenses: newExpenses,
                 balance: newBalance,
@@ -1523,8 +1568,8 @@ export default function Overview() {
                 expensesPercentage: prev.expensesPercentage,
                 savingsPercentage: prev.savingsPercentage,
                 balancePercentage: prev.balancePercentage
-      };
-    });
+              };
+            });
             
             // Update the account balance if we have account information
             if (transaction.account) {
@@ -1556,8 +1601,11 @@ export default function Overview() {
         
         // Refresh accounts data
         fetchAccounts();
-        // Force UI refresh 
-        setRefreshTrigger(prev => prev + 1);
+        // Force UI refresh with higher priority
+        setTimeout(() => {
+          console.log("🔄 Forcing immediate UI refresh after transaction restore");
+          setRefreshTrigger(prev => prev + 1);
+        }, 0);
       }
     } catch (error) {
       console.error("🔴 Error handling transaction state change event in Overview:", error);
@@ -2243,6 +2291,7 @@ export default function Overview() {
             onAutoCategorizationChange={handleAutoCategorizationChange}
             accounts={accounts}
             isLoadingAccounts={isAccountsLoading}
+            isSubmitting={isSubmitting}
           />
         </Suspense>
         
@@ -2278,8 +2327,11 @@ export default function Overview() {
             const originalTransaction = transactions.find(t => t.id === currentTransactionId);
             if (!originalTransaction) return;
             
+            // Set submitting state to prevent multiple submissions
+            setIsSubmitting(true);
+            
             // Get the values for calculation
-                const amount = parseFloat(transactionAmount);
+            const amount = parseFloat(transactionAmount);
             const oldAmount = Math.abs(originalTransaction.amount);
             const oldType = originalTransaction.type;
             
@@ -2445,20 +2497,28 @@ export default function Overview() {
             
             // Close modal
             setShowEditModal(false);
+            
+            // Reset submitting state
+            setIsSubmitting(false);
               } else {
                 console.error('Transaction update failed:', response.message || 'Unknown error');
                 toast.error("Transaction update failed", {
                   description: response.message || "An error occurred while updating the transaction",
                   position: "bottom-right"
                 });
+                
+                // Reset submitting state on failure
+                setIsSubmitting(false);
               }
             } catch (error) {
-              console.error("Transaction error:", error);
-              // Show error toast
-              toast.error("Transaction error", {
+              console.error('Error updating transaction:', error);
+              toast.error("Error updating transaction", {
                 description: error instanceof Error ? error.message : "An unexpected error occurred",
                 position: "bottom-right"
               });
+              
+              // Reset submitting state on error
+              setIsSubmitting(false);
             }
           }}
           onAmountChange={handleAmountChange}
@@ -2469,6 +2529,7 @@ export default function Overview() {
           onAccountChange={(value: string) => setTransactionAccount(value)}
           accounts={accounts}
           isLoadingAccounts={isAccountsLoading}
+          isSubmitting={isSubmitting}
         />
         
         {/* Delete Transaction Dialog */}

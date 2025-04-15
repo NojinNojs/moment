@@ -7,7 +7,7 @@ import {
   DialogFooter,
   DialogClose
 } from "@/components/ui/dialog";
-import { ArrowUpRight, ArrowDownRight, X } from "lucide-react";
+import { ArrowUpRight, ArrowDownRight, X, Loader2 } from "lucide-react";
 import { TransactionForm } from "../forms/TransactionForm";
 import { motion } from "framer-motion";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -36,6 +36,7 @@ interface AddTransactionDialogProps {
   onDateChange: (value: string) => void;
   onAccountChange?: (value: string) => void;
   accounts?: { id?: string; _id?: string; name: string; type: string; balance?: number }[];
+  isSubmitting?: boolean;
 }
 
 /**
@@ -64,7 +65,8 @@ export function AddTransactionDialog({
   onDescriptionChange,
   onDateChange,
   onAccountChange,
-  accounts
+  accounts,
+  isSubmitting = false
 }: AddTransactionDialogProps) {
   // Common form properties
   const formProps = {
@@ -155,11 +157,25 @@ export function AddTransactionDialog({
         
         <DialogFooter className="px-6 py-4 bg-muted/30 border-t border-border mt-auto flex-shrink-0 z-20">
           <Button
-            onClick={onSubmit}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              if (!isSubmitting) {
+                onSubmit();
+              }
+            }}
             size="lg"
             className={`${buttonBgColor} ${buttonTextColor} font-medium w-full shadow-md hover:shadow-lg transition-all h-11`}
+            disabled={isSubmitting}
           >
-            {buttonText}
+            {isSubmitting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <span>Saving...</span>
+              </>
+            ) : (
+              buttonText
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>

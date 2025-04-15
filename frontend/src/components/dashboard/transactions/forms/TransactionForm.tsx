@@ -390,16 +390,6 @@ export const TransactionForm = ({
   );
 
   // Staggered animation for form fields
-  const containerAnimation = {
-    hidden: { opacity: 0 },
-    show: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.1,
-      },
-    },
-  };
-
   const itemAnimation = {
     hidden: { opacity: 0, y: 10 },
     show: { opacity: 1, y: 0, transition: { type: "tween" } },
@@ -808,9 +798,6 @@ export const TransactionForm = ({
     }
   }, [accounts, transactionAccount]);
   
-  // Parse the amount for validation
-  const currentAmount = parseFloat(transactionAmount || '0');
-
   // Add a balance warning component
   const BalanceWarning = ({ currentBalance, proposedAmount, type }: { 
     currentBalance: number; 
@@ -825,17 +812,7 @@ export const TransactionForm = ({
       return (
         <div className="text-destructive text-sm mt-1 flex items-center">
           <AlertCircle className="h-4 w-4 mr-1" />
-          Warning: This expense exceeds your current balance of {formatCurrency(currentBalance)}
-        </div>
-      );
-    }
-    
-    // If it's a large expense (>75% of balance), show a caution
-    if (proposedAmount > currentBalance * 0.75) {
-      return (
-        <div className="text-orange-500 dark:text-orange-400 text-sm mt-1 flex items-center">
-          <AlertCircle className="h-4 w-4 mr-1" />
-          Caution: This expense uses {Math.round((proposedAmount / currentBalance) * 100)}% of your available balance
+          Expense exceeds your current balance of {formatCurrency(currentBalance)}
         </div>
       );
     }
@@ -908,12 +885,12 @@ export const TransactionForm = ({
   }, [selectedDate, onDateChange]);
 
   return (
-    <motion.div
-      className="space-y-5"
-      variants={containerAnimation}
-      initial="hidden"
-      animate="show"
-    >
+    <div className="w-full space-y-6" onSubmit={(e) => {
+      // Prevent default browser form submission, which could cause double submissions
+      e.preventDefault();
+      e.stopPropagation();
+      return false;
+    }}>
       <style>{allStyles}</style>
       {/* Transaction Title Field */}
       <motion.div className="space-y-2" variants={itemAnimation}>
@@ -1004,6 +981,18 @@ export const TransactionForm = ({
             </span>
             {formErrors.amount}
           </p>
+        )}
+        
+        {/* Show balance warning when appropriate */}
+        {type === 'expense' && 
+         parseFloat(transactionAmount || '0') > 0 && 
+         transactionAccount && 
+         selectedAccountBalance > 0 && (
+          <BalanceWarning 
+            currentBalance={selectedAccountBalance} 
+            proposedAmount={parseFloat(transactionAmount)} 
+            type={type}
+          />
         )}
       </motion.div>
 
@@ -1164,62 +1153,93 @@ export const TransactionForm = ({
                   }
 
                   // Return the account items
-                  return accountOptions.map((account) => (
-                    <div
-                      key={getAccountId(account)}
-                                className={cn(
-                        "flex items-center gap-3 p-2 cursor-pointer rounded-md selection-item",
-                        transactionAccount === getAccountId(account) ? "bg-accent" : "",
-                        clickedItemId === getAccountId(account) ? "clicked" : "",
-                        "hover:bg-accent/80"
-                      )}
-                      onClick={() => {
-                        setClickedItemId(getAccountId(account));
-                        console.log("Account selected:", getAccountId(account), account.name);
-                        handleAccountChange(getAccountId(account));
-                        setTimeout(() => {
-                          setComboboxOpen(false);
-                          setClickedItemId(null);
-                        }, 150);
-                      }}
-                      data-value={getAccountId(account)}
-                    >
-                      <div className={cn(
-                                      "flex items-center justify-center rounded-full w-7 h-7 flex-shrink-0",
-                                      getAccountColor(account.type)
-                      )}>
-                                    {getAccountIcon(account.type)}
-                                  </div>
-                                  <div className="flex flex-col flex-1 min-w-0">
-                        <span className="text-sm font-medium truncate">
-                          {accountSearchQuery.trim() 
-                            ? highlightMatch(account.name, accountSearchQuery)
-                            : account.name}
-                          <span className="ml-1 text-xs text-muted-foreground">({formatAccountType(account.type)})</span>
-                                      </span>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-muted-foreground capitalize truncate">
-                                        {formatAccountType(account.type)}
+                  return accountOptions.map((account) => {
+                    // Calculate current amount here where it's used
+                    const currentAmount = parseFloat(transactionAmount || '0');
+                    const isLowBalance = type === 'expense' && 
+                                         !isNaN(currentAmount) && 
+                                         (account.balance !== undefined) && 
+                                         account.balance < currentAmount;
+                    const isVeryLowBalance = type === 'expense' && 
+                                          !isNaN(currentAmount) && 
+                                          (account.balance !== undefined) && 
+                                          account.balance < (currentAmount * 0.5);
+                                          
+                    return (
+                      <div
+                        key={getAccountId(account)}
+                        className={cn(
+                          "flex items-center gap-3 p-2 cursor-pointer rounded-md selection-item",
+                          transactionAccount === getAccountId(account) ? "bg-accent" : "",
+                          clickedItemId === getAccountId(account) ? "clicked" : "",
+                          isLowBalance ? "border border-amber-300 dark:border-amber-700/70" : "",
+                          isVeryLowBalance ? "border border-red-300 dark:border-red-700/70" : "",
+                          "hover:bg-accent/80"
+                        )}
+                        onClick={() => {
+                          setClickedItemId(getAccountId(account));
+                          console.log("Account selected:", getAccountId(account), account.name);
+                          handleAccountChange(getAccountId(account));
+                          setTimeout(() => {
+                            setComboboxOpen(false);
+                            setClickedItemId(null);
+                          }, 150);
+                        }}
+                        data-value={getAccountId(account)}
+                      >
+                        <div className={cn(
+                          "flex items-center justify-center rounded-full w-7 h-7 flex-shrink-0",
+                          getAccountColor(account.type)
+                        )}>
+                          {getAccountIcon(account.type)}
+                        </div>
+                        <div className="flex flex-col flex-1 min-w-0">
+                          <span className="text-sm font-medium truncate">
+                            {accountSearchQuery.trim() 
+                              ? highlightMatch(account.name, accountSearchQuery)
+                              : account.name}
+                            <span className="ml-1 text-xs text-muted-foreground">({formatAccountType(account.type)})</span>
                           </span>
-                          {account?.balance !== undefined && (
-                                        <span
-                                          className={cn(
-                                "text-xs font-semibold",
-                                account.balance > 0
-                                              ? "text-emerald-600 dark:text-emerald-500"
-                                              : "text-destructive"
-                                          )}
-                                        >
-                              {formatCurrency(account.balance || 0)}
-                                        </span>
-                                      )}
-                                    </div>
-                                  </div>
-                      {transactionAccount === getAccountId(account) && (
-                        <Check className="h-4 w-4 text-primary flex-shrink-0" />
-                      )}
-                                </div>
-                  ));
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-muted-foreground capitalize truncate">
+                              {formatAccountType(account.type)}
+                            </span>
+                            {account?.balance !== undefined && (
+                              <span
+                                className={cn(
+                                  "text-xs font-semibold",
+                                  account.balance > 0
+                                    ? "text-emerald-600 dark:text-emerald-500"
+                                    : "text-destructive"
+                                )}
+                              >
+                                {formatCurrency(account.balance || 0)}
+                              </span>
+                            )}
+                            
+                            {/* Show warning for low balance */}
+                            {type === 'expense' && !isNaN(currentAmount) && currentAmount > 0 && (
+                              <>
+                                {account.balance !== undefined && account.balance < currentAmount && (
+                                  <span className="text-[10px] text-destructive font-medium px-1 py-0.5 bg-destructive/10 rounded">
+                                    Insufficient
+                                  </span>
+                                )}
+                                {account.balance !== undefined && account.balance >= currentAmount && account.balance < currentAmount * 1.5 && (
+                                  <span className="text-[10px] text-amber-500 dark:text-amber-400 font-medium px-1 py-0.5 bg-amber-100 dark:bg-amber-900/20 rounded">
+                                    Low balance
+                                  </span>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        {transactionAccount === getAccountId(account) && (
+                          <Check className="h-4 w-4 text-primary flex-shrink-0" />
+                        )}
+                      </div>
+                    );
+                  });
                 })()}
                     </div>
               </PopoverContent>
@@ -1706,16 +1726,7 @@ export const TransactionForm = ({
           </p>
         )}
       </motion.div>
-
-      {/* Show balance warning if needed */}
-      {transactionAccount && !isNaN(currentAmount) && (
-        <BalanceWarning 
-          currentBalance={selectedAccountBalance} 
-          proposedAmount={currentAmount} 
-          type={type}
-        />
-      )}
-    </motion.div>
+    </div>
   );
 };
 

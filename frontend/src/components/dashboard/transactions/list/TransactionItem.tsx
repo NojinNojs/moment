@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -87,6 +88,7 @@ interface TransactionItemProps {
   onDeleteTransaction?: (id: number) => void;
   className?: string;
   hideDate?: boolean;
+  linkable?: boolean;
 }
 
 // Function to limit words
@@ -103,7 +105,8 @@ const TransactionItem = ({
   onEditTransaction,
   onDeleteTransaction,
   className,
-  hideDate = false
+  hideDate = false,
+  linkable = false
 }: TransactionItemProps) => {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const { formatCurrency } = useCurrencyFormat();
@@ -615,12 +618,16 @@ const TransactionItem = ({
   
   // Safe click handler for transaction details
   const handleTransactionClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    try {
-      setDetailsOpen(true);
-    } catch (error) {
-      console.error("Error opening transaction details:", error);
-    }
+    // If the component is linkable, let the Link handle navigation
+    if (linkable) return;
+    
+    e.stopPropagation();
+    
+    // If the transaction is deleted, we shouldn't show details
+    if (transaction.isDeleted) return;
+    
+    // Always open details when clicked anywhere on the transaction item
+    setDetailsOpen(true);
   };
   
   // Get appropriate color class for transaction type
@@ -688,6 +695,30 @@ const TransactionItem = ({
     animate: { opacity: 1, y: 0, transition: { delay: 0.2, duration: 0.4 } }
   };
   
+  const CardWrapper = ({ children }: { children: React.ReactNode }) => {
+    if (linkable && !transaction.isDeleted) {
+      // Use mongoDB _id as the primary ID, with client id as fallback
+      const transactionId = transaction._id || transaction.id;
+      
+      return (
+        <Link 
+          to={`/dashboard/transactions?id=${transactionId}`}
+          className="w-full"
+        >
+          <Card className="p-4 hover:bg-accent/5 transition-colors">
+            {children}
+          </Card>
+        </Link>
+      );
+    }
+    
+    return (
+      <Card className="p-4 hover:bg-accent/5 transition-colors">
+        {children}
+      </Card>
+    );
+  };
+  
   return (
     <>
       <motion.div
@@ -699,7 +730,7 @@ const TransactionItem = ({
         onClick={handleTransactionClick}
         layout
       >
-        <Card className="p-4 hover:bg-accent/5 transition-colors">
+        <CardWrapper>
           <div className="flex items-start justify-between">
             <div className="flex gap-3">
               <div className={cn(
@@ -712,7 +743,7 @@ const TransactionItem = ({
                 <div className="flex items-center gap-1.5">
                   <p className="font-medium text-sm">{limitedDescription}</p>
                   {transaction.title.split(' ').length > 3 && (
-                          <span className="text-xs text-muted-foreground">...</span>
+                    <span className="text-xs text-muted-foreground">...</span>
                   )}
                 </div>
                 <div className="flex items-center flex-wrap gap-2 mt-1">
@@ -738,15 +769,15 @@ const TransactionItem = ({
                   )}
                   
                   {transaction.status === 'pending' && (
-                          <Badge variant="outline" className="h-5 px-1.5 bg-yellow-100/60 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400 border-yellow-200 dark:border-yellow-800/50">
-                            Pending
-                          </Badge>
+                    <Badge variant="outline" className="h-5 px-1.5 bg-yellow-100/60 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400 border-yellow-200 dark:border-yellow-800/50">
+                      Pending
+                    </Badge>
                   )}
                   
                   {transaction.status === 'failed' && (
-                          <Badge variant="outline" className="h-5 px-1.5 bg-red-100/60 text-red-800 dark:bg-red-900/30 dark:text-red-400 border-red-200 dark:border-red-800/50">
-                            Failed
-                          </Badge>
+                    <Badge variant="outline" className="h-5 px-1.5 bg-red-100/60 text-red-800 dark:bg-red-900/30 dark:text-red-400 border-red-200 dark:border-red-800/50">
+                      Failed
+                    </Badge>
                   )}
                 </div>
               </div>
@@ -766,294 +797,296 @@ const TransactionItem = ({
               </span>
             </div>
           </div>
-        </Card>
+        </CardWrapper>
       </motion.div>
       
-      <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
-        <DialogContent className="sm:max-w-md w-[90vw] p-0 border-border bg-background flex flex-col max-h-[90vh] overflow-hidden">
-          {/* Header section */}
-          <div className="sticky top-0 z-20 bg-background pt-6 pb-5 px-6 border-b flex flex-col items-center text-center">
-            <DialogClose className="absolute right-4 top-4 rounded-full opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
-              <X className="h-4 w-4" />
-              <span className="sr-only">Close</span>
-            </DialogClose>
-            
-            <div className="w-full flex items-center justify-start mb-5">
-              <Badge variant="outline" className={cn(
-                "rounded-full px-2 py-1 text-xs uppercase font-medium border",
-                isIncome 
-                  ? "bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800/30" 
-                  : isTransfer 
-                    ? "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800/30"
-                    : "bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800/30"
-              )}>
-                {isTransfer ? 'Transfer' : isIncome ? 'Income' : 'Expense'}
-              </Badge>
-            </div>
-            
-            <div className="flex w-full items-start">
-              <motion.div 
-                className={cn(
-                  "w-14 h-14 rounded-xl shrink-0 flex items-center justify-center mr-4",
-                  getHeaderColor(),
-                  "shadow-lg"
-                )}
-                initial="initial"
-                animate="animate"
-                variants={iconAnimation}
-              >
-                {getCategoryIcon()}
-              </motion.div>
+      {!linkable && (
+        <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
+          <DialogContent className="sm:max-w-md w-[90vw] p-0 border-border bg-background flex flex-col max-h-[90vh] overflow-hidden">
+            {/* Header section */}
+            <div className="sticky top-0 z-20 bg-background pt-6 pb-5 px-6 border-b flex flex-col items-center text-center">
+              <DialogClose className="absolute right-4 top-4 rounded-full opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground">
+                <X className="h-4 w-4" />
+                <span className="sr-only">Close</span>
+              </DialogClose>
               
-              <div className="flex flex-col items-start text-left w-full max-w-full overflow-hidden">
-                {/* Transaction title with improved text wrapping */}
-                <h2 className="text-xl font-bold mb-1 break-words w-full" style={{ wordBreak: "break-word", hyphens: "auto" }}>{transaction.title}</h2>
+              <div className="w-full flex items-center justify-start mb-5">
+                <Badge variant="outline" className={cn(
+                  "rounded-full px-2 py-1 text-xs uppercase font-medium border",
+                  isIncome 
+                    ? "bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800/30" 
+                    : isTransfer 
+                      ? "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800/30"
+                      : "bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800/30"
+                )}>
+                  {isTransfer ? 'Transfer' : isIncome ? 'Income' : 'Expense'}
+                </Badge>
+              </div>
+              
+              <div className="flex w-full items-start">
+                <motion.div 
+                  className={cn(
+                    "w-14 h-14 rounded-xl shrink-0 flex items-center justify-center mr-4",
+                    getHeaderColor(),
+                    "shadow-lg"
+                  )}
+                  initial="initial"
+                  animate="animate"
+                  variants={iconAnimation}
+                >
+                  {getCategoryIcon()}
+                </motion.div>
                 
-                {/* Category & Account row */}
-                <div className="flex items-center text-sm text-muted-foreground w-full max-w-full overflow-hidden">
-                  <span className="font-medium break-words">{getCategoryDisplayName()}</span>
-                  <span className="mx-1.5 flex-shrink-0">•</span>
-                  <span className="break-words overflow-hidden" style={{ wordBreak: "break-word" }}>{getAccountDisplay(transaction.account)}</span>
+                <div className="flex flex-col items-start text-left w-full max-w-full overflow-hidden">
+                  {/* Transaction title with improved text wrapping */}
+                  <h2 className="text-xl font-bold mb-1 break-words w-full" style={{ wordBreak: "break-word", hyphens: "auto" }}>{transaction.title}</h2>
+                  
+                  {/* Category & Account row */}
+                  <div className="flex items-center text-sm text-muted-foreground w-full max-w-full overflow-hidden">
+                    <span className="font-medium break-words">{getCategoryDisplayName()}</span>
+                    <span className="mx-1.5 flex-shrink-0">•</span>
+                    <span className="break-words overflow-hidden" style={{ wordBreak: "break-word" }}>{getAccountDisplay(transaction.account)}</span>
+                  </div>
                 </div>
+              </div>
+              
+              {/* Amount - larger and more prominent */}
+              <div className="w-full flex justify-between items-center mt-6 pt-4 border-t border-border/40">
+                <span className="text-sm font-medium text-muted-foreground">Amount</span>
+                <p className={cn(
+                  "text-2xl font-bold flex items-center",
+                  getAmountColor()
+                )}>
+                  {isTransfer ? '↔ ' : isIncome ? '+ ' : '- '}{formattedAmount}
+                </p>
               </div>
             </div>
             
-            {/* Amount - larger and more prominent */}
-            <div className="w-full flex justify-between items-center mt-6 pt-4 border-t border-border/40">
-              <span className="text-sm font-medium text-muted-foreground">Amount</span>
-              <p className={cn(
-                "text-2xl font-bold flex items-center",
-                getAmountColor()
-              )}>
-                {isTransfer ? '↔ ' : isIncome ? '+ ' : '- '}{formattedAmount}
-              </p>
-            </div>
-          </div>
-          
-          {/* Main scrollable content */}
-          <ScrollArea className="flex-grow">
-            <div className="px-6 py-5">
-              <motion.div
-                className="pr-4 space-y-5"
-                initial="initial"
-                animate="animate"
-                variants={contentAnimation}
-              >
-                {/* Date with card styling */}
-                <div className="bg-muted/30 rounded-lg border border-border/60 p-4">
-                  <div className="flex justify-between items-center">
-                    <div className="flex items-center gap-2">
-                      <Calendar className="h-5 w-5 text-muted-foreground" />
-                      <span className="font-medium">Date</span>
-                    </div>
-                    <span className="text-foreground">{formattedFullDate}</span>
-                  </div>
-                </div>
-                
-                {/* Different display for transfers vs regular transactions */}
-                {isTransfer ? (
-                  <div className="bg-muted/30 rounded-lg border border-border/60 p-4 space-y-5">
-                    <h3 className="text-sm font-semibold text-muted-foreground mb-2">Transfer Details</h3>
-                    
-                    {/* Transfer Visual Flow */}
-                    <div className="py-2">
-                      <div className="flex flex-col items-center justify-between gap-5">
-                        {/* From Asset */}
-                        <div className="w-full flex items-center p-3 bg-background rounded-md border border-border">
-                          <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center mr-3">
-                            <Wallet className="h-4 w-4 text-white" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="text-sm font-medium break-words">{transaction.fromAsset}</div>
-                            <div className="text-xs text-muted-foreground">Source Account</div>
-                          </div>
-                        </div>
-                        
-                        {/* Arrow Connector */}
-                        <div className="flex flex-col items-center justify-center -my-3">
-                          <div className="w-0.5 h-4 bg-border"></div>
-                          <ArrowDownRight className="h-5 w-5 text-blue-500 rotate-90 my-1" />
-                          <div className="w-0.5 h-4 bg-border"></div>
-                        </div>
-                        
-                        {/* To Asset */}
-                        <div className="w-full flex items-center p-3 bg-background rounded-md border border-border">
-                          <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center mr-3">
-                            <Building2 className="h-4 w-4 text-white" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="text-sm font-medium break-words">{transaction.toAsset}</div>
-                            <div className="text-xs text-muted-foreground">Destination Account</div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    {/* Transfer Type */}
-                    <div className="flex justify-between items-center pt-2 border-t border-border/40">
+            {/* Main scrollable content */}
+            <ScrollArea className="flex-grow">
+              <div className="px-6 py-5">
+                <motion.div
+                  className="pr-4 space-y-5"
+                  initial="initial"
+                  animate="animate"
+                  variants={contentAnimation}
+                >
+                  {/* Date with card styling */}
+                  <div className="bg-muted/30 rounded-lg border border-border/60 p-4">
+                    <div className="flex justify-between items-center">
                       <div className="flex items-center gap-2">
-                        <CreditCard className="h-4 w-4 text-blue-500" />
-                        <span className="text-sm font-medium">Transfer Type</span>
+                        <Calendar className="h-5 w-5 text-muted-foreground" />
+                        <span className="font-medium">Date</span>
                       </div>
-                      <div className="flex items-center">
-                        <Badge className="bg-blue-500/10 text-blue-600 hover:bg-blue-500/20 border-blue-200">
-                          Internal Transfer
-                        </Badge>
-                      </div>
+                      <span className="text-foreground">{formattedFullDate}</span>
                     </div>
                   </div>
-                ) : (
-                  <div className="space-y-4">
-                    {/* Account details */}
-                    <div className="bg-muted/30 rounded-lg border border-border/60 p-4">
-                      <h3 className="text-sm font-semibold text-muted-foreground mb-3">Account Details</h3>
+                  
+                  {/* Different display for transfers vs regular transactions */}
+                  {isTransfer ? (
+                    <div className="bg-muted/30 rounded-lg border border-border/60 p-4 space-y-5">
+                      <h3 className="text-sm font-semibold text-muted-foreground mb-2">Transfer Details</h3>
                       
-                      <div className="flex items-center">
-                        <div className="w-10 h-10 rounded-full shrink-0 bg-muted flex items-center justify-center mr-3">
-                          {getAccountIcon(transaction.account)}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="font-medium break-words">{getAccountDisplay(transaction.account)}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {(typeof transaction.account === 'object' && transaction.account?.type) 
-                              ? transaction.account.type
-                              : (resolvedAccount?.type || '')}
+                      {/* Transfer Visual Flow */}
+                      <div className="py-2">
+                        <div className="flex flex-col items-center justify-between gap-5">
+                          {/* From Asset */}
+                          <div className="w-full flex items-center p-3 bg-background rounded-md border border-border">
+                            <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center mr-3">
+                              <Wallet className="h-4 w-4 text-white" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="text-sm font-medium break-words">{transaction.fromAsset}</div>
+                              <div className="text-xs text-muted-foreground">Source Account</div>
+                            </div>
+                          </div>
+                          
+                          {/* Arrow Connector */}
+                          <div className="flex flex-col items-center justify-center -my-3">
+                            <div className="w-0.5 h-4 bg-border"></div>
+                            <ArrowDownRight className="h-5 w-5 text-blue-500 rotate-90 my-1" />
+                            <div className="w-0.5 h-4 bg-border"></div>
+                          </div>
+                          
+                          {/* To Asset */}
+                          <div className="w-full flex items-center p-3 bg-background rounded-md border border-border">
+                            <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center mr-3">
+                              <Building2 className="h-4 w-4 text-white" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="text-sm font-medium break-words">{transaction.toAsset}</div>
+                              <div className="text-xs text-muted-foreground">Destination Account</div>
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                    
-                    {/* Category details */}
-                    <div className="bg-muted/30 rounded-lg border border-border/60 p-4">
-                      <h3 className="text-sm font-semibold text-muted-foreground mb-3">Category</h3>
                       
-                      <div className="flex items-center">
-                        <div className={cn(
-                          "w-10 h-10 rounded-full shrink-0 flex items-center justify-center mr-3",
-                          getTransactionColor()
-                        )}>
-                          {getCardIcon()}
+                      {/* Transfer Type */}
+                      <div className="flex justify-between items-center pt-2 border-t border-border/40">
+                        <div className="flex items-center gap-2">
+                          <CreditCard className="h-4 w-4 text-blue-500" />
+                          <span className="text-sm font-medium">Transfer Type</span>
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="font-medium break-words">{getCategoryDisplayName()}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {isIncome ? 'Income' : 'Expense'} Category
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    {/* Payment Method (if available) */}
-                    {transaction.paymentMethod && (
-                      <div className="bg-muted/30 rounded-lg border border-border/60 p-4">
-                        <div className="flex justify-between items-center">
-                          <div className="flex items-center gap-2">
-                            <CreditCard className="h-5 w-5 text-muted-foreground" />
-                            <span className="font-medium">Payment Method</span>
-                          </div>
-                          <span className="text-foreground break-words">{transaction.paymentMethod}</span>
-                        </div>
-                      </div>
-                    )}
-                    
-                    {/* Status (if not completed) */}
-                    {transaction.status && transaction.status !== 'completed' && (
-                      <div className="bg-muted/30 rounded-lg border border-border/60 p-4">
-                        <div className="flex justify-between items-center">
-                          <div className="flex items-center gap-2">
-                            <HelpCircle className="h-5 w-5 text-muted-foreground" />
-                            <span className="font-medium">Status</span>
-                          </div>
-                          <Badge variant={transaction.status === 'pending' 
-                            ? 'outline' 
-                            : 'destructive'
-                          } className="capitalize">
-                            {transaction.status}
+                        <div className="flex items-center">
+                          <Badge className="bg-blue-500/10 text-blue-600 hover:bg-blue-500/20 border-blue-200">
+                            Internal Transfer
                           </Badge>
                         </div>
                       </div>
-                    )}
-                  </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {/* Account details */}
+                      <div className="bg-muted/30 rounded-lg border border-border/60 p-4">
+                        <h3 className="text-sm font-semibold text-muted-foreground mb-3">Account Details</h3>
+                        
+                        <div className="flex items-center">
+                          <div className="w-10 h-10 rounded-full shrink-0 bg-muted flex items-center justify-center mr-3">
+                            {getAccountIcon(transaction.account)}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium break-words">{getAccountDisplay(transaction.account)}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {(typeof transaction.account === 'object' && transaction.account?.type) 
+                                ? transaction.account.type
+                                : (resolvedAccount?.type || '')}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Category details */}
+                      <div className="bg-muted/30 rounded-lg border border-border/60 p-4">
+                        <h3 className="text-sm font-semibold text-muted-foreground mb-3">Category</h3>
+                        
+                        <div className="flex items-center">
+                          <div className={cn(
+                            "w-10 h-10 rounded-full shrink-0 flex items-center justify-center mr-3",
+                            getTransactionColor()
+                          )}>
+                            {getCardIcon()}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium break-words">{getCategoryDisplayName()}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {isIncome ? 'Income' : 'Expense'} Category
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Payment Method (if available) */}
+                      {transaction.paymentMethod && (
+                        <div className="bg-muted/30 rounded-lg border border-border/60 p-4">
+                          <div className="flex justify-between items-center">
+                            <div className="flex items-center gap-2">
+                              <CreditCard className="h-5 w-5 text-muted-foreground" />
+                              <span className="font-medium">Payment Method</span>
+                            </div>
+                            <span className="text-foreground break-words">{transaction.paymentMethod}</span>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Status (if not completed) */}
+                      {transaction.status && transaction.status !== 'completed' && (
+                        <div className="bg-muted/30 rounded-lg border border-border/60 p-4">
+                          <div className="flex justify-between items-center">
+                            <div className="flex items-center gap-2">
+                              <HelpCircle className="h-5 w-5 text-muted-foreground" />
+                              <span className="font-medium">Status</span>
+                            </div>
+                            <Badge variant={transaction.status === 'pending' 
+                              ? 'outline' 
+                              : 'destructive'
+                            } className="capitalize">
+                              {transaction.status}
+                            </Badge>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  
+                  {/* Description (if available) */}
+                  {transaction.description && (
+                    <motion.div 
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.3 }}
+                      className="bg-muted/30 rounded-lg border border-border/60 p-4 w-full max-w-full overflow-hidden"
+                    >
+                      <div className="space-y-2 w-full max-w-full overflow-hidden">
+                        <div className="flex items-center gap-2 mb-2">
+                          <HelpCircle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                          <span className="font-medium">Description</span>
+                        </div>
+                        <div className="p-3 rounded-md bg-background border border-border/60 text-foreground/90 text-sm w-full max-w-full overflow-hidden">
+                          <p className="whitespace-pre-wrap break-words max-w-full overflow-hidden" 
+                             style={{ 
+                               overflowWrap: "break-word", 
+                               wordWrap: "break-word", 
+                               wordBreak: "break-word",
+                               hyphens: "auto" 
+                             }}>
+                            {transaction.description}
+                          </p>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {/* Created timestamp if available */}
+                  {transaction.createdAt && (
+                    <div className="text-xs text-muted-foreground pt-4 flex items-center justify-end">
+                      <Calendar className="h-3 w-3 mr-1 inline" />
+                      <span>Created: {new Date(transaction.createdAt).toLocaleString()}</span>
+                    </div>
+                  )}
+
+                  {/* Extra space at the bottom for comfortable scrolling past the fixed footer */}
+                  <div className="h-16"></div>
+                </motion.div>
+              </div>
+            </ScrollArea>
+            
+            {/* Sticky footer with actions */}
+            <div className="sticky bottom-0 left-0 right-0 z-20 border-t border-border bg-background/95 backdrop-blur-sm py-4 px-6 shadow-[0_-1px_8px_rgba(0,0,0,0.03)]">
+              <div className="flex justify-end gap-2">
+                {onDeleteTransaction && (
+                  <Button 
+                    variant="destructive"
+                    size="sm"
+                    className="gap-1 h-9"
+                    onClick={() => {
+                      onDeleteTransaction(transaction.id);
+                      setDetailsOpen(false);
+                    }}
+                  >
+                    <X className="h-4 w-4" />
+                    Delete
+                  </Button>
                 )}
                 
-                {/* Description (if available) */}
-                {transaction.description && (
-                  <motion.div 
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3 }}
-                    className="bg-muted/30 rounded-lg border border-border/60 p-4 w-full max-w-full overflow-hidden"
+                {onEditTransaction && (
+                  <Button 
+                    variant="outline"
+                    size="sm"
+                    className="gap-1 h-9"
+                    onClick={() => {
+                      onEditTransaction(transaction.id);
+                      setDetailsOpen(false);
+                    }}
                   >
-                    <div className="space-y-2 w-full max-w-full overflow-hidden">
-                      <div className="flex items-center gap-2 mb-2">
-                        <HelpCircle className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-                        <span className="font-medium">Description</span>
-                      </div>
-                      <div className="p-3 rounded-md bg-background border border-border/60 text-foreground/90 text-sm w-full max-w-full overflow-hidden">
-                        <p className="whitespace-pre-wrap break-words max-w-full overflow-hidden" 
-                           style={{ 
-                             overflowWrap: "break-word", 
-                             wordWrap: "break-word", 
-                             wordBreak: "break-word",
-                             hyphens: "auto" 
-                           }}>
-                          {transaction.description}
-                        </p>
-                      </div>
-                    </div>
-                  </motion.div>
+                    <Pencil className="h-4 w-4" />
+                    Edit
+                  </Button>
                 )}
-
-                {/* Created timestamp if available */}
-                {transaction.createdAt && (
-                  <div className="text-xs text-muted-foreground pt-4 flex items-center justify-end">
-                    <Calendar className="h-3 w-3 mr-1 inline" />
-                    <span>Created: {new Date(transaction.createdAt).toLocaleString()}</span>
-                  </div>
-                )}
-
-                {/* Extra space at the bottom for comfortable scrolling past the fixed footer */}
-                <div className="h-16"></div>
-              </motion.div>
+              </div>
             </div>
-          </ScrollArea>
-          
-          {/* Sticky footer with actions */}
-          <div className="sticky bottom-0 left-0 right-0 z-20 border-t border-border bg-background/95 backdrop-blur-sm py-4 px-6 shadow-[0_-1px_8px_rgba(0,0,0,0.03)]">
-            <div className="flex justify-end gap-2">
-              {onDeleteTransaction && (
-                <Button 
-                  variant="destructive"
-                  size="sm"
-                  className="gap-1 h-9"
-                  onClick={() => {
-                    onDeleteTransaction(transaction.id);
-                    setDetailsOpen(false);
-                  }}
-                >
-                  <X className="h-4 w-4" />
-                  Delete
-                </Button>
-              )}
-              
-              {onEditTransaction && (
-                <Button 
-                  variant="outline"
-                  size="sm"
-                  className="gap-1 h-9"
-                  onClick={() => {
-                    onEditTransaction(transaction.id);
-                    setDetailsOpen(false);
-                  }}
-                >
-                  <Pencil className="h-4 w-4" />
-                  Edit
-                </Button>
-              )}
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+          </DialogContent>
+        </Dialog>
+      )}
     </>
   );
 };

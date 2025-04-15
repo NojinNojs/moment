@@ -7,7 +7,7 @@ import {
   DrawerDescription,
   DrawerFooter,
 } from "@/components/ui/drawer";
-import { ArrowUpRight, ArrowDownRight, ChevronLeft } from "lucide-react";
+import { ArrowUpRight, ArrowDownRight, ChevronLeft, Loader2 } from "lucide-react";
 import { TransactionForm } from "../forms/TransactionForm";
 import { motion } from "framer-motion";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -36,6 +36,7 @@ interface AddTransactionDrawerProps {
   onDateChange: (value: string) => void;
   onAccountChange?: (value: string) => void;
   accounts?: { id?: string; _id?: string; name: string; type: string; balance?: number }[];
+  isSubmitting?: boolean;
 }
 
 /**
@@ -67,7 +68,8 @@ export function AddTransactionDrawer({
   onDescriptionChange,
   onDateChange,
   onAccountChange,
-  accounts
+  accounts,
+  isSubmitting = false
 }: AddTransactionDrawerProps) {
   // Common form properties
   const formProps = {
@@ -126,6 +128,7 @@ export function AddTransactionDrawer({
             onClick={onClose} 
             className="absolute left-4 top-4 p-2 rounded-full hover:bg-muted/50 transition-colors"
             aria-label="Close"
+            disabled={isSubmitting}
           >
             <ChevronLeft className="h-5 w-5 text-muted-foreground" />
           </button>
@@ -159,11 +162,24 @@ export function AddTransactionDrawer({
         
         <DrawerFooter className="flex-shrink-0 border-t bg-muted/30 pt-4 pb-6 px-4 mt-auto mb-safe z-10">
           <Button
-            onClick={onSubmit} 
+            onClick={() => {
+              if (!isSubmitting) {
+                onSubmit();
+              }
+            }}
+            variant={type === 'income' ? 'primary' : 'destructive'}
             size="lg"
-            className={`${buttonBgColor} ${buttonTextColor} font-medium w-full shadow-md hover:shadow-lg transition-all h-12`}
+            className="w-full h-12 font-medium shadow-md"
+            disabled={isSubmitting}
           >
-            {buttonText}
+            {isSubmitting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <span>Saving...</span>
+              </>
+            ) : (
+              buttonText
+            )}
           </Button>
         </DrawerFooter>
       </DrawerContent>

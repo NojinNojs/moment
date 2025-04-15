@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/auth-utils';
 import { detectUserCurrency, EventBus } from '@/lib/utils';
 
@@ -22,7 +22,7 @@ export function useUserSettings() {
   const [settings, setSettings] = useState<UserSettings | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const { user, updateUserSettings, isAuthenticated } = useAuth();
-
+  
   // Load settings from user or localStorage on mount
   useEffect(() => {
     const loadSettings = () => {
@@ -55,18 +55,19 @@ export function useUserSettings() {
     loadSettings();
   }, [isAuthenticated, user]);
 
+  // Create a stable callback for currency changes
+  const handleCurrencyChange = useCallback((currencyCode: string) => {
+    console.log(`[useUserSettings] Received currency change event: ${currencyCode}`);
+    
+    // Update settings with new currency
+    setSettings(prevSettings => {
+      if (!prevSettings) return { ...defaultSettings, currency: currencyCode };
+      return { ...prevSettings, currency: currencyCode };
+    });
+  }, []);
+
   // Listen for currency changes from other components/devices
   useEffect(() => {
-    const handleCurrencyChange = (currencyCode: string) => {
-      console.log(`[useUserSettings] Received currency change event: ${currencyCode}`);
-      
-      // Update settings with new currency
-      setSettings(prevSettings => {
-        if (!prevSettings) return { ...defaultSettings, currency: currencyCode };
-        return { ...prevSettings, currency: currencyCode };
-      });
-    };
-    
     // Subscribe to currency change events
     EventBus.on('currency:changed', handleCurrencyChange);
     
@@ -82,15 +83,10 @@ export function useUserSettings() {
     
     // Cleanup on unmount
     return () => {
-      EventBus.removeAllListeners('currency:changed');
-      // Don't remove 'preference:updated' as other components might still need it
-      // Instead, remove just this specific handler
-      const listeners = EventBus.listenerCount('preference:updated');
-      console.log(`[useUserSettings] Cleaning up. Current 'preference:updated' listeners: ${listeners}`);
+      EventBus.off('currency:changed', handleCurrencyChange);
       EventBus.off('preference:updated', handlePreferenceUpdate);
-      console.log(`[useUserSettings] Removed specific preference:updated handler. Remaining listeners: ${EventBus.listenerCount('preference:updated')}`);
     };
-  }, []);
+  }, [handleCurrencyChange]);
 
   // Function to update settings
   const updateSettings = async (newSettings: Partial<UserSettings>) => {
@@ -122,6 +118,13 @@ export function useUserSettings() {
         
         return updatedSettings;
       });
+      
+      // If updating currency, emit event to force immediate refresh
+      if (newSettings.currency) {
+        setTimeout(() => {
+          EventBus.emit('currency:changed', newSettings.currency);
+        }, 0);
+      }
     } catch (error) {
       console.error('[useUserSettings] Error updating settings:', error);
     }

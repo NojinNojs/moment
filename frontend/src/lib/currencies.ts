@@ -8,16 +8,8 @@ export const currencies = [
   { value: "JPY", label: "Japanese Yen", symbol: "¥", flag: "🇯🇵" },
   { value: "CAD", label: "Canadian Dollar", symbol: "CA$", flag: "🇨🇦" },
   { value: "AUD", label: "Australian Dollar", symbol: "A$", flag: "🇦🇺" },
-  { value: "CHF", label: "Swiss Franc", symbol: "CHF", flag: "🇨🇭" },
-  { value: "CNY", label: "Chinese Yuan", symbol: "¥", flag: "🇨🇳" },
-  { value: "INR", label: "Indian Rupee", symbol: "₹", flag: "🇮🇳" },
-  { value: "BRL", label: "Brazilian Real", symbol: "R$", flag: "🇧🇷" },
-  { value: "IDR", label: "Indonesian Rupiah", symbol: "Rp", flag: "🇮🇩" },
-  { value: "MYR", label: "Malaysian Ringgit", symbol: "RM", flag: "🇲🇾" },
   { value: "SGD", label: "Singapore Dollar", symbol: "S$", flag: "🇸🇬" },
-  { value: "THB", label: "Thai Baht", symbol: "฿", flag: "🇹🇭" },
-  { value: "VND", label: "Vietnamese Dong", symbol: "₫", flag: "🇻🇳" },
-  { value: "KRW", label: "South Korean Won", symbol: "₩", flag: "🇰🇷" },
+  { value: "IDR", label: "Indonesian Rupiah", symbol: "Rp", flag: "🇮🇩" },
 ];
 
 /**
@@ -53,5 +45,5 @@ export function getCurrencyLocale(currencyCode: string): string {
  * @returns Boolean indicating if the currency doesn't use decimals
  */
 export function isNoDecimalCurrency(currencyCode: string): boolean {
-  return ['JPY', 'KRW', 'VND'].includes(currencyCode);
+  return ['JPY'].includes(currencyCode);
 } 

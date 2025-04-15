@@ -15,7 +15,7 @@ import {
   DrawerDescription,
   DrawerFooter,
 } from "@/components/ui/drawer";
-import { ArrowUpRight, ArrowDownRight, ChevronLeft } from "lucide-react";
+import { ArrowUpRight, ArrowDownRight, ChevronLeft, Loader2 } from "lucide-react";
 import { TransactionForm } from "../forms/TransactionForm";
 import { motion } from "framer-motion";
 
@@ -37,6 +37,7 @@ interface TransactionUIComponentsProps {
   onCategoryChange: (value: string) => void;
   onDescriptionChange: (value: string) => void;
   onDateChange: (value: string) => void;
+  isSubmitting: boolean;
 }
 
 /**
@@ -64,7 +65,8 @@ export const TransactionUIComponents = ({
   onAmountChange,
   onCategoryChange,
   onDescriptionChange,
-  onDateChange
+  onDateChange,
+  isSubmitting
 }: TransactionUIComponentsProps) => {
   // Common form properties
   const formProps = {
@@ -128,8 +130,26 @@ export const TransactionUIComponents = ({
               <TransactionForm {...formProps} />
             </motion.div>
             <DrawerFooter className="pt-3 px-4 bg-muted/30 border-t border-border mt-auto flex-shrink-0 mb-safe">
-              <Button onClick={onSubmit} size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium w-full">
-                Save Income
+              <Button 
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (!isSubmitting) {
+                    onSubmit();
+                  }
+                }} 
+                size="lg" 
+                className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium w-full"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  'Save Income'
+                )}
               </Button>
             </DrawerFooter>
           </DrawerContent>
@@ -168,8 +188,26 @@ export const TransactionUIComponents = ({
               <TransactionForm {...formProps} />
             </motion.div>
             <DrawerFooter className="pt-3 px-4 bg-muted/30 border-t border-border mt-auto flex-shrink-0 mb-safe">
-              <Button onClick={onSubmit} size="lg" className="bg-destructive hover:bg-destructive/90 text-destructive-foreground font-medium w-full">
-                Save Expense
+              <Button 
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (!isSubmitting) {
+                    onSubmit();
+                  }
+                }} 
+                size="lg" 
+                className="bg-destructive hover:bg-destructive/90 text-destructive-foreground font-medium w-full"
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  'Save Expense'
+                )}
               </Button>
             </DrawerFooter>
           </DrawerContent>
@@ -208,11 +246,25 @@ export const TransactionUIComponents = ({
           </motion.div>
           <DialogFooter className="px-8 py-5 bg-muted/30 border-t border-border mt-auto flex-shrink-0">
             <Button
-              onClick={onSubmit}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (!isSubmitting) {
+                  onSubmit();
+                }
+              }}
               size="lg"
               className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium w-full"
+              disabled={isSubmitting}
             >
-              Save Income
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <span>Saving...</span>
+                </>
+              ) : (
+                'Save Income'
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -245,11 +297,25 @@ export const TransactionUIComponents = ({
           </motion.div>
           <DialogFooter className="px-8 py-5 bg-muted/30 border-t border-border mt-auto flex-shrink-0">
             <Button
-              onClick={onSubmit}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (!isSubmitting) {
+                  onSubmit();
+                }
+              }}
               size="lg"
               className="bg-destructive hover:bg-destructive/90 text-destructive-foreground font-medium w-full"
+              disabled={isSubmitting}
             >
-              Save Expense
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <span>Saving...</span>
+                </>
+              ) : (
+                'Save Expense'
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -1,34 +1,86 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import useUserSettings from './useUserSettings';
 import { currencies } from '@/lib/currencies';
 import { EventBus } from '@/lib/utils';
+import { useCurrencyFormat as useCurrencyContext } from '@/contexts/CurrencyContext';
+import { useLocation } from 'react-router-dom';
 
 /**
  * A hook that provides currency formatting functions based on user settings
+ * with automatic refresh when currency changes or navigation occurs
  */
 export default function useCurrencyFormat() {
+  // Get currency context directly (includes the forceRefreshCurrency function)
+  const currencyContext = useCurrencyContext();
   const { settings } = useUserSettings();
-  const [localCurrencyCode, setLocalCurrencyCode] = useState<string>('USD');
+  const location = useLocation();
+  const [localCurrencyCode, setLocalCurrencyCode] = useState<string>(currencyContext.currencyCode);
+  
+  // Track last path to detect navigation
+  const lastPathRef = useRef(location.pathname);
+  // Track if an update is ongoing to prevent infinite loops
+  const isUpdatingRef = useRef(false);
+  // Track the last update time to debounce frequent changes
+  const lastUpdateTimeRef = useRef(Date.now());
+  
+  // Safe update function with debounce and recursive update protection
+  const safeUpdate = useCallback(() => {
+    const now = Date.now();
+    if (now - lastUpdateTimeRef.current < 300) {
+      console.log('[useCurrencyFormat] Debouncing rapid updates');
+      return;
+    }
+    
+    if (isUpdatingRef.current) {
+      console.log('[useCurrencyFormat] Update already in progress, skipping');
+      return;
+    }
+    
+    isUpdatingRef.current = true;
+    lastUpdateTimeRef.current = now;
+    
+    // Use setTimeout to break the potential update cycle
+    setTimeout(() => {
+      // Force state update without needing a forceUpdate counter
+      setLocalCurrencyCode(curr => curr === 'FORCE_UPDATE' ? currencyContext.currencyCode : 'FORCE_UPDATE');
+      isUpdatingRef.current = false;
+    }, 0);
+  }, [currencyContext.currencyCode]);
+  
+  // Check for navigation between pages and force refresh if needed
+  useEffect(() => {
+    if (lastPathRef.current !== location.pathname) {
+      console.log(`[useCurrencyFormat] Page navigation detected from ${lastPathRef.current} to ${location.pathname}`);
+      lastPathRef.current = location.pathname;
+    }
+  }, [location.pathname]);
+  
+  // Create a callback function that will be stable across renders
+  const handleCurrencyChange = useCallback((currencyCode: string) => {
+    if (isUpdatingRef.current) return;
+    
+    console.log(`[useCurrencyFormat] Currency changed to: ${currencyCode}`);
+    
+    if (currencyCode !== localCurrencyCode) {
+      setLocalCurrencyCode(currencyCode);
+      safeUpdate();
+    }
+  }, [localCurrencyCode, safeUpdate]);
   
   // Stay in sync with settings and also listen for real-time currency updates
   useEffect(() => {
-    if (settings?.currency) {
-      setLocalCurrencyCode(settings.currency);
+    // First sync with the context value if different
+    if (currencyContext.currencyCode !== localCurrencyCode) {
+      setLocalCurrencyCode(currencyContext.currencyCode);
     }
     
-    // Also listen directly for currency changes to ensure immediate updates
-    const handleCurrencyChange = (currencyCode: string) => {
-      console.log(`[useCurrencyFormat] Currency changed to: ${currencyCode}`);
-      setLocalCurrencyCode(currencyCode);
-    };
-    
-    // Subscribe to both direct currency changes and preference updates
+    // Subscribe to direct currency changes 
     EventBus.on('currency:changed', handleCurrencyChange);
     
     const handlePreferenceUpdate = (data: { preference: string; value: string }) => {
       if (data.preference === 'currency') {
         console.log(`[useCurrencyFormat] Currency preference updated to: ${data.value}`);
-        setLocalCurrencyCode(data.value);
+        handleCurrencyChange(data.value);
       }
     };
     
@@ -36,17 +88,24 @@ export default function useCurrencyFormat() {
     
     return () => {
       // Clean up listeners on unmount
-      EventBus.removeAllListeners('currency:changed');
-      // Don't remove all preference:updated listeners as other components may use it
+      EventBus.off('currency:changed', handleCurrencyChange);
+      EventBus.off('preference:updated', handlePreferenceUpdate);
     };
-  }, [settings?.currency]);
+  }, [currencyContext.currencyCode, localCurrencyCode, handleCurrencyChange]);
   
   const currencyData = useMemo(() => {
-    // Use both settings currency and local state (which gets direct updates)
-    const currencyCode = localCurrencyCode || settings?.currency || 'USD';
+    // Prioritize context values for immediate updates
+    const currencyCode = currencyContext.currencyCode || localCurrencyCode || settings?.currency || 'USD';
     console.log(`[useCurrencyFormat] Using currency: ${currencyCode}`);
     return currencies.find(c => c.value === currencyCode) || currencies[0];
-  }, [settings?.currency, localCurrencyCode]);
+  }, [settings?.currency, localCurrencyCode, currencyContext.currencyCode]);
+  
+  // Helper function to determine if decimals should be used
+  const determineIfShouldUseDecimals = (showDecimals: boolean | undefined, skipDecimalsForCurrency: boolean): boolean => {
+    return showDecimals === undefined 
+      ? !skipDecimalsForCurrency
+      : showDecimals;
+  };
   
   /**
    * Format a numeric value according to user's currency settings
@@ -66,29 +125,66 @@ export default function useCurrencyFormat() {
       
       const { compact = false, hideCurrencySymbol = false, showDecimals } = options || {};
       
-      // Get currency code from both sources for redundancy
-      const currencyCode = localCurrencyCode || settings?.currency || 'USD';
+      // Prioritize context values for guaranteed consistency
+      const currencyCode = currencyContext.currencyCode || localCurrencyCode || settings?.currency || 'USD';
       
-      let locale = 'en-US';
+      let locale = currencyContext.currencyLocale || 'en-US';
       let skipDecimalsForCurrency = false;
       
-      // Set locale and special handling based on currency
-      switch (currencyCode) {
-        case 'IDR':
-          locale = 'id-ID';
-          break;
-        case 'JPY':
-        case 'KRW':
-        case 'VND':
-          // These currencies typically don't display decimals
-          skipDecimalsForCurrency = true;
-          break;
-        case 'EUR':
-          locale = 'de-DE';
-          break;
-        case 'GBP':
-          locale = 'en-GB';
-          break;
+      // Double-check locale based on currency code as fallback
+      if (!currencyContext.currencyLocale) {
+        switch (currencyCode) {
+          case 'IDR':
+            locale = 'id-ID';
+            break;
+          case 'JPY':
+          case 'KRW':
+          case 'VND':
+            // These currencies typically don't display decimals
+            skipDecimalsForCurrency = true;
+            break;
+          case 'EUR':
+            locale = 'de-DE';
+            break;
+          case 'GBP':
+            locale = 'en-GB';
+            break;
+        }
+      }
+      
+      // Special case handling for some currencies to match the preview
+      // that might have specific display requirements
+      let customFormatting = false;
+      let formattedValue = '';
+      
+      if (!hideCurrencySymbol) {
+        switch (currencyCode) {
+          case 'EUR':
+            formattedValue = `${value.toLocaleString(locale, {
+              minimumFractionDigits: determineIfShouldUseDecimals(showDecimals, skipDecimalsForCurrency) ? 2 : 0,
+              maximumFractionDigits: determineIfShouldUseDecimals(showDecimals, skipDecimalsForCurrency) ? 2 : 0
+            })}€`;
+            customFormatting = true;
+            break;
+          case 'AUD':
+            formattedValue = `A$${value.toLocaleString(locale, {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2
+            })}`;
+            customFormatting = true;
+            break;
+          case 'SGD':
+            formattedValue = `S$${value.toLocaleString(locale, {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2
+            })}`;
+            customFormatting = true;
+            break;
+        }
+      }
+      
+      if (customFormatting) {
+        return formattedValue;
       }
       
       const formatOptions: Intl.NumberFormatOptions = {
@@ -100,9 +196,7 @@ export default function useCurrencyFormat() {
       };
       
       // Determine decimals based on currency and options
-      const shouldUseDecimals = showDecimals === undefined 
-        ? !skipDecimalsForCurrency
-        : showDecimals;
+      const shouldUseDecimals = determineIfShouldUseDecimals(showDecimals, skipDecimalsForCurrency);
       
       if (shouldUseDecimals) {
         formatOptions.minimumFractionDigits = 2;
@@ -114,20 +208,30 @@ export default function useCurrencyFormat() {
       
       return new Intl.NumberFormat(locale, formatOptions).format(value);
     };
-  }, [settings?.currency, localCurrencyCode]);
+  }, [
+    settings?.currency, 
+    localCurrencyCode,
+    currencyContext.currencyCode, 
+    currencyContext.currencyLocale
+  ]);
   
   /**
    * Get the symbol for the current currency
    */
   const currencySymbol = useMemo(() => {
-    return currencyData.symbol;
-  }, [currencyData]);
+    return currencyContext.currencySymbol || currencyData.symbol;
+  }, [currencyData, currencyContext.currencySymbol]);
   
   /**
    * Get the locale corresponding to the current currency
    */
   const currencyLocale = useMemo(() => {
-    const currencyCode = localCurrencyCode || settings?.currency || 'USD';
+    // Prioritize context value
+    if (currencyContext.currencyLocale) {
+      return currencyContext.currencyLocale;
+    }
+    
+    const currencyCode = currencyContext.currencyCode || localCurrencyCode || settings?.currency || 'USD';
     
     switch (currencyCode) {
       case 'IDR':
@@ -139,7 +243,7 @@ export default function useCurrencyFormat() {
       default:
         return 'en-US';
     }
-  }, [settings?.currency, localCurrencyCode]);
+  }, [settings?.currency, localCurrencyCode, currencyContext]);
   
   // Add a number formatter function
   const formatNumber = useMemo(() => {
@@ -192,13 +296,24 @@ export default function useCurrencyFormat() {
     };
   }, [currencyLocale]);
   
+  // Provide a function to force refresh from components if needed
+  const refreshCurrency = useCallback(() => {
+    safeUpdate();
+    // Only call context force refresh if it's not being called too frequently
+    if (Date.now() - lastUpdateTimeRef.current > 500) {
+      currencyContext.forceRefreshCurrency();
+    }
+  }, [currencyContext, safeUpdate]);
+  
   return {
     formatCurrency,
     formatNumber,
     formatPercent,
-    currencyCode: localCurrencyCode || settings?.currency || 'USD',
+    currencyCode: currencyContext.currencyCode || localCurrencyCode || settings?.currency || 'USD',
     currencySymbol,
     currencyData,
-    currencyLocale
+    currencyLocale,
+    refreshCurrency,
+    forceRefreshCurrency: currencyContext.forceRefreshCurrency
   };
 } 
