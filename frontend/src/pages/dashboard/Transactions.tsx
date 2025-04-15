@@ -945,7 +945,10 @@ export default function Transactions() {
       errors.amount = "Amount must be greater than zero";
     } else {
       // Check if expense exceeds account balance
-      if (currentTransactionType === 'expense' && formData.account) {
+      const isNewTransaction = currentTransactionMode === "add";
+      const isExpense = currentTransactionType === 'expense';
+      
+      if (isExpense && formData.account && isNewTransaction) {
         // Find the selected account
         const selectedAccount = accounts.find(acc => 
           acc._id === formData.account || acc.id === formData.account
@@ -953,6 +956,42 @@ export default function Transactions() {
         
         if (selectedAccount && parseFloat(formData.amount) > selectedAccount.balance) {
           errors.amount = `Expense exceeds your ${selectedAccount.name} balance of ${formatCurrency(selectedAccount.balance)}`;
+        }
+      } else if (isExpense && formData.account && !isNewTransaction && currentTransactionId) {
+        // For editing expenses, check balance against the difference of new amount and old amount
+        const originalTransaction = transactions.find(t => 
+          t.id === currentTransactionId || 
+          (typeof currentTransactionId === 'string' && t._id === currentTransactionId)
+        );
+        
+        if (originalTransaction) {
+          const oldAmount = Math.abs(originalTransaction.amount);
+          const newAmount = parseFloat(formData.amount);
+          
+          // Only validate if the new amount is greater than the old amount
+          if (newAmount > oldAmount) {
+            const amountDifference = newAmount - oldAmount;
+            
+            // Find the selected account
+            const selectedAccount = accounts.find(acc => 
+              acc._id === formData.account || acc.id === formData.account
+            );
+            
+            // Check if account changed
+            const originalAccountId = typeof originalTransaction.account === 'object' ? 
+              (originalTransaction.account as AccountObject)._id || (originalTransaction.account as AccountObject).id : 
+              originalTransaction.account;
+            
+            const accountChanged = originalAccountId?.toString() !== formData.account;
+            
+            // Only validate balance if account hasn't changed and the difference exceeds balance
+            if (!accountChanged && selectedAccount && amountDifference > selectedAccount.balance) {
+              errors.amount = `The increase of ${formatCurrency(amountDifference)} exceeds your ${selectedAccount.name} balance of ${formatCurrency(selectedAccount.balance)}`;
+            } else if (accountChanged && selectedAccount && newAmount > selectedAccount.balance) {
+              // If account changed, check if the full amount exceeds the new account's balance
+              errors.amount = `Expense exceeds your ${selectedAccount.name} balance of ${formatCurrency(selectedAccount.balance)}`;
+            }
+          }
         }
       }
     }
@@ -985,7 +1024,7 @@ export default function Transactions() {
 
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
-  }, [formData, accounts, formatCurrency, useAutoCategory, currentTransactionType]);
+  }, [formData, accounts, formatCurrency, useAutoCategory, currentTransactionType, currentTransactionMode, currentTransactionId, transactions]);
 
   // Helper function to update financial data after transaction changes - defined before it's used
   const updateFinancialData = useCallback(
@@ -1408,17 +1447,69 @@ export default function Transactions() {
 
     // ADDITIONAL CHECK: For expense transactions, verify account has sufficient balance
     if (type === 'expense' && formData.account) {
-      const selectedAccount = accounts.find(acc => 
-        acc._id === formData.account || acc.id === formData.account
-      );
+      // Check if we're editing an existing transaction
+      const isEditing = currentTransactionMode === 'edit' && currentTransactionId;
       
-      if (selectedAccount && amount > selectedAccount.balance) {
-        setFormErrors(prev => ({
-          ...prev,
-          amount: `Expense exceeds your ${selectedAccount.name} balance of ${formatCurrency(selectedAccount.balance)}`
-        }));
-        setIsSubmitting(false);
-        return;
+      if (isEditing) {
+        // Find the original transaction
+        const originalTransaction = transactions.find(t => 
+          t.id === currentTransactionId || 
+          (typeof currentTransactionId === 'string' && t._id === currentTransactionId)
+        );
+        
+        if (originalTransaction) {
+          const oldAmount = Math.abs(originalTransaction.amount);
+          const newAmount = amount; // We already parsed this above
+          
+          // Only validate if the amount is increasing
+          if (newAmount > oldAmount) {
+            const amountDifference = newAmount - oldAmount;
+            
+            // Find the selected account
+            const selectedAccount = accounts.find(acc => 
+              acc._id === formData.account || acc.id === formData.account
+            );
+            
+            // Check if account changed
+            const originalAccountId = typeof originalTransaction.account === 'object' ? 
+              (originalTransaction.account as AccountObject)._id || (originalTransaction.account as AccountObject).id : 
+              originalTransaction.account;
+            
+            const accountChanged = originalAccountId?.toString() !== formData.account;
+            
+            // Only validate balance if account hasn't changed and the difference exceeds balance
+            if (!accountChanged && selectedAccount && amountDifference > selectedAccount.balance) {
+              setFormErrors(prev => ({
+                ...prev,
+                amount: `The increase of ${formatCurrency(amountDifference)} exceeds your ${selectedAccount.name} balance of ${formatCurrency(selectedAccount.balance)}`
+              }));
+              setIsSubmitting(false);
+              return;
+            } else if (accountChanged && selectedAccount && newAmount > selectedAccount.balance) {
+              // If account changed, check if the full amount exceeds the new account's balance
+              setFormErrors(prev => ({
+                ...prev,
+                amount: `Expense exceeds your ${selectedAccount.name} balance of ${formatCurrency(selectedAccount.balance)}`
+              }));
+              setIsSubmitting(false);
+              return;
+            }
+          }
+        }
+      } else {
+        // Logic for new expense transactions
+        const selectedAccount = accounts.find(acc => 
+          acc._id === formData.account || acc.id === formData.account
+        );
+        
+        if (selectedAccount && amount > selectedAccount.balance) {
+          setFormErrors(prev => ({
+            ...prev,
+            amount: `Expense exceeds your ${selectedAccount.name} balance of ${formatCurrency(selectedAccount.balance)}`
+          }));
+          setIsSubmitting(false);
+          return;
+        }
       }
     }
 

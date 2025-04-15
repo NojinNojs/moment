@@ -188,7 +188,7 @@ export default function Overview() {
   
   // State for edit transaction
   const [showEditModal, setShowEditModal] = useState(false);
-  const [currentTransactionType] = useState<'income' | 'expense'>('income');
+  const [currentTransactionType, setCurrentTransactionType] = useState<'income' | 'expense'>('income');
   const [currentTransactionId, setCurrentTransactionId] = useState<number | undefined>(undefined);
   
   // State for delete transaction dialog
@@ -507,8 +507,11 @@ export default function Overview() {
     } else if (parseFloat(transactionAmount) <= 0) {
       errors.amount = "Amount must be greater than zero";
     } else {
-      // Check if expense exceeds account balance
-      if (transactionType === 'expense' && transactionAccount) {
+      // Check if expense exceeds account balance - only for new transactions
+      const isNewTransaction = !currentTransactionId;
+      const isExpense = transactionType === 'expense' || currentTransactionType === 'expense';
+      
+      if (isExpense && transactionAccount && isNewTransaction) {
         // Find the selected account
         const selectedAccount = accounts.find(acc => 
           acc._id === transactionAccount || acc.id === transactionAccount
@@ -516,6 +519,36 @@ export default function Overview() {
         
         if (selectedAccount && parseFloat(transactionAmount) > selectedAccount.balance) {
           errors.amount = `Expense exceeds your ${selectedAccount.name} balance of ${formatCurrency(selectedAccount.balance)}`;
+        }
+      } else if (isExpense && transactionAccount && !isNewTransaction) {
+        // For editing expenses, check balance against the difference of new amount and old amount
+        const originalTransaction = transactions.find(t => t.id === currentTransactionId);
+        if (originalTransaction) {
+          const oldAmount = Math.abs(originalTransaction.amount);
+          const newAmount = parseFloat(transactionAmount);
+          
+          // Only validate if the new amount is greater than the old amount
+          if (newAmount > oldAmount) {
+            const amountDifference = newAmount - oldAmount;
+            
+            // Find the selected account - check if it's the same account
+            const selectedAccount = accounts.find(acc => 
+              acc._id === transactionAccount || acc.id === transactionAccount
+            );
+            
+            // If account changed, no need to compare with old amount
+            const originalAccountId = typeof originalTransaction.account === 'object' ? 
+              (originalTransaction.account as { _id?: string | number, id?: string | number })._id || 
+              (originalTransaction.account as { _id?: string | number, id?: string | number }).id : 
+              originalTransaction.account;
+            
+            const accountChanged = originalAccountId?.toString() !== transactionAccount;
+            
+            // Check if the difference exceeds the account balance only if same account
+            if (!accountChanged && selectedAccount && amountDifference > selectedAccount.balance) {
+              errors.amount = `The increase of ${formatCurrency(amountDifference)} exceeds your ${selectedAccount.name} balance of ${formatCurrency(selectedAccount.balance)}`;
+            }
+          }
         }
       }
     }
@@ -2196,6 +2229,66 @@ export default function Overview() {
       setFormErrors((prev) => ({ ...prev, category: undefined }));
     }
   };
+
+  // Load transaction data when editing
+  useEffect(() => {
+    if (currentTransactionId && showEditModal) {
+      const transaction = transactions.find((t) => t.id === currentTransactionId);
+      if (transaction) {
+        // Set transaction type based on original transaction
+        setCurrentTransactionType(transaction.type as 'income' | 'expense');
+        
+        // Set form values
+        setTransactionAmount(Math.abs(transaction.amount).toString());
+        setTransactionTitle(transaction.title || '');
+        
+        // Handle category
+        if (transaction.category) {
+          if (typeof transaction.category === 'object' && transaction.category !== null) {
+            const categoryObj = transaction.category as { _id?: string | number, id?: string | number };
+            setTransactionCategory(
+              (categoryObj._id?.toString() || categoryObj.id?.toString() || '')
+            );
+          } else {
+            setTransactionCategory(transaction.category.toString());
+          }
+        } else {
+          setTransactionCategory('');
+        }
+        
+        // Set description
+        setTransactionDescription(transaction.description || '');
+        
+        // Format and set date
+        let formattedDate = '';
+        if (transaction.date) {
+          try {
+            const parsedDate = new Date(transaction.date);
+            if (!isNaN(parsedDate.getTime())) {
+              formattedDate = parsedDate.toISOString().split('T')[0]; // YYYY-MM-DD format
+            }
+          } catch (err) {
+            console.error("Error formatting date for edit:", err);
+          }
+        }
+        setTransactionDate(formattedDate || new Date().toISOString().split('T')[0]);
+        
+        // Handle account
+        if (transaction.account) {
+          if (typeof transaction.account === 'object' && transaction.account !== null) {
+            const accountObj = transaction.account as { _id?: string | number, id?: string | number };
+            setTransactionAccount(
+              (accountObj._id?.toString() || accountObj.id?.toString() || '')
+            );
+          } else {
+            setTransactionAccount(transaction.account.toString());
+          }
+        } else {
+          setTransactionAccount('');
+        }
+      }
+    }
+  }, [currentTransactionId, showEditModal, transactions]);
 
   return (
     <div className="w-full py-6 lg:py-8">
