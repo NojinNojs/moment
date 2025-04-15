@@ -105,8 +105,6 @@ export function AddTransactionDrawer({
   const iconBgColor = type === 'income' ? 'bg-primary/90' : 'bg-destructive/90';
   const iconShadow = type === 'income' ? 'shadow-primary/20' : 'shadow-destructive/20';
   const iconTextColor = type === 'income' ? 'text-primary-foreground' : 'text-destructive-foreground';
-  const buttonBgColor = type === 'income' ? 'bg-primary hover:bg-primary/90' : 'bg-destructive hover:bg-destructive/90';
-  const buttonTextColor = type === 'income' ? 'text-primary-foreground' : 'text-destructive-foreground';
 
   // Get title and description based on type
   const title = type === 'income' ? 'Add Income' : 'Add Expense';
@@ -167,7 +165,7 @@ export function AddTransactionDrawer({
                 onSubmit();
               }
             }}
-            variant={type === 'income' ? 'primary' : 'destructive'}
+            variant={type === 'income' ? 'default' : 'destructive'}
             size="lg"
             className="w-full h-12 font-medium shadow-md"
             disabled={isSubmitting}

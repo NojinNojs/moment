@@ -48,22 +48,25 @@ const ENV_PRESETS = {
   },
   production: {
     NODE_ENV: 'production',
-    PORT: '3000',
+    PORT: '3000', // Heroku sets this automatically
     MONGO_URI: 'mongodb+srv://<username>:<password>@<cluster>/<dbname>',
     JWT_SECRET: generateRandomString(32),
     JWT_EXPIRE: '7d',
-    CORS_ORIGIN: '',
+    CORS_ORIGIN: '*', // Update this with your Vercel frontend URL
     LOG_LEVEL: 'info',
     API_PREFIX: '/api',
     API_VERSION: 'v1',
     API_KEY: generateRandomString(48),
     RATE_LIMIT_MAX: '60',
-    CSRF_PROTECTION: 'true',
+    CSRF_PROTECTION: 'false', // Initially disabled for ease of setup
     ADMIN_EMAIL: 'admin@yourdomain.com',
     ADMIN_PASSWORD: generateRandomString(12),
     ADMIN_NAME: 'Admin User',
-    AUTO_SEED_CATEGORIES: 'true',
+    AUTO_SEED_CATEGORIES: 'false',
     USE_ADVANCED_CATEGORIES: 'true',
+    // Heroku specific configuration
+    TRUST_PROXY: 'true',
+    TRUST_PROXY_HOPS: '1',
     // ML Service Configuration
     ML_SERVICE_URL: 'http://ml-service:8000', // Usually a Docker service name in production
     ML_REQUEST_TIMEOUT: '3000',
@@ -173,11 +176,15 @@ async function run() {
     console.log(`\nSetting up ${environment} environment...\n`);
 
     // Ask for values or use defaults
-    config.PORT = await ask('Port number', config.PORT);
+    config.PORT = await ask('Port number (Note: Heroku will override this)', config.PORT);
     
     if (environment === 'production') {
       console.log('\n🔐 MongoDB Connection (for production, use your MongoDB Atlas connection string)');
       config.MONGO_URI = await ask('MongoDB URI', config.MONGO_URI);
+      
+      console.log('\n🚀 Heroku Configuration');
+      config.TRUST_PROXY = await ask('Enable Trust Proxy for Heroku? (true/false)', 'true');
+      config.TRUST_PROXY_HOPS = await ask('Trust Proxy Hops', '1');
     } else {
       config.MONGO_URI = await ask('MongoDB URI', config.MONGO_URI);
     }
