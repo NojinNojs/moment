@@ -198,9 +198,13 @@ async function main() {
   // --- API URL Setup ---
   console.log(chalk.blue('\n🔗 API URL Configuration'));
   const defaultApiUrl = isProduction 
-    ? (config.VITE_API_URL && config.VITE_API_URL !== 'http://localhost:3000/api/v1' ? config.VITE_API_URL : 'https://your-production-api.com/api/v1') 
+    ? (config.VITE_API_URL && config.VITE_API_URL !== 'http://localhost:3000/api/v1' ? config.VITE_API_URL : 'https://your-app-name.herokuapp.com/api/v1') 
     : (config.VITE_API_URL || 'http://localhost:3000/api/v1');
   config.VITE_API_URL = await ask(`   Enter API URL for ${targetEnv}`, defaultApiUrl);
+  
+  if (isProduction) {
+    console.log(chalk.yellow('   ⚠️ If using Heroku, your backend URL should look like: https://your-app-name.herokuapp.com/api/v1'));
+  }
   
   // --- Other Configurations ---
   console.log(chalk.blue('\n⚙️ Other Configurations'));
