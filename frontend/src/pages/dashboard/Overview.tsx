@@ -154,6 +154,16 @@ const emergencyDirectAssetBalanceUpdate = async (account: Record<string, unknown
   }
 };
 
+// Define AccountObject interface to match Transaction's account type
+interface AccountObject {
+  _id?: string;
+  id?: string | number;
+  name: string;
+  type: string;
+  balance?: number;
+  isDeleted?: boolean;
+}
+
 export default function Overview() {
   // Remove unused navigate
   const { formatCurrency } = useCurrencyFormat();
@@ -253,6 +263,15 @@ export default function Overview() {
       setIsAccountsLoading(false);
     }
   }, []);
+
+  // Add a useEffect to force UI refresh for totalAssets when refreshTrigger changes
+  useEffect(() => {
+    if (refreshTrigger > 0) {
+      console.log("🔄 Refresh trigger activated, forcing refresh of accounts");
+      // This ensures totalAssets will be recalculated with latest account data
+      fetchAccounts();
+    }
+  }, [refreshTrigger, fetchAccounts]);
 
   // Fetch accounts when component mounts
   useEffect(() => {
@@ -693,11 +712,22 @@ export default function Overview() {
       const cardWidth = scrollContainer.querySelector("div")?.offsetWidth || 0;
       const gap = 16; // Sesuai dengan space-x-4
       const cardWithGap = cardWidth + gap;
+      const totalWidth = scrollArea.scrollWidth;
+      const viewportWidth = scrollArea.offsetWidth;
 
-      // Calculate active index based on scroll position
-      const activeIndex = Math.min(Math.round(scrollLeft / cardWithGap), 3);
+      // Improved active index calculation - use percentage of total scrollable width
+      // for better precision on different screen sizes
+      // const scrollPercentage = scrollLeft / (totalWidth - viewportWidth);
+      const cardCount = 4; // Total number of cards
+      
+      // Round to nearest index, but handle edge cases better
+      const activeIndex = Math.min(
+        Math.max(0, Math.round(scrollLeft / cardWithGap)),
+        cardCount - 1
+      );
+      
       const isAtStart = scrollLeft < 20;
-      const isAtEnd = activeIndex >= 3;
+      const isAtEnd = scrollLeft + viewportWidth >= totalWidth - 20;
 
       // Only update if values actually changed to prevent render loops
       if (
@@ -1131,11 +1161,255 @@ export default function Overview() {
     }
   }, [totalAssets, fetchAccounts]);
 
+  // Helper function to update account balance for soft delete
+  const updateAccountBalanceForSoftDelete = useCallback(async (account: string | Record<string, unknown>, amount: number) => {
+    try {
+      let accountObj: Asset | null = null;
+      
+      // Try to use the account from the transaction
+      if (account) {
+        if (typeof account === 'object' && account !== null) {
+          accountObj = account as unknown as Asset;
+        } else if (typeof account === 'string') {
+          // If it's a string ID, fetch the account
+          try {
+            const response = await apiService.getAccountById(account);
+            if (response.success && response.data) {
+              accountObj = response.data as Asset;
+            }
+          } catch (err) {
+            console.error("Failed to fetch account by ID:", err);
+          }
+        }
+      }
+      
+      if (!accountObj || !accountObj._id) {
+        console.error("❌ Cannot find valid account for soft delete balance update:", account);
+        return;
+      }
+      
+      console.log("✅ Found account for soft delete balance update:", accountObj);
+      
+      // Calculate the new balance - for soft delete of expense, ADD the amount back
+      const currentBalance = accountObj.balance || 0;
+      const newBalance = currentBalance + amount;
+      
+      console.log(`💰 Soft Delete: Updating balance: ${currentBalance} + ${amount} = ${newBalance}`);
+      
+      // Update using the API service
+      const updateResult = await apiService.updateAsset(accountObj._id, {
+        ...accountObj,
+        balance: newBalance
+      });
+      
+      if (updateResult.success) {
+        console.log("✅ Asset balance updated successfully for soft delete:", updateResult.data);
+        // Success! Update our local state
+        setAccounts(prevAccounts => {
+          return prevAccounts.map(a => {
+            if (a._id === accountObj?._id) {
+              return {
+                ...a,
+                balance: newBalance
+              };
+            }
+            return a;
+          });
+        });
+        
+        // Removed simple toast notification - keeping only the one with undo button
+      } else {
+        console.error("❌ Failed to update asset balance for soft delete:", updateResult.message);
+        
+        // Try emergency update
+        console.log("🚨 Attempting emergency direct update for soft delete");
+        await emergencyDirectAssetBalanceUpdate(
+          accountObj as unknown as Record<string, unknown>, 
+          amount
+        );
+        
+        // Force UI refresh
+        fetchAccounts();
+      }
+    } catch (error) {
+      console.error("❌ Error updating account balance for soft delete:", error);
+    }
+  }, [fetchAccounts, setAccounts]);
+
+  // Helper function to update account balance for income soft delete
+  const updateAccountBalanceForIncomeSoftDelete = useCallback(async (account: string | Record<string, unknown>, amount: number) => {
+    try {
+      let accountObj: Asset | null = null;
+      
+      // Try to use the account from the transaction
+      if (account) {
+        if (typeof account === 'object' && account !== null) {
+          accountObj = account as unknown as Asset;
+        } else if (typeof account === 'string') {
+          // If it's a string ID, fetch the account
+          try {
+            const response = await apiService.getAccountById(account);
+            if (response.success && response.data) {
+              accountObj = response.data as Asset;
+            }
+          } catch (err) {
+            console.error("Failed to fetch account by ID:", err);
+          }
+        }
+      }
+      
+      if (!accountObj || !accountObj._id) {
+        console.error("❌ Cannot find valid account for income soft delete balance update:", account);
+        return;
+      }
+      
+      console.log("✅ Found account for income soft delete balance update:", accountObj);
+      
+      // Calculate the new balance - for soft delete of income, SUBTRACT the amount
+      const currentBalance = accountObj.balance || 0;
+      const newBalance = Math.max(0, currentBalance - amount); // Ensure no negative balance
+      
+      console.log(`💰 Income Soft Delete: Updating balance: ${currentBalance} - ${amount} = ${newBalance}`);
+      
+      // Update using the API service
+      const updateResult = await apiService.updateAsset(accountObj._id, {
+        ...accountObj,
+        balance: newBalance
+      });
+      
+      if (updateResult.success) {
+        console.log("✅ Asset balance updated successfully for income soft delete:", updateResult.data);
+        // Success! Update our local state
+        setAccounts(prevAccounts => {
+          return prevAccounts.map(a => {
+            if (a._id === accountObj?._id) {
+              return {
+                ...a,
+                balance: newBalance
+              };
+            }
+            return a;
+          });
+        });
+        
+        // Force UI refresh with higher priority to ensure balance updates are visible
+        setTimeout(() => {
+          setRefreshTrigger(prev => prev + 1);
+        }, 0);
+      } else {
+        console.error("❌ Failed to update asset balance for income soft delete:", updateResult.message);
+        
+        // Try emergency update
+        console.log("🚨 Attempting emergency direct update for income soft delete");
+        const success = await emergencyDirectAssetBalanceUpdate(
+          accountObj as unknown as Record<string, unknown>, 
+          -amount // Negative amount for income deletion
+        );
+        
+        if (success) {
+          console.log("🚨 Emergency update for income soft delete succeeded");
+          // Force refresh accounts
+          fetchAccounts();
+          // Force UI refresh
+          setTimeout(() => {
+            setRefreshTrigger(prev => prev + 1);
+          }, 0);
+        } else {
+          console.error("🚨 Emergency update for income soft delete failed");
+          toast.error("Failed to update balance", {
+            description: "Please refresh the page and try again",
+            duration: 5000
+          });
+        }
+      }
+    } catch (error) {
+      console.error("❌ Error updating account balance for income soft delete:", error);
+      // Force a refresh anyway as a fallback
+      fetchAccounts();
+    }
+  }, [fetchAccounts, setAccounts, setRefreshTrigger]);
+
+  // Helper function to update account balance for restore
+  const updateAccountBalanceForRestore = useCallback(async (account: string | Record<string, unknown>, amount: number) => {
+    try {
+      let accountObj: Asset | null = null;
+      
+      // Try to use the account from the transaction
+      if (account) {
+        if (typeof account === 'object' && account !== null) {
+          accountObj = account as unknown as Asset;
+        } else if (typeof account === 'string') {
+          // If it's a string ID, fetch the account
+          try {
+            const response = await apiService.getAccountById(account);
+            if (response.success && response.data) {
+              accountObj = response.data as Asset;
+            }
+          } catch (err) {
+            console.error("Failed to fetch account by ID:", err);
+          }
+        }
+      }
+      
+      if (!accountObj || !accountObj._id) {
+        console.error("❌ Cannot find valid account for restore balance update:", account);
+        return;
+      }
+      
+      console.log("✅ Found account for restore balance update:", accountObj);
+      
+      // Calculate the new balance - for restore of expense, SUBTRACT the amount
+      const currentBalance = accountObj.balance || 0;
+      const newBalance = Math.max(0, currentBalance - amount);
+      
+      console.log(`💰 Restore: Updating balance: ${currentBalance} - ${amount} = ${newBalance}`);
+      
+      // Update using the API service
+      const updateResult = await apiService.updateAsset(accountObj._id, {
+        ...accountObj,
+        balance: newBalance
+      });
+      
+      if (updateResult.success) {
+        console.log("✅ Asset balance updated successfully for restore:", updateResult.data);
+        // Success! Update our local state
+        setAccounts(prevAccounts => {
+          return prevAccounts.map(a => {
+            if (a._id === accountObj?._id) {
+              return {
+                ...a,
+                balance: newBalance
+              };
+            }
+            return a;
+          });
+        });
+        
+        // Removed simple toast notification - keeping only the one with undo button
+      } else {
+        console.error("❌ Failed to update asset balance for restore:", updateResult.message);
+        
+        // Try emergency update
+        console.log("🚨 Attempting emergency direct update for restore");
+        await emergencyDirectAssetBalanceUpdate(
+          accountObj as unknown as Record<string, unknown>, 
+          -amount  // Negate amount for restore
+        );
+        
+        // Force UI refresh
+        fetchAccounts();
+      }
+    } catch (error) {
+      console.error("❌ Error updating account balance for restore:", error);
+    }
+  }, [fetchAccounts, setAccounts]);
+  
   // Handle permanent delete transaction events
   const _handleTransactionPermanentlyDeleted = useCallback((data: {
     transaction: Transaction, 
     type: 'income' | 'expense', 
-    amount: number
+    amount: number,
+    wasAlreadySoftDeleted?: boolean
   }) => {
     console.log('[Overview] Transaction permanently deleted event received:', data);
     
@@ -1143,11 +1417,32 @@ export default function Overview() {
       // Completely remove from our state
       setTransactions(prev => prev.filter(t => t.id !== data.transaction.id));
       
-      // No need to update financial data as the transaction was already soft deleted
-      // But we'll refresh accounts just in case
+      // For income transactions, if they weren't already soft deleted,
+      // we need to update the account balance
+      if (data.transaction.type === 'income' && !data.wasAlreadySoftDeleted) {
+        // Find the account associated with this transaction
+        const account = data.transaction.account as string | AccountObject;
+        const amount = Math.abs(data.transaction.amount);
+        
+        if (account) {
+          console.log(`💰 Income transaction permanently deleted - updating account balance: ${amount}`);
+          
+          // Handle different account types
+          if (typeof account === 'string') {
+            // If it's a string ID, pass it directly
+            updateAccountBalanceForIncomeSoftDelete(account, amount);
+          } else {
+            // If it's an object, convert it to a plain object first to satisfy TypeScript
+            const accountAsRecord = { ...account } as Record<string, unknown>;
+            updateAccountBalanceForIncomeSoftDelete(accountAsRecord, amount);
+          }
+        }
+      }
+      
+      // Refresh accounts in any case
       fetchAccounts();
     }
-  }, [fetchAccounts]);
+  }, [fetchAccounts, updateAccountBalanceForIncomeSoftDelete]);
 
   // Function to handle permanent deletion event
   const handlePermanentDeleteEvent = useCallback((event: Event) => {
@@ -1351,6 +1646,106 @@ export default function Overview() {
       
       // Execute the update
       updateAccountBalance();
+    } else if (type === 'income' && !wasAlreadySoftDeleted) {
+      console.log("🔥 INCOME DELETION: Updating asset balance");
+      
+      // Function to update the account balance for income deletion
+      const updateIncomeAccountBalance = async () => {
+        try {
+          let accountObj = null;
+          
+          // Try to use the account from the transaction
+          if (account) {
+            if (typeof account === 'object' && account !== null) {
+              accountObj = account;
+            } else if (typeof account === 'string') {
+              // If it's a string ID, fetch the account
+              try {
+                const response = await apiService.getAccountById(account);
+                if (response.success && response.data) {
+                  accountObj = response.data;
+                }
+              } catch (err) {
+                console.error("Failed to fetch account by ID:", err);
+              }
+            }
+          }
+          
+          if (!accountObj || !accountObj._id) {
+            console.error("❌ Cannot find valid account for income transaction:", account);
+            return;
+          }
+          
+          console.log("✅ Found account for income balance update:", accountObj);
+          
+          // Calculate the new balance - for income deletion, SUBTRACT the amount
+          const currentBalance = accountObj.balance || 0;
+          const newBalance = Math.max(0, currentBalance - amount); // Ensure no negative balance
+          
+          console.log(`💰 Income deletion: Updating balance: ${currentBalance} - ${amount} = ${newBalance}`);
+          
+          // Update using the API service
+          const updateResult = await apiService.updateAsset(accountObj._id, {
+            ...accountObj,
+            balance: newBalance
+          });
+          
+          if (updateResult.success) {
+            console.log("✅ Asset balance updated successfully for income deletion:", updateResult.data);
+            // Success! Update our local state
+            setAccounts(prevAccounts => {
+              return prevAccounts.map(a => {
+                if (a._id === accountObj._id) {
+                  return {
+                    ...a,
+                    balance: newBalance
+                  };
+                }
+                return a;
+              });
+            });
+            
+            // Force UI refresh with higher priority
+            setTimeout(() => {
+              setRefreshTrigger(prev => prev + 1);
+            }, 0);
+          } else {
+            console.error("❌ Failed to update asset balance for income deletion:", updateResult.message);
+            
+            // Try emergency update
+            console.log("🚨 Attempting emergency direct update for income deletion");
+            const emergencySuccess = await emergencyDirectAssetBalanceUpdate(
+              accountObj as unknown as Record<string, unknown>, 
+              -amount // Use negative amount for subtraction
+            );
+            
+            if (emergencySuccess) {
+              console.log("🚨 Emergency update for income deletion succeeded");
+              // Update accounts to refresh the UI
+              fetchAccounts();
+              // Force UI refresh but NO page reload
+              setTimeout(() => {
+                setRefreshTrigger(prev => prev + 1);
+              }, 0);
+            } else {
+              console.error("🚨 Emergency update for income deletion failed");
+              toast.error("Failed to update balance", {
+                description: "Please refresh the page and try again",
+                duration: 5000
+              });
+            }
+          }
+        } catch (error) {
+          console.error("❌ Error updating account balance for income deletion:", error);
+          toast.error("Error updating balance", {
+            description: "An unexpected error occurred",
+            duration: 5000
+          });
+        }
+      };
+      
+      // Execute the income balance update
+      updateIncomeAccountBalance();
     } else {
       console.log("💡 Skipping account balance update because transaction was already soft deleted");
     }
@@ -1358,7 +1753,7 @@ export default function Overview() {
     // Always refresh accounts at the end to ensure UI is in sync
     fetchAccounts();
     
-  }, [fetchAccounts, setRefreshTrigger, setFinancialData, setAccounts]);
+  }, [fetchAccounts, setRefreshTrigger, setFinancialData, setAccounts, setTransactions]);
 
   // Modify the useEffect that updates financial data to always recalculate based on totalAssets
   useEffect(() => {
@@ -1512,6 +1907,13 @@ export default function Overview() {
                 balancePercentage: prev.balancePercentage
               };
             });
+            
+            // CRITICAL FIX: Update the account balance when income is deleted
+            // This is similar to expense soft delete but we SUBTRACT instead of ADD
+            if (transaction.account) {
+              // For income deletion, we need to subtract the amount (use negative amount)
+              updateAccountBalanceForIncomeSoftDelete(transaction.account, transaction.amount);
+            }
           }
         }
         
@@ -1620,150 +2022,6 @@ export default function Overview() {
       document.removeEventListener('transaction:stateChanged', handleTransactionStateChanged as EventListener);
     };
   }, [handleTransactionStateChanged]);
-
-  // Helper function to update account balance for soft delete
-  const updateAccountBalanceForSoftDelete = useCallback(async (account: string | Record<string, unknown>, amount: number) => {
-    try {
-      let accountObj: Asset | null = null;
-      
-      // Try to use the account from the transaction
-      if (account) {
-        if (typeof account === 'object' && account !== null) {
-          accountObj = account as unknown as Asset;
-        } else if (typeof account === 'string') {
-          // If it's a string ID, fetch the account
-          try {
-            const response = await apiService.getAccountById(account);
-            if (response.success && response.data) {
-              accountObj = response.data as Asset;
-            }
-          } catch (err) {
-            console.error("Failed to fetch account by ID:", err);
-          }
-        }
-      }
-      
-      if (!accountObj || !accountObj._id) {
-        console.error("❌ Cannot find valid account for soft delete balance update:", account);
-        return;
-      }
-      
-      console.log("✅ Found account for soft delete balance update:", accountObj);
-      
-      // Calculate the new balance - for soft delete of expense, ADD the amount back
-      const currentBalance = accountObj.balance || 0;
-      const newBalance = currentBalance + amount;
-      
-      console.log(`💰 Soft Delete: Updating balance: ${currentBalance} + ${amount} = ${newBalance}`);
-      
-      // Update using the API service
-      const updateResult = await apiService.updateAsset(accountObj._id, {
-        ...accountObj,
-        balance: newBalance
-      });
-      
-      if (updateResult.success) {
-        console.log("✅ Asset balance updated successfully for soft delete:", updateResult.data);
-        // Success! Update our local state
-        setAccounts(prevAccounts => {
-          return prevAccounts.map(a => {
-            if (a._id === accountObj?._id) {
-              return {
-                ...a,
-                balance: newBalance
-              };
-            }
-            return a;
-          });
-        });
-        
-        // Removed simple toast notification - keeping only the one with undo button
-      } else {
-        console.error("❌ Failed to update asset balance for soft delete:", updateResult.message);
-        
-        // Try emergency update
-        console.log("🚨 Attempting emergency direct update for soft delete");
-        await emergencyDirectAssetBalanceUpdate(
-          accountObj as unknown as Record<string, unknown>, 
-          amount
-        );
-      }
-    } catch (error) {
-      console.error("❌ Error updating account balance for soft delete:", error);
-    }
-  }, [setAccounts]);
-
-  // Helper function to update account balance for restore
-  const updateAccountBalanceForRestore = useCallback(async (account: string | Record<string, unknown>, amount: number) => {
-    try {
-      let accountObj: Asset | null = null;
-      
-      // Try to use the account from the transaction
-      if (account) {
-        if (typeof account === 'object' && account !== null) {
-          accountObj = account as unknown as Asset;
-        } else if (typeof account === 'string') {
-          // If it's a string ID, fetch the account
-          try {
-            const response = await apiService.getAccountById(account);
-            if (response.success && response.data) {
-              accountObj = response.data as Asset;
-            }
-          } catch (err) {
-            console.error("Failed to fetch account by ID:", err);
-          }
-        }
-      }
-      
-      if (!accountObj || !accountObj._id) {
-        console.error("❌ Cannot find valid account for restore balance update:", account);
-        return;
-      }
-      
-      console.log("✅ Found account for restore balance update:", accountObj);
-      
-      // Calculate the new balance - for restore of expense, SUBTRACT the amount
-      const currentBalance = accountObj.balance || 0;
-      const newBalance = Math.max(0, currentBalance - amount);
-      
-      console.log(`💰 Restore: Updating balance: ${currentBalance} - ${amount} = ${newBalance}`);
-      
-      // Update using the API service
-      const updateResult = await apiService.updateAsset(accountObj._id, {
-        ...accountObj,
-        balance: newBalance
-      });
-      
-      if (updateResult.success) {
-        console.log("✅ Asset balance updated successfully for restore:", updateResult.data);
-        // Success! Update our local state
-        setAccounts(prevAccounts => {
-          return prevAccounts.map(a => {
-            if (a._id === accountObj?._id) {
-              return {
-                ...a,
-                balance: newBalance
-              };
-            }
-            return a;
-          });
-        });
-        
-        // Removed simple toast notification - keeping only the one with undo button
-      } else {
-        console.error("❌ Failed to update asset balance for restore:", updateResult.message);
-        
-        // Try emergency update
-        console.log("🚨 Attempting emergency direct update for restore");
-        await emergencyDirectAssetBalanceUpdate(
-          accountObj as unknown as Record<string, unknown>, 
-          -amount  // Negate amount for restore
-        );
-      }
-    } catch (error) {
-      console.error("❌ Error updating account balance for restore:", error);
-    }
-  }, [setAccounts]);
 
   // Function to convert AssetTransfer to Transaction format
   const convertTransfersToTransactions = (transfers: AssetTransfer[]): Transaction[] => {

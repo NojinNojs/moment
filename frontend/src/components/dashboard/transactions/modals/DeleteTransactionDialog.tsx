@@ -60,6 +60,23 @@ const emergencyDirectAssetBalanceUpdate = async (
 };
 
 /**
+ * Helper function to update localStorage after asset balance changes
+ * This ensures the UI is immediately updated with current asset balances
+ */
+const updateLocalStorage = async () => {
+  try {
+    // Get updated assets list and update localStorage
+    const accountsResponse = await apiService.getAssets();
+    if (accountsResponse.success && accountsResponse.data) {
+      localStorage.setItem('user_assets', JSON.stringify(accountsResponse.data));
+      console.log(`💾 Updated user_assets in localStorage with ${accountsResponse.data.length} items`);
+    }
+  } catch (error) {
+    console.error("Error updating localStorage after balance change:", error);
+  }
+};
+
+/**
  * DeleteTransactionDialog - Confirmation dialog for transaction deletion
  * Features:
  * - Shows a confirmation dialog before deleting a transaction
@@ -489,6 +506,10 @@ export function DeleteTransactionDialog({
                   });
                 }
               }
+              
+              // Update localStorage with the new balance information
+              await updateLocalStorage();
+              
             } catch (error) {
               console.error("Error updating asset balance:", error);
             }
@@ -585,6 +606,102 @@ export function DeleteTransactionDialog({
       // Set local isDeleted flag to false for UI consistency
       transaction.isDeleted = false;
       
+      // For income transactions, we need to add the amount back to the account balance
+      if (transaction.type === 'income') {
+        console.log(`💰 INCOME RESTORATION: ${transaction.title} amount=${Math.abs(transaction.amount)}`);
+        
+        // Get account ID
+        const accountId = typeof transaction.account === 'object' 
+          ? (transaction.account.id || transaction.account._id)
+          : transaction.account;
+          
+        if (accountId) {
+          console.log(`💰 Manually updating account balance for account ID: ${accountId}`);
+          
+          // Fetch current account data
+          const accountResponse = await apiService.getAccountById(accountId.toString());
+          
+          if (accountResponse.success && accountResponse.data) {
+            const account = accountResponse.data;
+            console.log(`💰 Current account balance: ${account.balance}`);
+            
+            // Add the transaction amount back to the balance
+            const amount = Math.abs(transaction.amount);
+            const newBalance = account.balance + amount;
+            
+            console.log(`💰 INCOME RESTORATION BALANCE UPDATE: ${account.balance} + ${amount} = ${newBalance}`);
+            
+            try {
+              let updateSucceeded = false;
+              
+              // Make multiple attempts to update the balance
+              for (let attempt = 1; attempt <= 2; attempt++) {
+                console.log(`💰 Attempt ${attempt} to update balance to ${newBalance}`);
+                
+                // Update account balance directly
+                const updateResult = await apiService.updateAsset(accountId.toString(), {
+                  ...account,
+                  balance: newBalance
+                });
+                
+                console.log(`💰 Update result:`, updateResult);
+                
+                if (updateResult.success) {
+                  console.log(`💰 Account balance directly updated to ${newBalance}`);
+                  
+                  // Verify the balance was updated
+                  const verifyAccount = await apiService.getAccountById(accountId.toString());
+                  
+                  if (verifyAccount.success && verifyAccount.data && 
+                      Math.abs(verifyAccount.data.balance - newBalance) < 0.001) {
+                    console.log(`💰 Balance verification: ${verifyAccount.data.balance}`);
+                    console.log(`💰 Balance verified correctly!`);
+                    updateSucceeded = true;
+                    break;
+                  } else {
+                    console.log(`💰 Balance verification FAILED! Trying again...`);
+                  }
+                } else {
+                  console.log(`💰 Balance update failed! Trying again...`);
+                }
+                
+                // Wait a moment before retrying
+                await new Promise(resolve => setTimeout(resolve, 300));
+              }
+              
+              // If normal methods failed, try the emergency direct approach as a last resort
+              if (!updateSucceeded) {
+                console.log(`🚨 EMERGENCY! Normal update methods failed. Trying direct API bypass...`);
+                const emergencyResult = await emergencyDirectAssetBalanceUpdate(
+                  accountId.toString(), 
+                  newBalance,
+                  account as unknown as Record<string, unknown>
+                );
+                
+                if (emergencyResult) {
+                  console.log(`🚨 EMERGENCY UPDATE SUCCESSFUL! Balance should now be ${newBalance}`);
+                } else {
+                  console.error(`🚨 EMERGENCY UPDATE FAILED! This is really bad.`);
+                  
+                  // Last resort: display a error message to the user with instructions
+                  toast.error('Critical Error', {
+                    description: 'Could not update account balance. Please refresh the page and try again.',
+                    duration: 10000,
+                    position: 'bottom-right'
+                  });
+                }
+              }
+              
+              // Update localStorage with the new balance information
+              await updateLocalStorage();
+              
+            } catch (error) {
+              console.error("Error updating asset balance:", error);
+            }
+          }
+        }
+      }
+      
       if (onSoftDelete) {
         // Log that we're about to restore
         console.log(`🔄 Restoring transaction via onSoftDelete: ${apiId}`, {
@@ -596,31 +713,31 @@ export function DeleteTransactionDialog({
         });
 
         // Update state in the database via API
-      onSoftDelete(apiId, false);
+        onSoftDelete(apiId, false);
       
         // Emit a state changed event for immediate UI update
-      const event = new CustomEvent('transaction:stateChanged', {
-        detail: {
-          transaction,
+        const event = new CustomEvent('transaction:stateChanged', {
+          detail: {
+            transaction,
             action: 'restored',
             // Add any relevant metadata
             metadata: {
               timestamp: Date.now()
             }
-        },
-        bubbles: true
-      });
-      document.dispatchEvent(event);
-    } else {
-      console.error("🔴 onSoftDelete function is undefined, cannot restore transaction");
-    }
+          },
+          bubbles: true
+        });
+        document.dispatchEvent(event);
+      } else {
+        console.error("🔴 onSoftDelete function is undefined, cannot restore transaction");
+      }
     
       // Show success toast
-    toast.success('Transaction Restored', {
+      toast.success('Transaction Restored', {
         description: `"${transaction.title}" has been restored.`,
-      duration: 3000,
-      position: 'bottom-right'
-    });
+        duration: 3000,
+        position: 'bottom-right'
+      });
     } finally {
       // Reset all state to prevent issues with future operations
       setLoading(false);
@@ -766,6 +883,10 @@ export function DeleteTransactionDialog({
                   });
                 }
               }
+              
+              // Update localStorage with the new balance information
+              await updateLocalStorage();
+              
             } catch (error) {
               console.error("Error updating asset balance:", error);
             }
