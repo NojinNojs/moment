@@ -64,11 +64,11 @@ securityMiddleware.helmet = helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "cdn.jsdelivr.net"],
-      styleSrc: ["'self'", "'unsafe-inline'", "cdn.jsdelivr.net"],
-      imgSrc: ["'self'", "data:"],
-      connectSrc: ["'self'"],
-      fontSrc: ["'self'", "cdn.jsdelivr.net"],
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "cdn.jsdelivr.net", "unpkg.com"],
+      styleSrc: ["'self'", "'unsafe-inline'", "cdn.jsdelivr.net", "unpkg.com"],
+      imgSrc: ["'self'", "data:", "validator.swagger.io"],
+      connectSrc: ["'self'", "https://*.herokuapp.com"],
+      fontSrc: ["'self'", "cdn.jsdelivr.net", "data:"],
       objectSrc: ["'none'"],
       frameSrc: ["'self'"],
     },
@@ -87,8 +87,9 @@ const csrfProtection = csrf({
   cookie: {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
-    path: '/'
+    sameSite: process.env.NODE_ENV === 'production' ? null : 'lax',
+    path: '/',
+    domain: undefined
   } 
 });
 

@@ -39,6 +39,12 @@ if (process.env.TRUST_PROXY === 'true') {
   const trustProxyValue = parseInt(process.env.TRUST_PROXY_HOPS || '1', 10);
   app.set('trust proxy', isNaN(trustProxyValue) ? 1 : trustProxyValue);
   console.log(chalk.green('✅ Trust Proxy:') + chalk.bold.green(' Enabled'));
+} else {
+  // For Heroku, we need to enable trust proxy
+  if (process.env.NODE_ENV === 'production') {
+    app.set('trust proxy', 1);
+    console.log(chalk.yellow('⚠️ Trust Proxy:') + chalk.bold.yellow(' Automatically enabled for production deployment'));
+  }
 }
 
 // Apply common middleware
@@ -67,6 +73,11 @@ const corsOptions = {
     
     // Allow all 127.0.0.1 origins for development and preview
     if (origin.match(/^https?:\/\/127\.0\.0\.1(:\d+)?$/)) {
+      return callback(null, true);
+    }
+    
+    // Allow all herokuapp.com domains
+    if (origin.match(/^https?:\/\/.*\.herokuapp\.com$/)) {
       return callback(null, true);
     }
     
@@ -111,21 +122,57 @@ if (process.env.CSRF_PROTECTION === 'true') {
     cookie: {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
-      path: '/'
+      sameSite: process.env.NODE_ENV === 'production' ? null : 'lax',
+      path: '/',
+      domain: process.env.NODE_ENV === 'production' ? undefined : undefined
     }
   });
 
   // Create a dedicated route for CSRF token that applies csrf protection first
-  app.get(`${API_BASE_PATH}/auth/csrf-token`, csrfProtection, (req, res) => {
-    // Token function should now be available since we applied csrfProtection to this route
-    res.json({
-      success: true,
-      message: 'CSRF token generated successfully',
-      data: {
-        csrfToken: req.csrfToken()
-      }
-    });
+  app.get(`${API_BASE_PATH}/auth/csrf-token`, (req, res, next) => {
+    console.log('CSRF route accessed, applying csrfProtection...');
+    try {
+      csrfProtection(req, res, (err) => {
+        if (err) {
+          console.error('CSRF Protection Error:', err);
+          return res.status(500).json({
+            success: false,
+            message: 'CSRF token generation failed',
+            error: err.message
+          });
+        }
+        
+        console.log('CSRF Protection applied successfully');
+        next();
+      });
+    } catch (error) {
+      console.error('CSRF Error caught:', error);
+      return res.status(500).json({
+        success: false,
+        message: 'CSRF token generation error',
+        error: error.message
+      });
+    }
+  }, (req, res) => {
+    try {
+      // Token function should now be available since we applied csrfProtection to this route
+      const token = req.csrfToken();
+      console.log('CSRF token generated successfully');
+      res.json({
+        success: true,
+        message: 'CSRF token generated successfully',
+        data: {
+          csrfToken: token
+        }
+      });
+    } catch (error) {
+      console.error('CSRF Token Generation Error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to generate CSRF token',
+        error: error.message
+      });
+    }
   });
 
   // Apply CSRF protection to all routes except those that should be excluded
@@ -135,7 +182,9 @@ if (process.env.CSRF_PROTECTION === 'true') {
       req.path.includes('/docs') ||
       req.path.includes('/health') ||
       req.path === `${API_BASE_PATH}/auth/csrf-token` ||
-      req.method === 'GET'
+      req.method === 'GET' ||
+      req.method === 'OPTIONS' ||
+      (process.env.NODE_ENV === 'production' && req.path.includes('/auth'))
     ) {
       return next();
     }
@@ -182,7 +231,15 @@ app.use(`${API_PREFIX}/docs`, swaggerUi.serve, swaggerUi.setup(swaggerDocs, {
   customCss,
   swaggerOptions: {
     persistAuthorization: true,
+    docExpansion: 'none',
+    filter: true,
+    displayRequestDuration: true
   },
+  customJs: [
+    'https://unpkg.com/swagger-ui-dist@5.4.2/swagger-ui-bundle.js',
+    'https://unpkg.com/swagger-ui-dist@5.4.2/swagger-ui-standalone-preset.js'
+  ],
+  customCssUrl: 'https://unpkg.com/swagger-ui-dist@5.4.2/swagger-ui.css'
 }));
 
 // Legacy path support for API docs at versioned path
