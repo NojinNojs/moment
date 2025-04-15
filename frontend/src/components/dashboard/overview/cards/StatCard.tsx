@@ -104,8 +104,10 @@ export function StatCard({
 
   // Format the value if it's a number and formatter is provided
   const displayValue = typeof value === 'number' && formatter 
-    ? formatter(value) 
-    : value.toString();
+    ? formatter(value < 0 ? 0 : value)
+    : typeof value === 'number' 
+      ? (value < 0 ? "0" : value.toString())
+      : value.toString();
 
   // Create trend info from percentage if provided
   const trendInfo = percentage ? {

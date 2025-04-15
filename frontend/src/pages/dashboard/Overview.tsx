@@ -1205,9 +1205,11 @@ export default function Overview() {
       );
     }
 
-    // IMMEDIATE FINANCIAL DATA UPDATE - do this for all transaction types
-    if (amount && type) {
+    // CRITICAL FIX: Only update financial data if the transaction wasn't already soft deleted
+    // Because if it was soft deleted, the balance was already adjusted during soft delete
+    if (amount && type && !wasAlreadySoftDeleted) {
       console.log(`💰 Immediate financial data update for ${type} transaction with amount ${amount}`);
+      console.log(`Was already soft deleted: ${wasAlreadySoftDeleted}`);
       
       if (type === 'expense') {
         // For expense, we ADD the amount back to balance and REDUCE expenses
@@ -1228,7 +1230,7 @@ export default function Overview() {
             balancePercentage: prev.balancePercentage
           };
         });
-      } else if (type === 'income' && !wasAlreadySoftDeleted) {
+      } else if (type === 'income') {
         // For income, we SUBTRACT the amount from balance and REDUCE income
         setFinancialData(prev => {
           const newBalance = Math.max(0, prev.balance - amount);
@@ -1248,10 +1250,12 @@ export default function Overview() {
           };
         });
       }
+    } else {
+      console.log("💡 Skipping financial data update because transaction was already soft deleted");
     }
     
-    // Handle expense transactions with account balance update
-    if (type === 'expense') {
+    // CRITICAL FIX: Only update account balance if transaction wasn't already soft deleted
+    if (type === 'expense' && !wasAlreadySoftDeleted) {
       console.log("🔥 EXPENSE DELETION: Updating asset balance");
       
       // Function to update the account balance
@@ -1278,9 +1282,9 @@ export default function Overview() {
           
           if (!accountObj || !accountObj._id) {
             console.error("❌ Cannot find valid account for transaction:", account);
-      return;
-    }
-    
+            return;
+          }
+          
           console.log("✅ Found account for balance update:", accountObj);
           
           // Calculate the new balance
@@ -1310,22 +1314,16 @@ export default function Overview() {
               });
             });
             
-            // Remove duplicate toast notification - keeping only the one with undo button
-            // toast.success("Balance updated successfully", {
-            //  description: `New balance: $${newBalance.toFixed(2)}`,
-            //  duration: 3000
-            // });
-            
             // Force UI refresh but NO page reload
             setRefreshTrigger(prev => prev + 1);
-        } else {
+          } else {
             console.error("❌ Failed to update asset balance:", updateResult.message);
             
             // Try emergency update
             console.log("🚨 Attempting emergency direct update");
             const emergencySuccess = await emergencyDirectAssetBalanceUpdate(
               accountObj as unknown as Record<string, unknown>, 
-            amount
+              amount
             );
             
             if (emergencySuccess) {
@@ -1334,15 +1332,8 @@ export default function Overview() {
               fetchAccounts();
               // Force UI refresh but NO page reload
               setRefreshTrigger(prev => prev + 1);
-              
-              // Remove duplicate toast notification
-              // toast.success("Balance updated successfully (emergency mode)", {
-              //  description: `Balance updated with direct API access`,
-              //  duration: 3000
-              // });
             } else {
               console.error("🚨 Emergency update failed");
-              // Keep error toasts as they're important for user feedback
               toast.error("Failed to update balance", {
                 description: "Please refresh the page and try again",
                 duration: 5000
@@ -1351,7 +1342,6 @@ export default function Overview() {
           }
         } catch (error) {
           console.error("❌ Error updating account balance:", error);
-          // Keep error toasts as they're important for user feedback
           toast.error("Error updating balance", {
             description: "An unexpected error occurred",
             duration: 5000
@@ -1361,24 +1351,14 @@ export default function Overview() {
       
       // Execute the update
       updateAccountBalance();
-      
-      // Force refresh accounts to update immediately
-      fetchAccounts();
     } else {
-      // For income or other types, still refresh accounts
-      fetchAccounts();
+      console.log("💡 Skipping account balance update because transaction was already soft deleted");
     }
     
+    // Always refresh accounts at the end to ensure UI is in sync
+    fetchAccounts();
+    
   }, [fetchAccounts, setRefreshTrigger, setFinancialData, setAccounts]);
-  
-  // Force fetch accounts whenever financial data is updated
-  useEffect(() => {
-    // Only run after initial render
-    if (financialData.balance !== 0 || financialData.income !== 0 || financialData.expenses !== 0) {
-      console.log("💰 Financial data changed, refreshing accounts");
-      fetchAccounts();
-    }
-  }, [financialData, fetchAccounts]);
 
   // Modify the useEffect that updates financial data to always recalculate based on totalAssets
   useEffect(() => {

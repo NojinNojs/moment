@@ -31,6 +31,9 @@ export function TransactionOverview({
 }: TransactionOverviewProps) {
   const { formatCurrency } = useCurrencyFormat();
   
+  // CRITICAL FIX: Ensure netAmount is never negative for display
+  const safeNetAmount = netAmount < 0 ? 0 : netAmount;
+  
   return (
     <Card className="mb-6 TransactionOverview">
       <CardContent className="p-6">
@@ -74,7 +77,7 @@ export function TransactionOverview({
           >
             <StatCard
               title={showAssetBalance ? "Total Balance" : "Net Amount"}
-              value={netAmount}
+              value={safeNetAmount}
               formatter={formatCurrency}
               icon={Wallet}
               color="green"

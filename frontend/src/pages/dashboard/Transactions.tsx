@@ -330,10 +330,16 @@ export default function Transactions() {
       } else if (transactionType === "expense") {
         // Adding expense: DECREASE balance
         newBalance -= amount;
+        
+        // CRITICAL: Prevent negative balance when adding expense
+        if (newBalance < 0) {
+          console.warn(`⚠️ Prevented negative balance: Expense ${amount} would make balance ${newBalance}, capping at 0`);
+          newBalance = 0;
+        }
       }
     }
     
-    // Ensure balance is never negative
+    // Ensure balance is never negative (safety check)
     if (newBalance < 0) {
       if (process.env.NODE_ENV !== 'production') {
         console.warn(`⚠️ Calculated negative balance (${newBalance}), capping at 0`);
@@ -640,6 +646,7 @@ export default function Transactions() {
     [getAllTransactions]
   );
 
+  // CRITICAL: Ensure we're only counting active transactions
   const totalIncome = useMemo(
     () =>
       activeTransactions
@@ -648,6 +655,7 @@ export default function Transactions() {
     [activeTransactions]
   );
 
+  // CRITICAL: Ensure we're only counting active transactions
   const totalExpenses = useMemo(
     () =>
       activeTransactions
@@ -670,10 +678,18 @@ export default function Transactions() {
   };
 
   // Calculate the net amount
-  const netAmount = useMemo(() => 
-    totalAssets > 0 ? totalAssets : totalIncome - totalExpenses,
-    [totalAssets, totalIncome, totalExpenses]
-  );
+  const netAmount = useMemo(() => {
+    // Calculate base amount
+    let calculatedAmount = totalAssets > 0 ? totalAssets : totalIncome - totalExpenses;
+    
+    // CRITICAL FIX: Ensure netAmount is never negative
+    if (calculatedAmount < 0) {
+      console.warn(`⚠️ Prevented negative netAmount: ${calculatedAmount}, capping at 0`);
+      calculatedAmount = 0;
+    }
+    
+    return calculatedAmount;
+  }, [totalAssets, totalIncome, totalExpenses]);
 
   // Get current month and previous month transactions
   const now = new Date();
@@ -929,7 +945,7 @@ export default function Transactions() {
       errors.amount = "Amount must be greater than zero";
     } else {
       // Check if expense exceeds account balance
-      if (formData.type === 'expense' && formData.account) {
+      if (currentTransactionType === 'expense' && formData.account) {
         // Find the selected account
         const selectedAccount = accounts.find(acc => 
           acc._id === formData.account || acc.id === formData.account
@@ -969,7 +985,7 @@ export default function Transactions() {
 
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
-  }, [formData, accounts, formatCurrency, useAutoCategory]);
+  }, [formData, accounts, formatCurrency, useAutoCategory, currentTransactionType]);
 
   // Helper function to update financial data after transaction changes - defined before it's used
   const updateFinancialData = useCallback(
@@ -1158,38 +1174,38 @@ export default function Transactions() {
       try {
         // Get the account ID
         const accountId = typeof transaction.account === "object"
-          ? transaction.account.id || transaction.account._id
-          : transaction.account;
-          
-        if (accountId) {
+              ? transaction.account.id || transaction.account._id
+              : transaction.account;
+
+          if (accountId) {
           // Get current account data
           const accountResponse = await apiService.getAccountById(accountId.toString());
           
-          if (accountResponse.success && accountResponse.data) {
-            const account = accountResponse.data;
-            const amount = Math.abs(transaction.amount);
+            if (accountResponse.success && accountResponse.data) {
+              const account = accountResponse.data;
+              const amount = Math.abs(transaction.amount);
             
             // Calculate new balance based on operation type
             let newBalance = account.balance;
-            
-            if (isDeleted) {
+
+              if (isDeleted) {
               // SOFT DELETING
-              if (transaction.type === "income") {
+                if (transaction.type === "income") {
                 // For income deletion: reduce the balance
                 newBalance = Math.max(0, account.balance - amount);
                 console.log(`💰 SOFT DELETE INCOME: ${account.balance} - ${amount} = ${newBalance}`);
-              } else if (transaction.type === "expense") {
+                } else if (transaction.type === "expense") {
                 // For expense deletion: increase the balance
                 newBalance = account.balance + amount;
                 console.log(`💰 SOFT DELETE EXPENSE: ${account.balance} + ${amount} = ${newBalance}`);
-              }
-            } else {
+                }
+              } else {
               // RESTORING
-              if (transaction.type === "income") {
+                if (transaction.type === "income") {
                 // For income restoration: increase the balance
                 newBalance = account.balance + amount;
                 console.log(`💰 RESTORE INCOME: ${account.balance} + ${amount} = ${newBalance}`);
-              } else if (transaction.type === "expense") {
+                } else if (transaction.type === "expense") {
                 // For expense restoration: decrease the balance
                 newBalance = Math.max(0, account.balance - amount);
                 console.log(`💰 RESTORE EXPENSE: ${account.balance} - ${amount} = ${newBalance}`);
@@ -1388,6 +1404,22 @@ export default function Transactions() {
       }));
       setIsSubmitting(false);
       return;
+    }
+
+    // ADDITIONAL CHECK: For expense transactions, verify account has sufficient balance
+    if (type === 'expense' && formData.account) {
+      const selectedAccount = accounts.find(acc => 
+        acc._id === formData.account || acc.id === formData.account
+      );
+      
+      if (selectedAccount && amount > selectedAccount.balance) {
+        setFormErrors(prev => ({
+          ...prev,
+          amount: `Expense exceeds your ${selectedAccount.name} balance of ${formatCurrency(selectedAccount.balance)}`
+        }));
+        setIsSubmitting(false);
+        return;
+      }
     }
 
     try {
