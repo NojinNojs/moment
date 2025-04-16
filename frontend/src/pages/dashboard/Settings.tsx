@@ -97,11 +97,14 @@ CurrencyOptionsGrid.displayName = 'CurrencyOptionsGrid';
 // Profile Section Header (memoized)
 const ProfileSectionHeader = React.memo(({ editMode, onEditToggle }: { editMode: boolean; onEditToggle: () => void }) => (
   <div className="flex items-center justify-between mb-4">
-    <div>
+    <div className="flex items-center gap-2">
       <h3 className="text-xl font-semibold">Profile Information</h3>
-      <p className="text-sm text-muted-foreground mt-1">
-        Manage your personal information and preferences
-      </p>
+      <Badge
+        variant="outline"
+        className="bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800/50"
+      >
+        Coming Soon
+      </Badge>
     </div>
     <TooltipProvider>
       <Tooltip>
@@ -114,6 +117,7 @@ const ProfileSectionHeader = React.memo(({ editMode, onEditToggle }: { editMode:
                 ? "bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400 dark:hover:bg-red-900/50"
                 : "bg-primary/10 text-primary hover:bg-primary/20 dark:bg-primary/20 dark:hover:bg-primary/30"
             }`}
+            disabled={!editMode}
           >
             {editMode ? "Cancel Edit" : "Edit Profile"}
           </Button>
@@ -121,7 +125,7 @@ const ProfileSectionHeader = React.memo(({ editMode, onEditToggle }: { editMode:
         <TooltipContent>
           {editMode
             ? "Cancel editing profile"
-            : "Click to edit your profile"}
+            : "Profile editing feature coming soon"}
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
@@ -191,6 +195,19 @@ export default function Settings() {
           />
         </div>
 
+        {/* Info Alert to show which features are available */}
+        <div className="mb-6">
+          <Alert className="bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800/50">
+            <AlertCircle className="h-4 w-4 text-blue-500" />
+            <AlertTitle className="text-blue-800 dark:text-blue-300">
+              Available Features
+            </AlertTitle>
+            <AlertDescription className="text-blue-700 dark:text-blue-400">
+              Currently, only currency selection and logout are fully functional. Other features are coming soon.
+            </AlertDescription>
+          </Alert>
+        </div>
+
         {/* Success Alert - Static */}
         {showSuccessAlert && <SuccessAlert />}
 
@@ -221,9 +238,9 @@ export default function Settings() {
                 </div>
                 <Badge
                   variant="outline"
-                  className="bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800/50"
+                  className="bg-green-50 dark:bg-green-950/30 text-green-600 dark:text-green-400 border-green-200 dark:border-green-800/50"
                 >
-                  {currencyCode}
+                  Available
                 </Badge>
               </div>
 
@@ -244,11 +261,14 @@ export default function Settings() {
           {/* Security Section */}
           <div>
             <div className="flex items-center justify-between mb-4">
-              <div>
+              <div className="flex items-center gap-2">
                 <h3 className="text-xl font-semibold">Security Settings</h3>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Manage your account security and authentication
-                </p>
+                <Badge
+                  variant="outline"
+                  className="bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800/50"
+                >
+                  Coming Soon
+                </Badge>
               </div>
               <Badge
                 variant="outline"
@@ -265,11 +285,23 @@ export default function Settings() {
           {/* Account Management Section */}
           <div>
             <div className="flex items-center justify-between mb-4">
-              <div>
+              <div className="flex items-center gap-2">
                 <h3 className="text-xl font-semibold">Account Management</h3>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Manage your account access and data
-                </p>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Badge
+                        variant="outline"
+                        className="bg-amber-50 dark:bg-amber-950/30 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800/50 cursor-help"
+                      >
+                        Partial
+                      </Badge>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      Only logout functionality is currently available
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </div>
               <AlertCircle className="h-5 w-5 text-amber-500" />
             </div>
