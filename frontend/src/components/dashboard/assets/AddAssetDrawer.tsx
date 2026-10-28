@@ -58,7 +58,7 @@ type ValidAssetType = "cash" | "bank" | "e-wallet" | "emergency";
 const assetSchema = z.object({
   name: z.string().min(1, "Name is required"),
   type: z.enum(["cash", "bank", "e-wallet", "emergency"], {
-    required_error: "Please select an asset type",
+    error: "Please select an asset type",
   }),
   balance: z.number().default(0),
   institution: z.string().optional(),
